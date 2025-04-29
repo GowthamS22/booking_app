@@ -1,0 +1,118 @@
+{
+  "project_info": {
+    "project_number": "187675718695",
+    "project_id": "badminton-booking-system",
+    "storage_bucket": "badminton-booking-system.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:187675718695:android:0f2579d4810321c1fa4a02",
+        "android_client_info": {
+          "package_name": "com.example.badminton_admin"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "187675718695-rai7rtoivql3m7t1odhspiqhfapms8fo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBa1olJ-TMPWGiJqWBdXehk01uy6QHOqu4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "187675718695-rai7rtoivql3m7t1odhspiqhfapms8fo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "187675718695-1tsqiu3j3ha6tg1dg93mn7of7bpn1pp8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.badmintonAdmin"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:187675718695:android:4bfaa565432090c1fa4a02",
+        "android_client_info": {
+          "package_name": "com.example.badminton_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "187675718695-rai7rtoivql3m7t1odhspiqhfapms8fo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBa1olJ-TMPWGiJqWBdXehk01uy6QHOqu4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "187675718695-rai7rtoivql3m7t1odhspiqhfapms8fo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "187675718695-1tsqiu3j3ha6tg1dg93mn7of7bpn1pp8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.badmintonAdmin"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:187675718695:android:0b0ba6c8d3eb6d28fa4a02",
+        "android_client_info": {
+          "package_name": "com.example.badminton_booking"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "187675718695-rai7rtoivql3m7t1odhspiqhfapms8fo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBa1olJ-TMPWGiJqWBdXehk01uy6QHOqu4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "187675718695-rai7rtoivql3m7t1odhspiqhfapms8fo.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "187675718695-1tsqiu3j3ha6tg1dg93mn7of7bpn1pp8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.badmintonAdmin"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
