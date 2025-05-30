@@ -35,6 +35,7 @@ class OrderController extends GetxController {
             booking_no,
             grand_total,
             customer_id,
+            payment_status,
             customers (
               first_name,
               last_name
@@ -59,8 +60,6 @@ class OrderController extends GetxController {
           minute < 30 ? 0 : 30,
         );
         final slotEnd = slotStart.add(Duration(minutes: 30));
-        print('🔍 Filtering Active from $slotStart to $slotEnd');
-
         query = query
             .eq('status', 'Booked')
             .lte('start_time', slotStart)

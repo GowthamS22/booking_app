@@ -30,7 +30,7 @@ class _AppScaffoldState extends State<AppScaffold> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(15),
             child: Scaffold(
-              backgroundColor: Colors.grey,
+              //backgroundColor: Colors.grey,
 
               // appBar: AppBar(
               //   automaticallyImplyLeading: false,

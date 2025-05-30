@@ -130,59 +130,6 @@ class CheckoutController extends GetxController {
     }
   }
 
-  // Future<void> registerUser({
-  //   String? email,
-  //   String? firstName,
-  //   String? lastName,
-  //   String? address,
-  //   String? mobile,
-  //   String? postcode,
-  //   String? password,
-  //   String? aboutus,
-  //   BuildContext? context,
-  // }) async {
-  //   try {
-  //     //Insert data
-  //     var docRef =
-  //         FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('userDetails')
-  //             .collection('user')
-  //             .doc();
-
-  //     docRef.set({
-  //       'email': email,
-  //       'firstName': firstName,
-  //       'lastName': lastName,
-  //       'address': address,
-  //       'mobile': mobile,
-  //       'postcode': postcode,
-  //       'password': password,
-  //       'aboutus': aboutus,
-  //       'dateOfBirth': null,
-  //       'city': '',
-  //       'state': '',
-  //       'country': '',
-  //       'imageUrl': '',
-  //       'userMembershipId': '',
-  //       'verificationStatus': false,
-  //       'createdAt': DateTime.now(),
-  //       'updatedAt': DateTime.now(),
-  //     });
-
-  //     if (docRef.id != '') {
-  //       DocumentSnapshot<Map<String, dynamic>> snapshot = await docRef.get();
-  //       // userData.value    = User.fromDocument(snapshot);
-  //       userData.value.id = snapshot.id;
-  //     }
-  //   } catch (e) {
-  //     //Status Alert
-  //     showCustomSnackbar('Failed', '${e.toString()}', Colors.red);
-  //   } finally {
-  //     isLoading.value = false;
-  //   }
-  // }
-
   //On click Pay now
   Future<void> processFinalCheckout({
     String? userId,
@@ -194,6 +141,7 @@ class CheckoutController extends GetxController {
     String? paymentType,
     double? paid,
     double? balance,
+    String? bookingId,
   }) async {
     try {
       final validation = await bulkValidateSlots(
@@ -211,8 +159,14 @@ class CheckoutController extends GetxController {
         return;
       }
 
-      // Generate a custom booking ID (if required manually)
-      final bookingId = 'BOOKING${DateTime.now().millisecondsSinceEpoch}';
+      // // Step 2: Generate a unique booking ID
+      // final existingBookings = await supabase
+      //     .schema('s22_prod_schema')
+      //     .from('bookings')
+      //     .select('id');
+      // final int numberOfBookings = existingBookings.length + 1;
+      // final String bookingId =
+      //     'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
 
       // Insert Booking
       final bookingResponse =
@@ -331,7 +285,7 @@ class CheckoutController extends GetxController {
         print('❌ Exception during insert: $e');
       }
 
-      printReceipt(bookingSlotItems: newBookingController.cartItems);
+      //printReceipt(bookingSlotItems: newBookingController.cartItems);
       newBookingController.cartItems.clear();
       showBookingSuccessAlert();
       isLoading.value = false;
@@ -1580,48 +1534,25 @@ class CheckoutController extends GetxController {
   }
 
   Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
-    int matchingRowCount = 0;
+    final futures =
+        selectedBSlots!.map((item) {
+          return supabase
+              .schema('s22_prod_schema')
+              .from('booking_slots')
+              .select('id')
+              .eq('service_id', item.serviceId!)
+              .eq('court_id', item.courtId!)
+              .eq('start_time', item.startTime!.toIso8601String())
+              .eq('status', 'Booked');
+        }).toList();
 
-    for (var item in selectedBSlots!) {
-      final response = await supabase
-          .schema('s22_prod_schema')
-          .from('booking_slots')
-          .select('id')
-          .eq('service_id', item.serviceId!)
-          .eq('court_id', item.courtId!)
-          .eq('start_time', item.startTime!.toIso8601String())
-          .eq('status', 'Booked');
+    final responses = await Future.wait(futures);
 
-      if (response != null && response.isNotEmpty) {
-        matchingRowCount += response.length;
-      }
-      // else {
-      //   showCustomSnackbar(
-      //     'Failed',
-      //     'Booking slot is already booked : $response',
-      //     Colors.red,
-      //   );
-      // }
-    }
+    final matchingRowCount = responses.fold<int>(
+      0,
+      (count, response) => count + (response.isNotEmpty ? response.length : 0),
+    );
 
     return matchingRowCount == 0 ? true : false;
   }
-
-  // Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
-  //   int matchingDocumentCount = 0;
-  //   for (var item in selectedBSlots!) {
-  //     QuerySnapshot querySnapshot =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('bookingSlots')
-  //             .collection('bookingSlot')
-  //             .where('serviceId', isEqualTo: item.serviceId)
-  //             .where('courtId', isEqualTo: item.courtId)
-  //             .where('startTime', isEqualTo: item.startTime)
-  //             .where('status', isEqualTo: 'Booked')
-  //             .get();
-  //     matchingDocumentCount += querySnapshot.docs.length;
-  //   }
-  //   return matchingDocumentCount == 0 ? true : false;
-  // }
 }

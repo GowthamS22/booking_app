@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:math';
 import 'dart:async';
@@ -37,7 +38,7 @@ class NewBookingController extends GetxController {
   RxString selectedServiceId = ''.obs;
   RxString selectedBookingId = ''.obs;
 
-  List courtList = [];
+  // List courtList = [];
   List specialHoursList = [];
   DateTime selectedDate = DateTime(
     DateTime.now().year,
@@ -53,7 +54,12 @@ class NewBookingController extends GetxController {
 
   List bookingData = [];
   RxDouble discount = RxDouble(0.0);
+  RxList<String> timeSlots = <String>[].obs;
+  List<Map<String, dynamic>> slots = [];
+  RxList<Map<String, dynamic>> courtList = <Map<String, dynamic>>[].obs;
 
+  RxList<Map<String, dynamic>> courtNameLists = <Map<String, dynamic>>[].obs;
+  List<Map<String, String>> userList = [];
   Rx<User> userData = User().obs;
 
   final selectedDays = Set<String>().obs;
@@ -63,10 +69,14 @@ class NewBookingController extends GetxController {
 
   int startTime = 10;
   int endTime = 24;
-
+  String bookingId = '';
   Timer? _pollingTimer;
   final _bookingSlotsStreamController =
       StreamController<List<BookingSlot>>.broadcast();
+
+  // Add this stream controller
+  final _serviceStreamController = StreamController<List<dynamic>>.broadcast();
+  Stream<List<dynamic>> get serviceStream => _serviceStreamController.stream;
 
   void toggleDay(String day) {
     if (selectedDays.contains(day)) {
@@ -97,19 +107,74 @@ class NewBookingController extends GetxController {
 
     final response = await supabase
         .schema('s22_prod_schema')
-        .from('users')
-        .select('mobile');
+        .from('customers')
+        .select('mobile, first_name');
+    // Step 2: Generate a unique booking ID
+    final existingBookings = await supabase
+        .schema('s22_prod_schema')
+        .from('bookings')
+        .select('id');
+    final int numberOfBookings = existingBookings.length + 1;
+    bookingId = 'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
 
     if (response != null) {
-      mobileList.clear();
+      userList.clear();
       for (var user in response) {
-        mobileList.add(user['mobile']);
+        userList.add({'name': user['first_name'], 'mobile': user['mobile']});
       }
     }
 
     isLoading.value = false;
     update();
   }
+
+  Future<void> getUserDatabyMobile(String mobile) async {
+    currentPlan.clear();
+    try {
+      // Step 1: Get user by mobile
+      final userResponse =
+          await supabase
+              .schema('s22_prod_schema')
+              .from('customers')
+              .select()
+              .eq('mobile', mobile)
+              .limit(1)
+              .maybeSingle();
+
+      if (userResponse != null) {
+        // Parse user
+        final user = User.fromMap(userResponse);
+        userData.value = user;
+        userData.value.id = user.id; // Assuming `id` field exists
+
+        final userMembershipId = userResponse['membershipplan_id'];
+      } else {
+        print('No user found with mobile: $mobile');
+      }
+    } catch (e) {
+      print('Error fetching user: $e');
+    } finally {
+      update();
+    }
+  }
+  // Future<void> fetchUserMobile() async {
+  //   isLoading.value = true;
+
+  //   final response = await supabase
+  //       .schema('s22_prod_schema')
+  //       .from('customers')
+  //       .select('mobile,first_name');
+
+  //   if (response != null) {
+  //     mobileList.clear();
+  //     for (var user in response) {
+  //       mobileList.add(user['mobile']);
+  //     }
+  //   }
+
+  //   isLoading.value = false;
+  //   update();
+  // }
 
   // Future<void> fetchUserMobile() async {
   //   isLoading.value = true;
@@ -129,26 +194,147 @@ class NewBookingController extends GetxController {
   Future<void> fetchServiceList() async {
     isLoading.value = true;
 
-    final response = await supabase
-        .schema('s22_prod_schema')
-        .from('services')
-        .select('id, name, icon')
-        .eq('active', true)
-        .order('display_order', ascending: true);
+    try {
+      final response = await supabase
+          .schema('s22_prod_schema')
+          .from('services')
+          .select('id, name, icon')
+          .eq('active', true)
+          .order('display_order', ascending: true);
 
-    if (response != null) {
-      serviceList.clear();
-      for (var service in response) {
-        serviceList.add({
-          'id': service['id'],
-          'name': service['name'],
-          'icon': service['icon'],
-        });
+      if (response != null) {
+        serviceList.clear();
+        for (var service in response) {
+          serviceList.add({
+            'id': service['id'],
+            'name': service['name'],
+            'icon': service['icon'],
+          });
+        }
+        // Add the service list to the stream
+        _serviceStreamController.add(serviceList);
+        setDefaultSerivce();
       }
+    } catch (e) {
+      print('Error fetching services: $e');
+      _serviceStreamController.addError(e);
+    } finally {
+      isLoading.value = false;
+      update();
     }
-    setDefaultSerivce();
-    isLoading.value = false;
-    update();
+  }
+
+  Future<List<Map<String, dynamic>>> getSlotsWithPeakStatusAndPrice({
+    required String serviceId,
+    required DateTime selectedDate,
+    required List<Map<String, dynamic>> courtList,
+  }) async {
+    List<Map<String, dynamic>> slots = [];
+
+    try {
+      // 1. Fetch specialhours (peak) from services
+      final serviceResponse = await supabase
+          .schema('s22_prod_schema')
+          .from('services')
+          .select('specialhours')
+          .eq('id', serviceId);
+
+      // 2. Fetch opening_times from store_details
+      final storeResponse =
+          await supabase
+              .schema('s22_prod_schema')
+              .from('store_details')
+              .select('opening_times')
+              .single();
+
+      final today = DateFormat('EEEE').format(selectedDate);
+
+      // 3. Decode opening_times
+      final openingTimesRaw = storeResponse['opening_times'];
+      final openingTimes = jsonDecode(openingTimesRaw) as List<dynamic>;
+
+      final opening = openingTimes.firstWhere(
+        (item) => item['day'] == today,
+        orElse: () => null,
+      );
+
+      if (opening == null) return [];
+
+      final openStart = parseTimeString(opening['startTime']);
+      final openEnd = parseTimeString(opening['endTime']);
+
+      // 4. Get today's peak hours
+      final specialHours =
+          (serviceResponse.first['specialhours'] ?? []) as List<dynamic>;
+
+      // 5. Generate slots and assign peak/non-peak pricing
+      TimeOfDay current = openStart;
+
+      while (current.hour < openEnd.hour ||
+          (current.hour == openEnd.hour && current.minute < openEnd.minute)) {
+        final slotStart = current;
+        final slotEnd = addMinutesToTimeOfDay(current, 30);
+
+        bool isPeak = false;
+        double? price;
+
+        for (var sh in specialHours) {
+          if (sh['day'] != today) continue;
+
+          final peakStart = parseTimeString(sh['startTime']);
+          final peakEnd = parseTimeString(sh['endTime']);
+
+          if (isTimeInRange(slotStart, peakStart, peakEnd)) {
+            isPeak = true;
+            price = double.tryParse(sh['price'].toString());
+            break;
+          }
+        }
+
+        // If not peak, use courtList to get non-peak price per court
+        for (var court in courtList) {
+          slots.add({
+            'courtId': court['id'],
+            'courtName': court['name'],
+            'start': slotStart,
+            'end': slotEnd,
+            'isPeak': isPeak,
+            'price': isPeak ? price : court['price'],
+          });
+        }
+
+        current = slotEnd;
+      }
+
+      print('slots: $slots');
+    } catch (e) {
+      print('Error fetching time slots: $e');
+    } finally {
+      isLoading.value = false;
+      update();
+    }
+
+    return slots;
+  }
+
+  // Helper: Add minutes to TimeOfDay
+  TimeOfDay addMinutesToTimeOfDay(TimeOfDay time, int minutes) {
+    final dt = DateTime(
+      0,
+      0,
+      0,
+      time.hour,
+      time.minute,
+    ).add(Duration(minutes: minutes));
+    return TimeOfDay(hour: dt.hour, minute: dt.minute);
+  }
+
+  // Helper: Check if time is in range
+  bool isTimeInRange(TimeOfDay t, TimeOfDay start, TimeOfDay end) {
+    final tMinutes = t.hour * 60 + t.minute;
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    return tMinutes >= startMinutes && tMinutes < endMinutes;
   }
 
   // void fetchServiceList() async {
@@ -167,53 +353,76 @@ class NewBookingController extends GetxController {
   //   isLoading.value = false;
   //   update();
   // }
+  List<String> generateTimeSlots(int startHour, int endHour) {
+    List<String> slots = [];
+    for (int hour = startHour; hour < endHour; hour++) {
+      slots.add('${hour.toString().padLeft(2, '0')}:00');
+      slots.add('${hour.toString().padLeft(2, '0')}:30');
+    }
+    slots.add(
+      '${endHour.toString().padLeft(2, '0')}:00',
+    ); // Optional: include the end hour
+    return slots;
+  }
+
   Future<void> fetchStartEndTime() async {
     isLoading.value = true;
 
-    if (selectedServiceId.value == null || selectedServiceId.value.isEmpty) {
-      //showCustomSnackbar('Error', 'No service selected.', Colors.red);
-      isLoading.value = false;
-      update();
-      return;
-    }
-    // final today = DateFormat('EEEE').format(selectedDate);
-    final today = 'Monday';
-    final response = await supabase
-        .schema('s22_prod_schema')
-        .from('services')
-        .select('specialhours')
-        .eq('id', selectedServiceId.value);
+    try {
+      if (selectedServiceId.value == null || selectedServiceId.value.isEmpty) {
+        isLoading.value = false;
+        update();
+        return;
+      }
 
-    if (response != null && response.isNotEmpty) {
-      specialHoursList = response.first['specialhours'];
+      final today = DateFormat('EEEE').format(selectedDate);
+      final response = await supabase
+          .schema('s22_prod_schema')
+          .from('services')
+          .select('specialhours')
+          .eq('id', selectedServiceId.value);
 
-      final todayHours = specialHoursList.firstWhere(
-        (item) => item['day'] == today,
-        orElse: () => null,
-      );
+      if (response != null && response.isNotEmpty) {
+        specialHoursList = response.first['specialhours'];
 
-      if (todayHours != null &&
-          todayHours['startTime'] != null &&
-          todayHours['endTime'] != null) {
-        try {
-          startTime = parseTimeString(todayHours['startTime']).hour;
-          endTime =
-              parseTimeString(todayHours['endTime']).hour == 0
-                  ? 24
-                  : parseTimeString(todayHours['endTime']).hour;
-        } catch (e) {
-          print('Error parsing time: $e');
-          showCustomSnackbar('Time parse error', '$e', Colors.red);
+        final todayHours = specialHoursList.firstWhere(
+          (item) => item['day'] == today,
+          orElse: () => null,
+        );
+
+        if (todayHours != null &&
+            todayHours['startTime'] != null &&
+            todayHours['endTime'] != null) {
+          try {
+            startTime = parseTimeString(todayHours['startTime']).hour;
+            endTime =
+                parseTimeString(todayHours['endTime']).hour == 0
+                    ? 24
+                    : parseTimeString(todayHours['endTime']).hour;
+
+            // Generate time slots
+            timeSlots.value = generateTimeSlots(startTime, endTime);
+            print("Time slots: $timeSlots");
+
+            // Add the updated data to the stream
+            _serviceStreamController.add(serviceList);
+          } catch (e) {
+            print('Error parsing time: $e');
+            showCustomSnackbar('Time parse error', '$e', Colors.red);
+          }
+        } else {
+          print('Missing time data for $todayHours');
         }
       } else {
-        print('Missing time data for $todayHours');
+        showCustomSnackbar('Error : ', response.toString(), Colors.red);
       }
-    } else {
-      showCustomSnackbar('Error : ', response.toString(), Colors.red);
+    } catch (e) {
+      print('Error fetching time slots: $e');
+      _serviceStreamController.addError(e);
+    } finally {
+      isLoading.value = false;
+      update();
     }
-
-    isLoading.value = false;
-    update();
   }
 
   // Utility to parse "6:00 PM" into TimeOfDay
@@ -224,9 +433,22 @@ class NewBookingController extends GetxController {
               .replaceAll(RegExp(r'[\u2000-\u206F\uFE00-\uFEFF\u00A0]'), ' ')
               .replaceAll(RegExp(r'\s+'), ' ')
               .trim();
+
+      // If the time is in 24-hour format (e.g., "09:00")
+      if (!cleanedTimeStr.contains('AM') && !cleanedTimeStr.contains('PM')) {
+        final parts = cleanedTimeStr.split(':');
+        if (parts.length != 2) {
+          throw FormatException('Invalid 24-hour time format');
+        }
+        int hour = int.parse(parts[0]);
+        int minute = int.parse(parts[1]);
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+
+      // If time includes AM/PM (e.g., "09:00 AM")
       final parts = cleanedTimeStr.split(' ');
       if (parts.length != 2) {
-        throw FormatException('Invalid time format');
+        throw FormatException('Invalid 12-hour time format');
       }
 
       final timePart = parts[0];
@@ -234,7 +456,7 @@ class NewBookingController extends GetxController {
 
       final timeComponents = timePart.split(':');
       if (timeComponents.length != 2) {
-        throw FormatException('Invalid time format');
+        throw FormatException('Invalid 12-hour time format');
       }
 
       int hour = int.parse(timeComponents[0]);
@@ -314,30 +536,43 @@ class NewBookingController extends GetxController {
   // }
 
   Future<void> fetchCourtList() async {
-    if (selectedServiceId.isNotEmpty) {
-      final response = await supabase
-          .schema('s22_prod_schema')
-          .from('courts')
-          .select('id, name, price')
-          .eq('service_id', selectedServiceId.value)
-          .eq('status', true)
-          .order('created_at', ascending: true);
+    isLoading.value = true;
 
-      if (response != null) {
-        courtList.clear();
-        for (var court in response) {
-          courtList.add({
-            'id': court['id'],
-            'name': court['name'],
-            'price': court['price'],
-          });
+    try {
+      if (selectedServiceId.isNotEmpty) {
+        final response = await supabase
+            .schema('s22_prod_schema')
+            .from('courts')
+            .select('id, name, price')
+            .eq('service_id', selectedServiceId.value)
+            .eq('status', true)
+            .order('created_at', ascending: true);
+
+        if (response is List) {
+          courtList.value =
+              response
+                  .map<Map<String, dynamic>>(
+                    (court) => {
+                      'id': court['id'],
+                      'name': court['name'],
+                      'price': court['price'],
+                    },
+                  )
+                  .toList();
+
+          await fetchSpecialHours();
+          await fetchBookedSlots();
+
+          // Add the updated data to the stream
+          _serviceStreamController.add(serviceList);
         }
-
-        fetchSpecialHours();
-        fetchBookedSlots();
-        isLoading.value = false;
-        update();
       }
+    } catch (e) {
+      print('Error fetching court list: $e');
+      _serviceStreamController.addError(e);
+    } finally {
+      isLoading.value = false;
+      update();
     }
   }
 
@@ -365,6 +600,19 @@ class NewBookingController extends GetxController {
   //     update();
   //   }
   // }
+  Future<List<Map<String, dynamic>>> fetchMembershipPlans() async {
+    final response = await supabase
+        .schema('s22_prod_schema')
+        .from('membershipplan')
+        .select('*')
+        .order('price');
+    print(response);
+    if (response.isEmpty) {
+      throw Exception('No membership plans found');
+    }
+
+    return List<Map<String, dynamic>>.from(response);
+  }
 
   Future<void> fetchSpecialHours() async {
     if (selectedServiceId.isNotEmpty) {
@@ -435,34 +683,54 @@ class NewBookingController extends GetxController {
   // }
 
   Future<void> fetchBookedSlots() async {
+    final startOfDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    final endOfDay = startOfDay.add(Duration(days: 1));
+
     if (selectedServiceId.isNotEmpty) {
       final response = await supabase
           .schema('s22_prod_schema')
           .from('booking_slots')
-          .select()
+          .select('''
+          id,
+          booking_id,
+          service_id,
+          court_id,
+          start_time,
+          end_time,
+          price,
+          status,
+          bookings (
+            customer_id,
+            customers (
+              user_id,
+              first_name
+            )
+          )
+        ''')
           .eq('service_id', selectedServiceId)
           .eq('status', 'Booked')
-          .eq(
-            'start_time',
-            DateTime(
-              selectedDate.year,
-              selectedDate.month,
-              selectedDate.day,
-            ).toIso8601String().substring(0, 10),
-          )
+          .gte('start_time', startOfDay.toIso8601String())
+          .lt('start_time', endOfDay.toIso8601String())
           .order('start_time', ascending: true);
 
       final data = response as List<dynamic>;
 
-      //bookedSlots.clear(); // Make sure to clear previous data
+      bookedSlots.clear();
 
       for (final booked in data) {
+        final booking = booked['bookings'] ?? {};
+        final customer = booking['customers'] ?? {};
+
         bookedSlots.add(
           BookingSlot(
             id: booked['id'],
-            userId: booked['user_id'],
-            name: booked['name'],
-            mobile: booked['mobile'],
+            userId: customer['user_id'],
+            name: customer['first_name'],
+            mobile: null, // mobile not joined in this query, include if needed
             date: DateTime.parse(booked['start_time']),
             serviceId: booked['service_id'],
             courtId: booked['court_id'],
@@ -474,6 +742,7 @@ class NewBookingController extends GetxController {
         );
       }
 
+      print("bookedSlots : $bookedSlots");
       update();
     }
   }
@@ -524,8 +793,8 @@ class NewBookingController extends GetxController {
     //SharedPreferences preferences = await SharedPreferences.getInstance();
 
     double? finalizedPrice = price;
-    var today = "Monday";
-    // var today = DateFormat('EEEE').format(date!);
+    //var today = "Monday";
+    var today = DateFormat('EEEE').format(date!);
     for (var hour in specialHoursList) {
       TimeOfDay selectedStartTime = TimeOfDay(
         hour: startTime!.hour,
@@ -616,7 +885,11 @@ class NewBookingController extends GetxController {
     String? courtIdToFind,
     DateTime? startTimeToFind,
   }) {
-    print("bookedSlots : $bookedSlots");
+    print(
+      "bookedSlots : ${dateToFind}','${serviceIdToFind}','${courtIdToFind}','${startTimeToFind}",
+    );
+    // print('bookingSlots : ${bookedSlots[0]}');
+    //print('bookingSlots1 : ${bookedSlots[1]}');
     bool bookingExists = bookedSlots.any(
       (item) =>
           item.date == dateToFind &&
@@ -624,6 +897,7 @@ class NewBookingController extends GetxController {
           item.courtId == courtIdToFind &&
           item.startTime == startTimeToFind,
     );
+    print("bookingExists: ${bookingExists}");
     if (bookingExists) {
       return true;
     } else {
@@ -816,65 +1090,6 @@ class NewBookingController extends GetxController {
       } else {
         return 0;
       }
-    }
-  }
-
-  Future<void> getUserDatabyMobile(String mobile) async {
-    currentPlan.clear();
-    try {
-      // Step 1: Get user by mobile
-      final userResponse =
-          await supabase
-              .schema('s22_prod_schema')
-              .from('customers')
-              .select()
-              .eq('mobile', mobile)
-              .limit(1)
-              .maybeSingle();
-
-      if (userResponse != null) {
-        // Parse user
-        final user = User.fromMap(userResponse);
-        userData.value = user;
-        userData.value.id = user.id; // Assuming `id` field exists
-
-        final userMembershipId = userResponse['user_membership_id'];
-
-        if (userMembershipId != null && userMembershipId != '') {
-          // Step 2: Get userMembership
-          final userMembershipResponse =
-              await supabase
-                  .from('user_memberships')
-                  .select('membership_plan_id')
-                  .eq('id', userMembershipId)
-                  .maybeSingle();
-
-          if (userMembershipResponse != null) {
-            final planId = userMembershipResponse['membership_plan_id'];
-
-            // Step 3: Get membershipPlan
-            final membershipPlanResponse =
-                await supabase
-                    .from('membership_plans')
-                    .select('name, discount')
-                    .eq('id', planId)
-                    .maybeSingle();
-
-            if (membershipPlanResponse != null) {
-              currentPlan.add({
-                'plan': membershipPlanResponse['name'],
-                'discount': membershipPlanResponse['discount'],
-              });
-            }
-          }
-        }
-      } else {
-        print('No user found with mobile: $mobile');
-      }
-    } catch (e) {
-      print('Error fetching user: $e');
-    } finally {
-      update();
     }
   }
 
@@ -2640,6 +2855,7 @@ class NewBookingController extends GetxController {
     }
     // bookingdateController.dispose();
     _bookingSlotsStreamController.close();
+    _serviceStreamController.close();
     super.onClose();
   }
 }

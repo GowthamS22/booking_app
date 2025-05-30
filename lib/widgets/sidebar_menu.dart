@@ -27,134 +27,146 @@ class _SidebarMenuState extends State<SidebarMenu> {
   Widget build(BuildContext context) {
     // Sidebar on the left
 
-    return SidebarX(
-      controller: controller,
-      theme: SidebarXTheme(
-        decoration: const BoxDecoration(color: Colors.white),
-        margin: EdgeInsets.zero,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        itemTextPadding: EdgeInsets.zero,
-        selectedItemTextPadding: EdgeInsets.zero,
-        textStyle: const TextStyle(color: Colors.transparent),
-        selectedTextStyle: const TextStyle(color: Colors.transparent),
-        iconTheme: const IconThemeData(color: Colors.grey, size: 30),
-        selectedIconTheme: const IconThemeData(
-          color: Colors.indigoAccent,
-          size: 28,
+    return Center(
+      child: SidebarX(
+        controller: controller,
+        theme: SidebarXTheme(
+          decoration: const BoxDecoration(color: Colors.white),
+          margin: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          itemTextPadding: EdgeInsets.zero,
+          itemMargin: const EdgeInsets.symmetric(vertical: 10),
+          selectedItemTextPadding: EdgeInsets.zero,
+          textStyle: const TextStyle(color: Colors.transparent),
+          selectedTextStyle: const TextStyle(color: Colors.transparent),
+          iconTheme: const IconThemeData(color: Colors.grey, size: 33),
+          selectedIconTheme: const IconThemeData(
+            color: Colors.indigoAccent,
+            size: 28,
+          ),
+          selectedItemDecoration: BoxDecoration(
+            color: Color(0xFFEAEFFF),
+            borderRadius: BorderRadius.zero, // square shape
+          ),
+          itemDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(0), // square
+          ),
+          hoverColor: Colors.transparent,
         ),
-        selectedItemDecoration: BoxDecoration(
-          color: Color(0xFFEAEFFF),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        itemDecoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-        hoverColor: Colors.transparent,
-      ),
-      extendedTheme: const SidebarXTheme(width: 90),
-      toggleButtonBuilder: (context, extended) {
-        return const SizedBox.shrink(); // 🔥 hides the arrow toggle
-      },
-      // extendedTheme: const SidebarXTheme(width: 90),
-      headerBuilder:
-          (context, extended) => Column(
-            children: [
-              StreamBuilder(
-                stream: Stream.periodic(const Duration(seconds: 1)),
-                builder: (context, snapshot) {
-                  return Text(
-                    TimeOfDay.now().format(context),
-                    style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  );
-                },
-              ),
-              SizedBox(height: 10),
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 16),
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blue),
-                  borderRadius: BorderRadius.circular(16),
+        extendedTheme: const SidebarXTheme(width: 90),
+        toggleButtonBuilder: (context, extended) {
+          return const SizedBox.shrink();
+        },
+        headerBuilder:
+            (context, extended) => Column(
+              children: [
+                StreamBuilder(
+                  stream: Stream.periodic(const Duration(seconds: 1)),
+                  builder: (context, snapshot) {
+                    return Text(
+                      TimeOfDay.now().format(context),
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.black,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    );
+                  },
                 ),
-                child: Image.asset(
-                  'assets/images/logo/fb.png', // Replace with your actual image path
-                  width: 32,
-                  height: 32,
+                SizedBox(height: 10),
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo/fb.png', // Replace with your actual image path
+                    width: 32,
+                    height: 32,
+                  ),
                 ),
+                SizedBox(height: 50),
+              ],
+            ),
+        items: [
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(0);
+            },
+
+            iconWidget: Center(
+              child: Icon(
+                LucideIcons.layoutDashboard,
+                color:
+                    controller.selectedIndex == 0 ? Colors.indigo : Colors.grey,
               ),
-              SizedBox(height: 50),
-            ],
-          ),
-      items: [
-        SidebarXItem(
-          onTap: () {
-            defaultController.changeTabIndex(0);
-          },
-
-          iconWidget: Icon(
-            LucideIcons.layoutDashboard,
-            color: controller.selectedIndex == 0 ? Colors.indigo : Colors.grey,
-          ),
-        ),
-
-        SidebarXItem(
-          onTap: () {
-            defaultController.changeTabIndex(1);
-          },
-          iconWidget: Icon(
-            LucideIcons.calendar,
-            color: controller.selectedIndex == 1 ? Colors.indigo : Colors.grey,
-          ),
-        ),
-        SidebarXItem(
-          onTap: () {
-            defaultController.changeTabIndex(2);
-          },
-          iconWidget: Icon(
-            LucideIcons.shoppingCart,
-            color: controller.selectedIndex == 2 ? Colors.indigo : Colors.grey,
-          ),
-        ),
-        SidebarXItem(
-          onTap: () {
-            defaultController.changeTabIndex(3);
-          },
-          iconWidget: Icon(
-            LucideIcons.users,
-            color: controller.selectedIndex == 3 ? Colors.indigo : Colors.grey,
-          ),
-        ),
-        SidebarXItem(
-          onTap: () {
-            defaultController.changeTabIndex(4);
-          },
-          iconWidget: Icon(
-            LucideIcons.pieChart,
-            color: controller.selectedIndex == 4 ? Colors.indigo : Colors.grey,
-          ),
-        ),
-        SidebarXItem(
-          onTap: () {
-            defaultController.changeTabIndex(5);
-          },
-          iconWidget: Icon(
-            LucideIcons.settings,
-            color: controller.selectedIndex == 5 ? Colors.indigo : Colors.grey,
-          ),
-        ),
-      ],
-      footerBuilder:
-          (context, extended) => Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: IconButton(
-              onPressed: () {
-                authController.logOut();
-              },
-              icon: const Icon(LucideIcons.logOut),
             ),
           ),
+
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(1);
+            },
+            iconWidget: Icon(
+              LucideIcons.calendar,
+              color:
+                  controller.selectedIndex == 1 ? Colors.indigo : Colors.grey,
+            ),
+          ),
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(2);
+            },
+            iconWidget: Icon(
+              LucideIcons.shoppingCart,
+              color:
+                  controller.selectedIndex == 2 ? Colors.indigo : Colors.grey,
+            ),
+          ),
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(3);
+            },
+            iconWidget: Icon(
+              LucideIcons.users,
+              color:
+                  controller.selectedIndex == 3 ? Colors.indigo : Colors.grey,
+            ),
+          ),
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(4);
+            },
+            iconWidget: Icon(
+              LucideIcons.pieChart,
+              color:
+                  controller.selectedIndex == 4 ? Colors.indigo : Colors.grey,
+            ),
+          ),
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(5);
+            },
+            iconWidget: Icon(
+              LucideIcons.settings,
+              color:
+                  controller.selectedIndex == 5 ? Colors.indigo : Colors.grey,
+            ),
+          ),
+        ],
+        footerBuilder:
+            (context, extended) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: IconButton(
+                onPressed: () {
+                  authController.logOut();
+                },
+                icon: const Icon(LucideIcons.logOut),
+              ),
+            ),
+      ),
     );
 
     // Expanded(

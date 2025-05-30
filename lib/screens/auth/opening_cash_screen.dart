@@ -45,11 +45,13 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                   }
                 },
                 style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(Palette.primaryColor),
+                  backgroundColor: WidgetStatePropertyAll(
+                    Colors.indigo.shade500,
+                  ),
                   padding: WidgetStatePropertyAll(
                     EdgeInsets.symmetric(
-                      vertical: 12 * ffem,
-                      horizontal: 80 * ffem,
+                      vertical: 10 * ffem,
+                      horizontal: 50 * ffem,
                     ),
                   ),
                   shape: WidgetStatePropertyAll(
@@ -72,13 +74,13 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                   color: Colors.grey,
                 ),
                 height: 40 * ffem,
-                width: MediaQuery.of(context).size.width / 5,
+                width: MediaQuery.of(context).size.width / 6,
                 child: Center(
                   child: SizedBox(
                     height: 30,
                     width: 30,
                     child: CircularProgressIndicator(
-                      color: Palette.primaryColor,
+                      color: Colors.indigo.shade500,
                     ),
                   ),
                 ),
@@ -105,11 +107,11 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                   ),
                   SizedBox(height: 30),
                   SizedBox(
-                    width: MediaQuery.of(context).size.width / 2,
+                    width: MediaQuery.of(context).size.width / 3,
                     child: Column(
                       children: [
                         SizedBox(
-                          width: MediaQuery.of(context).size.width / 3,
+                          width: MediaQuery.of(context).size.width / 4,
                           child: TextFormField(
                             controller: cashController,
                             style: GoogleFonts.poppins(
@@ -129,11 +131,18 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                           ),
                         ),
                         SizedBox(height: 50),
-
-                        CheckoutNumberPad(
-                          submitForm: () {},
-                          onBackspaceTap: () {
-                            setState(() {
+                        ..._buildKeypad(setState, (val) {
+                          setState(() {
+                            //  if (cashController.text.isNotEmpty) {
+                            //     cashController.text  = cashController.text.substring(
+                            //       0,
+                            //       cashController.text.length - 1,
+                            //     );
+                            //   }
+                            //  else {
+                            //   cashController.text += val;
+                            // }
+                            if (val == '⌫') {
                               if (cashController.text.isNotEmpty) {
                                 cashController.text = cashController.text
                                     .substring(
@@ -141,20 +150,36 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                                       cashController.text.length - 1,
                                     );
                               }
-                            });
-                          },
-                          onNumberTap: (number) {
-                            setState(() {
-                              if (number == '.') {
-                                if (cashController.text.length > 0) {
-                                  cashController.text += number;
-                                }
-                              } else {
-                                cashController.text += number;
-                              }
-                            });
-                          },
-                        ),
+                            } else {
+                              cashController.text += val;
+                            }
+                          });
+                        }),
+                        // CheckoutNumberPad(
+                        //   submitForm: () {},
+                        //   onBackspaceTap: () {
+                        //     setState(() {
+                        //       if (cashController.text.isNotEmpty) {
+                        //         cashController.text = cashController.text
+                        //             .substring(
+                        //               0,
+                        //               cashController.text.length - 1,
+                        //             );
+                        //       }
+                        //     });
+                        //   },
+                        //   onNumberTap: (number) {
+                        //     setState(() {
+                        //       if (number == '.') {
+                        //         if (cashController.text.length > 0) {
+                        //           cashController.text += number;
+                        //         }
+                        //       } else {
+                        //         cashController.text += number;
+                        //       }
+                        //     });
+                        //   },
+                        // ),
                         SizedBox(height: 30),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -165,12 +190,12 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                               },
                               style: ButtonStyle(
                                 backgroundColor: WidgetStatePropertyAll(
-                                  Palette.mediumGrey,
+                                  Colors.white54,
                                 ),
                                 padding: WidgetStatePropertyAll(
                                   EdgeInsets.symmetric(
-                                    vertical: 12 * ffem,
-                                    horizontal: 80 * ffem,
+                                    vertical: 10 * ffem,
+                                    horizontal: 50 * ffem,
                                   ),
                                 ),
                                 shape: WidgetStatePropertyAll(
@@ -184,11 +209,12 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                               child: Text(
                                 'Logout',
                                 style: GoogleFonts.poppins(
-                                  fontSize: 15 * ffem,
+                                  fontSize: 16 * ffem,
                                   color: Colors.indigo.shade500,
                                 ),
                               ),
                             ),
+                            SizedBox(width: 20),
                             _startBtn,
                           ],
                         ),
@@ -202,5 +228,50 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildKeypad(
+    void Function(void Function()) setState,
+    Function(String) onPressed,
+  ) {
+    final keys = [
+      ['1', '2', '3'],
+      ['4', '5', '6'],
+      ['7', '8', '9'],
+      ['.', '0', '⌫'],
+    ];
+
+    return keys.map((row) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children:
+            row.map((key) {
+              return Padding(
+                padding: const EdgeInsets.all(6.0),
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width / 10,
+                  height: 80,
+                  child: ElevatedButton(
+                    onPressed: () => onPressed(key),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo.shade500,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                        side: BorderSide(color: Colors.grey.shade400, width: 1),
+                      ),
+                    ),
+                    child: Text(
+                      key,
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+      );
+    }).toList();
   }
 }

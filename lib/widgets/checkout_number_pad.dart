@@ -46,10 +46,11 @@ class CheckoutNumberPad extends StatelessWidget {
     return InkWell(
       onTap: () => onNumberTap(number),
       child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: Palette.fieldBg,
-          border: Border.all(color: Colors.indigo.shade500, width: 2),
-          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade500),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.white,
         ),
         alignment: Alignment.center,
         margin: EdgeInsets.all(8.0),

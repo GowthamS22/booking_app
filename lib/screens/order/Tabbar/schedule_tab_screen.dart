@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:get/get.dart';
 import 'package:booking_app/controllers/order_controller.dart';
@@ -61,7 +62,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                   children: [
                     Text(
                       "Scheduled Bookings",
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                         fontSize: 20,
                         color: Colors.black,
                         fontWeight: FontWeight.w600,
@@ -69,7 +70,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                     ),
                     Text(
                       "Bookings planned within the next 7 days",
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.inter(
                         fontSize: 18,
                         color: Colors.grey,
                       ),
@@ -94,7 +95,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                       const SizedBox(width: 10),
                       Text(
                         'Today',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.inter(
                           fontSize: 18,
                           color: Colors.black,
                           fontWeight: FontWeight.w500,
@@ -113,7 +114,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                       style: GoogleFonts.roboto(fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
-                        hintStyle: GoogleFonts.poppins(
+                        hintStyle: GoogleFonts.inter(
                           fontSize: 14,
                           color: Colors.grey,
                         ),
@@ -281,7 +282,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                               DataColumn(
                                 label: Text(
                                   'Booking ID',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -290,7 +291,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                               DataColumn(
                                 label: Text(
                                   'Customer',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -299,7 +300,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                               DataColumn(
                                 label: Text(
                                   'Date & Time',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -308,7 +309,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                               DataColumn(
                                 label: Text(
                                   'Game & Court',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -317,7 +318,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                               DataColumn(
                                 label: Text(
                                   'Remaining',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -326,7 +327,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                               DataColumn(
                                 label: Text(
                                   'Amount',
-                                  style: GoogleFonts.poppins(
+                                  style: GoogleFonts.inter(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -339,6 +340,11 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                     ? []
                                     : List.generate(bookings.length, (index) {
                                       final b = bookings[index];
+                                      final remaining =
+                                          b.endTime!
+                                              .difference(DateTime.now())
+                                              .inMinutes;
+                                      final isEndingSoon = remaining <= 15;
                                       return DataRow(
                                         cells: [
                                           DataCell(
@@ -366,7 +372,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                               message: b.bookingNo,
                                               child: Text(
                                                 b.bookingNo!.toString(),
-                                                style: GoogleFonts.poppins(
+                                                style: GoogleFonts.inter(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w400,
                                                 ),
@@ -376,7 +382,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                           DataCell(
                                             Text(
                                               b.customerName.toString(),
-                                              style: GoogleFonts.poppins(
+                                              style: GoogleFonts.inter(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w400,
                                               ),
@@ -389,18 +395,21 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                               mainAxisAlignment:
                                                   MainAxisAlignment.center,
                                               children: [
-                                                Text(
-                                                  b.startTime.toString().split(
-                                                    ' ',
-                                                  )[0],
-                                                  style: GoogleFonts.poppins(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
+                                                Center(
+                                                  child: Text(
+                                                    DateFormat(
+                                                      'dd MMM, yyyy',
+                                                    ).format(b.startTime!),
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w400,
+                                                    ),
                                                   ),
                                                 ),
                                                 Text(
-                                                  '${b.startTime!.hour}:${b.startTime!.minute.toString().padLeft(2, '0')} - ${b.endTime!.hour}:${b.endTime!.minute.toString().padLeft(2, '0')}',
-                                                  style: GoogleFonts.poppins(
+                                                  '${DateFormat('hh:mm a').format(b.startTime!)} - ${DateFormat('hh:mm a').format(b.endTime!)}',
+                                                  style: GoogleFonts.inter(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w400,
                                                   ),
@@ -417,14 +426,14 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                               children: [
                                                 Text(
                                                   b.serviceName ?? '',
-                                                  style: GoogleFonts.poppins(
+                                                  style: GoogleFonts.inter(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w400,
                                                   ),
                                                 ),
                                                 Text(
                                                   b.courtName ?? '',
-                                                  style: GoogleFonts.poppins(
+                                                  style: GoogleFonts.inter(
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w400,
                                                   ),
@@ -435,38 +444,34 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                           DataCell(
                                             Chip(
                                               label: Text(
-                                                '${b.endTime!.difference(b.startTime!).inMinutes} mins',
-                                                style: GoogleFonts.poppins(
+                                                '${remaining > 0 ? remaining : 0} mins',
+                                                style: GoogleFonts.inter(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
+                                              side: BorderSide(
+                                                color:
+                                                    isEndingSoon
+                                                        ? Colors.red
+                                                        : Colors.blue,
+                                              ),
                                               backgroundColor:
-                                                  b.endTime!
-                                                              .difference(
-                                                                b.startTime!,
-                                                              )
-                                                              .inMinutes <=
-                                                          15
+                                                  isEndingSoon
                                                       ? Colors.red.shade100
-                                                      : Colors.green.shade100,
+                                                      : Colors.blue.shade100,
                                               labelStyle: TextStyle(
                                                 color:
-                                                    b.endTime!
-                                                                .difference(
-                                                                  b.startTime!,
-                                                                )
-                                                                .inMinutes <=
-                                                            15
+                                                    isEndingSoon
                                                         ? Colors.red
-                                                        : Colors.green,
+                                                        : Colors.blue,
                                               ),
                                             ),
                                           ),
                                           DataCell(
                                             Text(
-                                              "\$${b.grandTotal!.toStringAsFixed(2)}",
-                                              style: GoogleFonts.poppins(
+                                              "\$ ${b.grandTotal!.toStringAsFixed(2)}",
+                                              style: GoogleFonts.inter(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w400,
                                               ),
@@ -474,19 +479,49 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                           ),
                                           DataCell(
                                             ElevatedButton(
-                                              onPressed: () {},
+                                              onPressed: () {
+                                                if (b.paymentStatus != 'Paid') {
+                                                  // CheckoutScreen(type: 'New');
+                                                }
+                                              },
                                               style: ElevatedButton.styleFrom(
+                                                disabledMouseCursor:
+                                                    b.paymentStatus == 'Paid'
+                                                        ? SystemMouseCursors
+                                                            .forbidden
+                                                        : SystemMouseCursors
+                                                            .click,
                                                 backgroundColor:
-                                                    Colors.green.shade50,
-                                                foregroundColor: Colors.green,
+                                                    b.paymentStatus == 'Paid'
+                                                        ? Colors.green.shade50
+                                                        : Colors.blue.shade50,
+                                                foregroundColor:
+                                                    b.paymentStatus == 'Paid'
+                                                        ? Colors.green
+                                                        : Colors.blue,
                                               ),
-                                              child: Text(
-                                                "Pay",
-                                                style: GoogleFonts.poppins(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
+                                              child:
+                                                  b.paymentStatus != 'Paid'
+                                                      ? Text(
+                                                        "Pay",
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                      )
+                                                      : Text(
+                                                        "Paid",
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                      ),
                                             ),
                                           ),
                                         ],
@@ -546,7 +581,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
               SizedBox(height: 10),
               Text(
                 "${duration.toString().padLeft(2, '0')}:00\nmins",
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.inter(
                   fontSize: 15,
                   color: Colors.black,
                   fontWeight: FontWeight.bold,
@@ -558,7 +593,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
           const SizedBox(height: 20),
           Text(
             booking.customerName ?? '',
-            style: GoogleFonts.poppins(
+            style: GoogleFonts.inter(
               fontSize: 17,
               color: Colors.black,
               fontWeight: FontWeight.bold,
@@ -567,13 +602,13 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
           const SizedBox(height: 5),
           Text(
             booking.courtName ?? '',
-            style: GoogleFonts.poppins(fontSize: 15, color: Colors.grey),
+            style: GoogleFonts.inter(fontSize: 15, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 6),
           Text(
             '${booking.startTime!.hour}:${booking.startTime!.minute.toString().padLeft(2, '0')} - ${booking.endTime!.hour}:${booking.endTime!.minute.toString().padLeft(2, '0')}',
-            style: GoogleFonts.poppins(fontSize: 15, color: Colors.grey),
+            style: GoogleFonts.inter(fontSize: 15, color: Colors.grey),
           ),
         ],
       ),

@@ -1,17 +1,9 @@
-import 'dart:ffi';
-import 'dart:math';
-
-import 'package:booking_app/screens/checkout/checkout.dart';
-import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../config/constants.dart';
@@ -19,7 +11,6 @@ import '../../config/palette.dart';
 import '../../controllers/new_booking_controller.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/shimmer/shimmer_booking_loading.dart';
-import '../../widgets/checkout_number_pad.dart';
 import '../../widgets/shimmer/shimmer_table_loading.dart';
 
 class NewBookingScreen extends StatefulWidget {
@@ -319,10 +310,10 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                                   '') {
                                             if (_formKey.currentState!
                                                 .validate()) {
-                                              Get.to(
-                                                //Checkout(),
-                                                CheckoutScreen(type: 'New'),
-                                              );
+                                              // Get.to(
+                                              //   //Checkout(),
+                                              //   CheckoutScreen(type: 'New'),
+                                              // );
                                             }
                                           } else {
                                             validationDialog(controller);
@@ -638,7 +629,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                             onChanged: (value) {
                               setState(() {
                                 controller.selectedServiceId.value = value!;
-                                controller.bookedSlots.clear();
+                                //controller.bookedSlots.clear();
                                 controller.fetchBookedSlots();
                                 controller.courtList.clear();
                                 controller.fetchCourtList();
@@ -1127,7 +1118,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                           'yyyy-MM-dd',
                                         ).format(controller.selectedDate);
 
-                                        controller.bookedSlots.clear();
+                                        //controller.bookedSlots.clear();
                                         controller.fetchBookedSlots();
                                         controller.courtList.clear();
                                         controller.fetchCourtList();
@@ -1193,7 +1184,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                               ).format(controller.selectedDate);
                             });
 
-                            controller.bookedSlots.clear();
+                            //controller.bookedSlots.clear();
                             controller.fetchBookedSlots();
                             controller.courtList.clear();
                             controller.fetchCourtList();
@@ -1233,7 +1224,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                 'yyyy-MM-dd',
                               ).format(controller.selectedDate);
                             });
-                            controller.bookedSlots.clear();
+                            // controller.bookedSlots.clear();
                             controller.fetchBookedSlots();
                             controller.courtList.clear();
                             controller.fetchCourtList();
@@ -2069,7 +2060,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                 },
                 child: Text(
                   'Confirm',
-                  style: GoogleFonts.poppins(fontSize: 20),
+                  style: GoogleFonts.poppins(fontSize: 20, color: Colors.white),
                 ),
               )
               : Container(

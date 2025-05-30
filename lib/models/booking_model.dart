@@ -57,6 +57,7 @@ class BookingModel {
   final String? serviceName;
   final DateTime? startTime;
   final DateTime? endTime;
+  final String? paymentStatus;
 
   BookingModel({
     this.bookingNo,
@@ -66,6 +67,7 @@ class BookingModel {
     this.serviceName,
     this.startTime,
     this.endTime,
+    this.paymentStatus,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -90,6 +92,7 @@ class BookingModel {
               : null,
       endTime:
           json['end_time'] != null ? DateTime.tryParse(json['end_time']) : null,
+      paymentStatus: booking?['payment_status'] as String?,
       // startTime: json['start_time'] as String?,
       // endTime: json['end_time'] as String?,
     );
@@ -244,4 +247,38 @@ class upComingBooking {
     this.status,
     this.paymentStatus,
   );
+}
+
+class BookingInfo {
+  final String courtName;
+  final DateTime selectedDateTime;
+  List<String> selectedDays;
+  DateTime? repeatUntil;
+  bool sameLikeAbove;
+  String bookingId;
+  final List<BookingSubSlotInfo> subSlots;
+
+  BookingInfo({
+    required this.courtName,
+    required this.selectedDateTime,
+    this.selectedDays = const [],
+    this.repeatUntil,
+    this.sameLikeAbove = false,
+    required this.bookingId,
+    required this.subSlots,
+  });
+}
+
+class BookingSubSlotInfo {
+  final String startTime;
+  final String endTime;
+  final double price;
+  final bool isPeak;
+
+  BookingSubSlotInfo({
+    required this.startTime,
+    required this.endTime,
+    required this.price,
+    required this.isPeak,
+  });
 }

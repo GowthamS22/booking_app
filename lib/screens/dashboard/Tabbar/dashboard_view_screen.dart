@@ -104,7 +104,11 @@ class _DashboardTabViewScreenState extends State<DashboardTabViewScreen> {
                     ),
                     isDense: true,
                   ),
-                  style: GoogleFonts.roboto(fontSize: 14, color: Colors.black),
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ),

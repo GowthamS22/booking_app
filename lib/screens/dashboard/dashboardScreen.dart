@@ -2,6 +2,7 @@ import 'package:booking_app/screens/dashboard/Tabbar/dashboard_view_screen.dart'
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../controllers/default_controller.dart';
 import 'Tabbar/court_view_screen.dart';
 
@@ -109,49 +110,81 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // ],
         // ),
         body: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: MediaQuery.of(context).size.width / 3.8,
-                //    margin: const EdgeInsets.only(left: 16, top: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade300,
-                      blurRadius: 5,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 3),
+              Row(
+                children: [
+                  Container(
+                    width: MediaQuery.of(context).size.width / 3.8,
+                    //    margin: const EdgeInsets.only(left: 16, top: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade300,
+                          blurRadius: 5,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                // margin: const EdgeInsets.only(right: 16),
-                child: TabBar(
-                  controller: defaultController.dashboardTabController,
-                  //isScrollable: true,
-                  indicator: BoxDecoration(
-                    color: Colors.indigo.shade500,
-                    borderRadius: BorderRadius.circular(20),
+                    // margin: const EdgeInsets.only(right: 16),
+                    child: TabBar(
+                      controller: defaultController.dashboardTabController,
+                      //isScrollable: true,
+                      indicator: BoxDecoration(
+                        color: Colors.indigo.shade500,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      labelPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.black,
+                      indicatorSize: TabBarIndicatorSize.tab,
+                      labelStyle: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      dividerColor: Colors.transparent,
+                      overlayColor: WidgetStateProperty.all(Colors.transparent),
+                      tabs: const [
+                        Tab(text: 'Court View'),
+                        Tab(text: 'Dashboard'),
+                      ],
+                    ),
                   ),
-                  labelPadding: const EdgeInsets.symmetric(horizontal: 24),
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.black,
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  labelStyle: GoogleFonts.poppins(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                  Spacer(),
+                  Text(
+                    DateFormat('MMM d, yyyy').format(DateTime.now()),
+                    style: GoogleFonts.inter(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  dividerColor: Colors.transparent,
-                  overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  tabs: const [Tab(text: 'Court View'), Tab(text: 'Dashboard')],
-                ),
+                  SizedBox(width: 10),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: AssetImage("assets/images/pic/Avatar.png"),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'Staff Name',
+                    style: GoogleFonts.inter(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
+              SizedBox(width: 10),
               Expanded(
                 child: TabBarView(
                   controller: defaultController.dashboardTabController,
+                  physics: NeverScrollableScrollPhysics(),
                   children: [CourtViewScreen(), DashboardTabViewScreen()],
                 ),
               ),

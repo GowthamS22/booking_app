@@ -399,7 +399,6 @@ class DefaultController extends GetxController
 
   void fetchCourtList() async {
     courtList.clear();
-    isLoading.value = true;
 
     final response = await supabase
         .schema('s22_prod_schema')

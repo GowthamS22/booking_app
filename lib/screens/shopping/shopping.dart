@@ -287,23 +287,29 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                 // width: 200,
                 // color: Colors.red,
                 height: Get.height / 1.59,
-                child: Obx(() {
-                  if (controller.tabController == null ||
-                      controller.categoryList.isEmpty) {
-                    return const SizedBox(); // or show a loader
-                  }
-                  return controller.productsList.length > 0
-                      ? TabBarView(
-                        controller: controller.tabController,
-                        children: List.generate(
-                          controller.categoryList.length,
-                          (index) => ProductScreen(),
-                        ),
-                      )
-                      : controller.showNoItemsFound.value == true
-                      ? Center(child: Text('No Products Available'))
-                      : ShimmerTableLoading(columnCount: 2, rowCount: 4);
-                }),
+                child:
+                    controller.tabController == null ||
+                            controller.categoryList.isEmpty
+                        ? const SizedBox()
+                        : Obx(() {
+                          if (controller.productsList.isNotEmpty) {
+                            return TabBarView(
+                              controller: controller.tabController,
+                              children: List.generate(
+                                controller.categoryList.length,
+                                (index) => ProductScreen(),
+                              ),
+                            );
+                          } else if (controller.showNoItemsFound.value ==
+                              true) {
+                            return Center(child: Text('No Products Available'));
+                          } else {
+                            return ShimmerTableLoading(
+                              columnCount: 2,
+                              rowCount: 4,
+                            );
+                          }
+                        }),
               ),
             ),
             Expanded(
@@ -317,7 +323,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                   10 * fem,
                 ),
                 width: 197 * fem,
-                height: Get.height / 1.55,
+                height: Get.height / 1.45,
                 decoration: BoxDecoration(
                   border: Border.all(color: Color(0xffd1d7e2)),
                   borderRadius: BorderRadius.circular(8 * fem),
@@ -390,9 +396,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                           children: [
                             Obx(() {
                               return shoppingController
-                                          .productsCartModal
-                                          .length >
-                                      0
+                                      .productsCartModal
+                                      .isNotEmpty
                                   ? Expanded(
                                     child: ListView.separated(
                                       separatorBuilder:
@@ -416,7 +421,6 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                                           ),
                                           width: double.infinity,
                                           decoration: BoxDecoration(
-                                            // color: Colors.red,
                                             border: Border.all(
                                               color: Color(0xffc4cdd8),
                                             ),
@@ -440,7 +444,6 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                                                   children: [
                                                     Container(
                                                       width: 100 * fem,
-                                                      // yonextowelgripYfj (318:7976)
                                                       margin:
                                                           EdgeInsets.fromLTRB(
                                                             0 * fem,
@@ -473,9 +476,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                                                     ),
                                                     Obx(() {
                                                       return Text(
-                                                        // FKF (318:8080)
-                                                        '\$'
-                                                        '${shoppingController.productsCartModal[index].salePrice! * shoppingController.productsCartModal[index].count!.value}',
+                                                        '\$ ${shoppingController.productsCartModal[index].salePrice! * shoppingController.productsCartModal[index].count!.value}',
                                                         style: SafeGoogleFont(
                                                           'Roboto',
                                                           fontSize: 14 * ffem,
@@ -606,16 +607,13 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                                                           ),
                                                           Obx(() {
                                                             return Text(
-                                                              // EqP (318:7983)
                                                               shoppingController
                                                                           .productsCartModal[index]
                                                                           .count!
                                                                           .value >
                                                                       9
-                                                                  ? ''
-                                                                      '${shoppingController.productsCartModal[index].count!.value}'
-                                                                  : '0'
-                                                                      '${shoppingController.productsCartModal[index].count!.value}',
+                                                                  ? '${shoppingController.productsCartModal[index].count!.value}'
+                                                                  : '0${shoppingController.productsCartModal[index].count!.value}',
                                                               textAlign:
                                                                   TextAlign
                                                                       .center,
@@ -734,610 +732,6 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                                     ),
                                   );
                             }),
-                            // Container(
-                            //   // ordercontanierQNV (318:8109)
-                            //   padding: EdgeInsets.fromLTRB(10*fem, 0*fem, 9*fem, 10*fem),
-                            //   width: double.infinity,
-                            //   decoration: BoxDecoration (
-                            //     border: Border.all(color: Color(0xffc4cdd8)),
-                            //   ),
-                            //   child: Column(
-                            //     crossAxisAlignment: CrossAxisAlignment.center,
-                            //     children: [
-                            //       Container(
-                            //         // prodpriceXxu (318:8110)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 0*fem, 8*fem),
-                            //         width: double.infinity,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // yonextowelgrip5Ud (318:8112)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 58*fem, 0*fem),
-                            //               child: Text(
-                            //                 'Yonex Towel Grip',
-                            //                 style: SafeGoogleFont (
-                            //                   'Roboto',
-                            //                   fontSize: 14*ffem,
-                            //                   fontWeight: FontWeight.w500,
-                            //                   height: 1.7142857143*ffem/fem,
-                            //                   letterSpacing: 0.3740000129*fem,
-                            //                   color: Color(0xff000000),
-                            //                 ),
-                            //               ),
-                            //             ),
-                            //             Text(
-                            //               // ypu (318:8114)
-                            //               '\$4.99',
-                            //               style: SafeGoogleFont (
-                            //                 'Roboto',
-                            //                 fontSize: 14*ffem,
-                            //                 fontWeight: FontWeight.w700,
-                            //                 height: 1.7142857143*ffem/fem,
-                            //                 letterSpacing: 0.3740000129*fem,
-                            //                 color: Color(0xff000000),
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //       Container(
-                            //         // quantdelinV (318:8115)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 1*fem, 0*fem),
-                            //         width: double.infinity,
-                            //         height: 36*fem,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // quantityTEH (318:8117)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 74*fem, 0*fem),
-                            //               padding: EdgeInsets.fromLTRB(5*fem, 4*fem, 5*fem, 4*fem),
-                            //               height: double.infinity,
-                            //               decoration: BoxDecoration (
-                            //                 border: Border.all(color: Color(0xffd5d7da)),
-                            //                 borderRadius: BorderRadius.circular(50*fem),
-                            //               ),
-                            //               child: Row(
-                            //                 crossAxisAlignment: CrossAxisAlignment.center,
-                            //                 children: [
-                            //                   Container(
-                            //                     // frame681xRw (318:8118)
-                            //                     width: 28*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(50*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '-',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Text(
-                            //                     // Sru (318:8120)
-                            //                     '02',
-                            //                     textAlign: TextAlign.center,
-                            //                     style: SafeGoogleFont (
-                            //                       'Roboto',
-                            //                       fontSize: 12*ffem,
-                            //                       fontWeight: FontWeight.w600,
-                            //                       height: 1.5*ffem/fem,
-                            //                       letterSpacing: 0.3740000129*fem,
-                            //                       color: Color(0xff2c83f1),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Container(
-                            //                     // frame680ybw (318:8121)
-                            //                     width: 29*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(40*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '+',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                 ],
-                            //               ),
-                            //             ),
-                            //             Container(
-                            //               // deleteUYh (318:8123)
-                            //               width: 36*fem,
-                            //               height: 36*fem,
-                            //               child: Image.asset(
-                            //                 'assets/images/products/delete.png',
-                            //                 width: 36*fem,
-                            //                 height: 36*fem,
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
-                            // Container(
-                            //   // ordercontanierQhF (318:8128)
-                            //   padding: EdgeInsets.fromLTRB(10*fem, 0*fem, 9*fem, 10*fem),
-                            //   width: double.infinity,
-                            //   decoration: BoxDecoration (
-                            //     border: Border.all(color: Color(0xffc4cdd8)),
-                            //   ),
-                            //   child: Column(
-                            //     crossAxisAlignment: CrossAxisAlignment.center,
-                            //     children: [
-                            //       Container(
-                            //         // prodpriceKpD (318:8129)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 0*fem, 8*fem),
-                            //         width: double.infinity,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // yonextowelgripTfX (318:8131)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 58*fem, 0*fem),
-                            //               child: Text(
-                            //                 'Yonex Towel Grip',
-                            //                 style: SafeGoogleFont (
-                            //                   'Roboto',
-                            //                   fontSize: 14*ffem,
-                            //                   fontWeight: FontWeight.w500,
-                            //                   height: 1.7142857143*ffem/fem,
-                            //                   letterSpacing: 0.3740000129*fem,
-                            //                   color: Color(0xff000000),
-                            //                 ),
-                            //               ),
-                            //             ),
-                            //             Text(
-                            //               // YS5 (318:8133)
-                            //               '\$4.99',
-                            //               style: SafeGoogleFont (
-                            //                 'Roboto',
-                            //                 fontSize: 14*ffem,
-                            //                 fontWeight: FontWeight.w700,
-                            //                 height: 1.7142857143*ffem/fem,
-                            //                 letterSpacing: 0.3740000129*fem,
-                            //                 color: Color(0xff000000),
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //       Container(
-                            //         // quantdelrhf (318:8134)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 1*fem, 0*fem),
-                            //         width: double.infinity,
-                            //         height: 36*fem,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // quantitymJq (318:8136)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 74*fem, 0*fem),
-                            //               padding: EdgeInsets.fromLTRB(5*fem, 4*fem, 5*fem, 4*fem),
-                            //               height: double.infinity,
-                            //               decoration: BoxDecoration (
-                            //                 border: Border.all(color: Color(0xffd5d7da)),
-                            //                 borderRadius: BorderRadius.circular(50*fem),
-                            //               ),
-                            //               child: Row(
-                            //                 crossAxisAlignment: CrossAxisAlignment.center,
-                            //                 children: [
-                            //                   Container(
-                            //                     // frame681RuB (318:8137)
-                            //                     width: 28*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(50*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '-',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Text(
-                            //                     // 5iq (318:8139)
-                            //                     '02',
-                            //                     textAlign: TextAlign.center,
-                            //                     style: SafeGoogleFont (
-                            //                       'Roboto',
-                            //                       fontSize: 12*ffem,
-                            //                       fontWeight: FontWeight.w600,
-                            //                       height: 1.5*ffem/fem,
-                            //                       letterSpacing: 0.3740000129*fem,
-                            //                       color: Color(0xff2c83f1),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Container(
-                            //                     // frame680PzR (318:8140)
-                            //                     width: 29*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(40*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '+',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                 ],
-                            //               ),
-                            //             ),
-                            //             Container(
-                            //               // deleteSho (318:8142)
-                            //               width: 36*fem,
-                            //               height: 36*fem,
-                            //               child: Image.asset(
-                            //                 'assets/images/products/delete-byb.png',
-                            //                 width: 36*fem,
-                            //                 height: 36*fem,
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
-                            // Container(
-                            //   // ordercontanierxAM (318:8146)
-                            //   padding: EdgeInsets.fromLTRB(10*fem, 0*fem, 9*fem, 10*fem),
-                            //   width: double.infinity,
-                            //   decoration: BoxDecoration (
-                            //     border: Border.all(color: Color(0xffc4cdd8)),
-                            //   ),
-                            //   child: Column(
-                            //     crossAxisAlignment: CrossAxisAlignment.center,
-                            //     children: [
-                            //       Container(
-                            //         // prodpricermX (318:8147)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 0*fem, 8*fem),
-                            //         width: double.infinity,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // yonextowelgripahX (318:8149)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 58*fem, 0*fem),
-                            //               child: Text(
-                            //                 'Yonex Towel Grip',
-                            //                 style: SafeGoogleFont (
-                            //                   'Roboto',
-                            //                   fontSize: 14*ffem,
-                            //                   fontWeight: FontWeight.w500,
-                            //                   height: 1.7142857143*ffem/fem,
-                            //                   letterSpacing: 0.3740000129*fem,
-                            //                   color: Color(0xff000000),
-                            //                 ),
-                            //               ),
-                            //             ),
-                            //             Text(
-                            //               // sgd (318:8151)
-                            //               '\$4.99',
-                            //               style: SafeGoogleFont (
-                            //                 'Roboto',
-                            //                 fontSize: 14*ffem,
-                            //                 fontWeight: FontWeight.w700,
-                            //                 height: 1.7142857143*ffem/fem,
-                            //                 letterSpacing: 0.3740000129*fem,
-                            //                 color: Color(0xff000000),
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //       Container(
-                            //         // quantdelQwT (318:8152)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 1*fem, 0*fem),
-                            //         width: double.infinity,
-                            //         height: 36*fem,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // quantityjiq (318:8154)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 74*fem, 0*fem),
-                            //               padding: EdgeInsets.fromLTRB(5*fem, 4*fem, 5*fem, 4*fem),
-                            //               height: double.infinity,
-                            //               decoration: BoxDecoration (
-                            //                 border: Border.all(color: Color(0xffd5d7da)),
-                            //                 borderRadius: BorderRadius.circular(50*fem),
-                            //               ),
-                            //               child: Row(
-                            //                 crossAxisAlignment: CrossAxisAlignment.center,
-                            //                 children: [
-                            //                   Container(
-                            //                     // frame6812hw (318:8155)
-                            //                     width: 28*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(50*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '-',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Text(
-                            //                     // 6ho (318:8157)
-                            //                     '02',
-                            //                     textAlign: TextAlign.center,
-                            //                     style: SafeGoogleFont (
-                            //                       'Roboto',
-                            //                       fontSize: 12*ffem,
-                            //                       fontWeight: FontWeight.w600,
-                            //                       height: 1.5*ffem/fem,
-                            //                       letterSpacing: 0.3740000129*fem,
-                            //                       color: Color(0xff2c83f1),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Container(
-                            //                     // frame680QiV (318:8158)
-                            //                     width: 29*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(40*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '+',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                 ],
-                            //               ),
-                            //             ),
-                            //             Container(
-                            //               // deletee73 (318:8160)
-                            //               width: 36*fem,
-                            //               height: 36*fem,
-                            //               child: Image.asset(
-                            //                 'assets/images/products/delete-prM.png',
-                            //                 width: 36*fem,
-                            //                 height: 36*fem,
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
-                            // Container(
-                            //   // ordercontanier9Zb (318:8164)
-                            //   padding: EdgeInsets.fromLTRB(10*fem, 0*fem, 9*fem, 10*fem),
-                            //   width: double.infinity,
-                            //   decoration: BoxDecoration (
-                            //     border: Border.all(color: Color(0xffc4cdd8)),
-                            //   ),
-                            //   child: Column(
-                            //     crossAxisAlignment: CrossAxisAlignment.center,
-                            //     children: [
-                            //       Container(
-                            //         // prodpriceFcd (318:8165)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 0*fem, 8*fem),
-                            //         width: double.infinity,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // yonextowelgripYrd (318:8167)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 58*fem, 0*fem),
-                            //               child: Text(
-                            //                 'Yonex Towel Grip',
-                            //                 style: SafeGoogleFont (
-                            //                   'Roboto',
-                            //                   fontSize: 14*ffem,
-                            //                   fontWeight: FontWeight.w500,
-                            //                   height: 1.7142857143*ffem/fem,
-                            //                   letterSpacing: 0.3740000129*fem,
-                            //                   color: Color(0xff000000),
-                            //                 ),
-                            //               ),
-                            //             ),
-                            //             Text(
-                            //               // VQV (318:8169)
-                            //               '\$4.99',
-                            //               style: SafeGoogleFont (
-                            //                 'Roboto',
-                            //                 fontSize: 14*ffem,
-                            //                 fontWeight: FontWeight.w700,
-                            //                 height: 1.7142857143*ffem/fem,
-                            //                 letterSpacing: 0.3740000129*fem,
-                            //                 color: Color(0xff000000),
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //       Container(
-                            //         // quantdel1td (318:8170)
-                            //         margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 1*fem, 0*fem),
-                            //         width: double.infinity,
-                            //         height: 36*fem,
-                            //         child: Row(
-                            //           crossAxisAlignment: CrossAxisAlignment.center,
-                            //           children: [
-                            //             Container(
-                            //               // quantityuz1 (318:8172)
-                            //               margin: EdgeInsets.fromLTRB(0*fem, 0*fem, 74*fem, 0*fem),
-                            //               padding: EdgeInsets.fromLTRB(5*fem, 4*fem, 5*fem, 4*fem),
-                            //               height: double.infinity,
-                            //               decoration: BoxDecoration (
-                            //                 border: Border.all(color: Color(0xffd5d7da)),
-                            //                 borderRadius: BorderRadius.circular(50*fem),
-                            //               ),
-                            //               child: Row(
-                            //                 crossAxisAlignment: CrossAxisAlignment.center,
-                            //                 children: [
-                            //                   Container(
-                            //                     // frame681b69 (318:8173)
-                            //                     width: 28*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(50*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '-',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Text(
-                            //                     // dYd (318:8175)
-                            //                     '02',
-                            //                     textAlign: TextAlign.center,
-                            //                     style: SafeGoogleFont (
-                            //                       'Roboto',
-                            //                       fontSize: 12*ffem,
-                            //                       fontWeight: FontWeight.w600,
-                            //                       height: 1.5*ffem/fem,
-                            //                       letterSpacing: 0.3740000129*fem,
-                            //                       color: Color(0xff2c83f1),
-                            //                     ),
-                            //                   ),
-                            //                   SizedBox(
-                            //                     width: 9*fem,
-                            //                   ),
-                            //                   Container(
-                            //                     // frame680LT3 (318:8176)
-                            //                     width: 29*fem,
-                            //                     height: double.infinity,
-                            //                     decoration: BoxDecoration (
-                            //                       color: Color(0xff2c83f1),
-                            //                       borderRadius: BorderRadius.circular(40*fem),
-                            //                     ),
-                            //                     child: Center(
-                            //                       child: Text(
-                            //                         '+',
-                            //                         textAlign: TextAlign.center,
-                            //                         style: SafeGoogleFont (
-                            //                           'Roboto',
-                            //                           fontSize: 16*ffem,
-                            //                           fontWeight: FontWeight.w600,
-                            //                           height: 1.125*ffem/fem,
-                            //                           letterSpacing: 0.3740000129*fem,
-                            //                           color: Color(0xffffffff),
-                            //                         ),
-                            //                       ),
-                            //                     ),
-                            //                   ),
-                            //                 ],
-                            //               ),
-                            //             ),
-                            //             Container(
-                            //               // delete24y (318:8178)
-                            //               width: 36*fem,
-                            //               height: 36*fem,
-                            //               child: Image.asset(
-                            //                 'assets/images/products/delete-441.png',
-                            //                 width: 36*fem,
-                            //                 height: 36*fem,
-                            //               ),
-                            //             ),
-                            //           ],
-                            //         ),
-                            //       ),
-                            //     ],
-                            //   ),
-                            // ),
                           ],
                         ),
                       ),
@@ -1415,7 +809,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                           children: [
                             InkWell(
                               onTap: () {
-                                Get.to(CheckoutScreen(type: 'Product'));
+                                //  Get.to(CheckoutScreen(type: 'Product'));
                               },
                               child: Container(
                                 // productaddtocartZMj (318:8105)

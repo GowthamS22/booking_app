@@ -1336,12 +1336,12 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                               .paymentLoading
                                                               .value = false;
                                                         });
-                                                        Get.to(
-                                                          CheckoutScreen(
-                                                            type:
-                                                                'ExistingBooking',
-                                                          ),
-                                                        );
+                                                        // Get.to(
+                                                        //   CheckoutScreen(
+                                                        //     type:
+                                                        //         'ExistingBooking',
+                                                        //   ),
+                                                        // );
                                                       });
                                                 }
                                                 : null,
@@ -1643,11 +1643,11 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                           .buyNowLoading
                                                           .value = false;
                                                     });
-                                                    Get.to(
-                                                      CheckoutScreen(
-                                                        type: 'Membership',
-                                                      ),
-                                                    );
+                                                    // Get.to(
+                                                    //   CheckoutScreen(
+                                                    //     type: 'Membership',
+                                                    //   ),
+                                                    // );
                                                   });
                                             },
                                             style: ButtonStyle(
