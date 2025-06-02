@@ -606,7 +606,6 @@ class NewBookingController extends GetxController {
         .from('membershipplan')
         .select('*')
         .order('price');
-    print(response);
     if (response.isEmpty) {
       throw Exception('No membership plans found');
     }

@@ -28,13 +28,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   TextEditingController repeatUntilController = TextEditingController();
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
+  final ScrollController _headerHorizontalController = ScrollController();
+  final ScrollController _leftVerticalController = ScrollController();
   Map<String, List<String>> selectedCourtSlots = {};
   String? selectedCourt;
   DateTime selectedDate = DateTime.now();
   DateTime? selectedDateTime;
   var courtPrice = 0;
   bool isDate = false;
-  String selectedPlan = 'Gold';
+  String? selectedPlan;
+  String? selectedMembershipId;
   List<Map<String, dynamic>> slotInfo = [];
   Set<int> expandedIndexes = {};
   Map<String, Map<String, dynamic>> slotInfoMap = {};
@@ -43,9 +46,24 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     super.initState();
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
+    _vertical.addListener(() {
+      _leftVerticalController.jumpTo(_vertical.offset);
+    });
+    _horizontal.addListener(() {
+      _headerHorizontalController.jumpTo(_horizontal.offset);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+  }
+
+  @override
+  void dispose() {
+    _vertical.dispose();
+    _horizontal.dispose();
+    _headerHorizontalController.dispose();
+    _leftVerticalController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadInitialData() async {
@@ -78,21 +96,38 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   }
 
   Future<List<Map<String, dynamic>>> fetchSlotInfo() async {
-    slotInfo = await controller.getSlotsWithPeakStatusAndPrice(
-      serviceId: controller.selectedServiceId.value,
-      selectedDate: controller.selectedDate,
-      courtList: controller.courtList,
-    );
-    // Map for quick lookup
-    slotInfoMap = {
-      for (var slot in slotInfo)
-        "${slot['start'].hour.toString().padLeft(2, '0')}:${slot['start'].minute.toString().padLeft(2, '0')}":
-            slot,
-    };
-    // Update controller.timeSlots
-    controller.timeSlots.value = slotInfoMap.keys.toList();
-    setState(() {}); // Refresh UI
-    return slotInfo;
+    try {
+      controller.isLoading.value = true;
+
+      // Fetch slots with peak status and price for the selected date
+      slotInfo = await controller.getSlotsWithPeakStatusAndPrice(
+        serviceId: controller.selectedServiceId.value,
+        selectedDate: controller.selectedDate,
+        courtList: controller.courtList,
+      );
+
+      // Map for quick lookup
+      slotInfoMap = {
+        for (var slot in slotInfo)
+          "${slot['start'].hour.toString().padLeft(2, '0')}:${slot['start'].minute.toString().padLeft(2, '0')}":
+              slot,
+      };
+
+      // Update controller.timeSlots
+      controller.timeSlots.value = slotInfoMap.keys.toList();
+
+      // Refresh UI
+      if (mounted) {
+        setState(() {});
+      }
+
+      return slotInfo;
+    } catch (error) {
+      print('Error fetching slot info: $error');
+      return [];
+    } finally {
+      controller.isLoading.value = false;
+    }
   }
 
   bool isSlotInPast(String slot) {
@@ -410,299 +445,87 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               builder: (context, constraints) {
                 final sortedCourts = List<Map<String, dynamic>>.from(
                   controller.courtList,
-                )..sort((a, b) => a['name'].compareTo(b['name']));
+                )..sort((a, b) {
+                  // Extract numbers from court names
+                  final aName = a['name'] as String;
+                  final bName = b['name'] as String;
+
+                  // Split names into text and number parts
+                  final aMatch = RegExp(r'(\D+)(\d+)').firstMatch(aName);
+                  final bMatch = RegExp(r'(\D+)(\d+)').firstMatch(bName);
+
+                  if (aMatch != null && bMatch != null) {
+                    // Compare text parts first
+                    final aText = aMatch.group(1)!;
+                    final bText = bMatch.group(1)!;
+                    final textCompare = aText.compareTo(bText);
+
+                    if (textCompare != 0) return textCompare;
+
+                    // If text parts are same, compare numbers
+                    final aNum = int.parse(aMatch.group(2)!);
+                    final bNum = int.parse(bMatch.group(2)!);
+                    return aNum.compareTo(bNum);
+                  }
+
+                  // Fallback to regular string comparison if pattern doesn't match
+                  return aName.compareTo(bName);
+                });
                 return Stack(
                   children: [
+                    // Top Time Slot Header
                     Positioned(
                       top: 0,
-                      left: 100,
+                      left: 110,
                       right: 0,
-                      bottom: 0,
+                      height: 50,
                       child: SingleChildScrollView(
-                        controller: _horizontal,
+                        controller: _headerHorizontalController,
                         scrollDirection: Axis.horizontal,
-                        child: SingleChildScrollView(
-                          controller: _vertical,
-                          scrollDirection: Axis.vertical,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Container(
+                          height: 50,
+                          color: Colors.white,
+                          child: Row(
                             children: [
-                              // Time slot header
-                              Row(
-                                children: [
-                                  ...controller.timeSlots.map((slot) {
-                                    final slotData = slotInfoMap[slot];
-                                    final isPeak = slotData?['isPeak'] ?? false;
-                                    courtPrice =
-                                        (slotData?['price'] ?? 0.0).toInt();
+                              ...controller.timeSlots.map((slot) {
+                                final slotData = slotInfoMap[slot];
+                                final isPeak = slotData?['isPeak'] ?? false;
+                                courtPrice =
+                                    (slotData?['price'] ?? 0.0).toInt();
 
-                                    return Container(
-                                      width: 82,
-                                      height: 50,
-                                      alignment: Alignment.center,
-                                      color: Colors.white,
-                                      child: Text(
-                                        slot,
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w600,
-                                          color:
-                                              isPeak
-                                                  ? Colors.amber.shade500
-                                                  : Colors.grey.shade500,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ],
-                              ),
-
-                              // Grid Content
-                              SingleChildScrollView(
-                                controller: _vertical,
-                                scrollDirection: Axis.vertical,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children:
-                                      controller.courtList.map((court) {
-                                        final courtName = court['name'];
-                                        final selectedSlots =
-                                            selectedCourtSlots[courtName] ?? [];
-
-                                        return Row(
-                                          children: [
-                                            // Left padding cell (empty to align court name)
-                                            ...List.generate(controller.timeSlots.length, (
-                                              index,
-                                            ) {
-                                              String slot =
-                                                  controller.timeSlots[index];
-                                              final slotData =
-                                                  slotInfoMap[slot];
-                                              final isPeak =
-                                                  slotData?['isPeak'] ?? false;
-                                              courtPrice =
-                                                  (slotData?['price'] ?? 0.0)
-                                                      .toInt();
-                                              bool isSelected = selectedSlots
-                                                  .contains(slot);
-                                              String? user = getBookingUser(
-                                                courtName,
-                                                slot,
-                                              );
-                                              bool isBooked = user != null;
-                                              bool isPastSlot = isSlotInPast(
-                                                slot,
-                                              );
-
-                                              // Merged selection
-                                              final isFirstInMerged =
-                                                  isSelected &&
-                                                  (index == 0 ||
-                                                      !selectedSlots.contains(
-                                                        controller
-                                                            .timeSlots[index -
-                                                            1],
-                                                      ));
-
-                                              int mergeSpan = 1;
-                                              if (isFirstInMerged) {
-                                                for (
-                                                  int i = index + 1;
-                                                  i <
-                                                      controller
-                                                          .timeSlots
-                                                          .length;
-                                                  i++
-                                                ) {
-                                                  if (selectedSlots.contains(
-                                                    controller.timeSlots[i],
-                                                  )) {
-                                                    mergeSpan++;
-                                                  } else {
-                                                    break;
-                                                  }
-                                                }
-                                              }
-
-                                              if (isSelected &&
-                                                  !isFirstInMerged) {
-                                                return const SizedBox.shrink();
-                                              }
-                                              if (isBooked) {
-                                                final currentUser = user;
-                                                final isFirstBooking =
-                                                    index == 0 ||
-                                                    getBookingUser(
-                                                          courtName,
-                                                          controller
-                                                              .timeSlots[index -
-                                                              1],
-                                                        ) !=
-                                                        currentUser;
-
-                                                if (!isFirstBooking) {
-                                                  return const SizedBox.shrink();
-                                                }
-
-                                                // Calculate how many adjacent slots are booked by the same user
-                                                int span = 1;
-                                                for (
-                                                  int i = index + 1;
-                                                  i <
-                                                      controller
-                                                          .timeSlots
-                                                          .length;
-                                                  i++
-                                                ) {
-                                                  if (getBookingUser(
-                                                        courtName,
-                                                        controller.timeSlots[i],
-                                                      ) ==
-                                                      currentUser) {
-                                                    span++;
-                                                  } else {
-                                                    break;
-                                                  }
-                                                }
-
-                                                return Container(
-                                                  width: span * 80.0,
-                                                  height: 60,
-                                                  color: Colors.red.shade50,
-                                                  alignment: Alignment.center,
-                                                  margin: const EdgeInsets.all(
-                                                    1,
-                                                  ),
-                                                  child: Text(
-                                                    currentUser,
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 18,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color:
-                                                          Colors.red.shade500,
-                                                    ),
-                                                  ),
-                                                );
-                                              }
-                                              return GestureDetector(
-                                                onTap: () {
-                                                  if (isBooked || isPastSlot)
-                                                    return;
-                                                  setState(() {
-                                                    final selected =
-                                                        selectedCourtSlots[courtName] ??
-                                                        [];
-                                                    if (selected.contains(
-                                                      slot,
-                                                    )) {
-                                                      selected.remove(slot);
-                                                    } else {
-                                                      bool isAdjacentToAny =
-                                                          false;
-                                                      for (var existingSlot
-                                                          in selected) {
-                                                        if (isAdjacent(
-                                                          slot,
-                                                          existingSlot,
-                                                        )) {
-                                                          isAdjacentToAny =
-                                                              true;
-                                                          break;
-                                                        }
-                                                      }
-
-                                                      if (selected.isEmpty ||
-                                                          isAdjacentToAny) {
-                                                        selected.add(slot);
-                                                      } else {
-                                                        selected.add(slot);
-                                                      }
-                                                    }
-                                                    selectedCourtSlots[courtName] =
-                                                        selected;
-                                                    selectedCourt = courtName;
-                                                  });
-                                                },
-                                                child: Container(
-                                                  width: 80.0 * mergeSpan,
-                                                  height: 58,
-                                                  alignment: Alignment.center,
-                                                  margin: const EdgeInsets.all(
-                                                    1,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        isSelected
-                                                            ? Colors.green
-                                                            : isPastSlot
-                                                            ? Colors
-                                                                .grey
-                                                                .shade300
-                                                            : isPeak
-                                                            ? Colors
-                                                                .amber
-                                                                .shade50
-                                                            : Colors
-                                                                .green
-                                                                .shade50,
-                                                    border: Border.all(
-                                                      color:
-                                                          Colors.grey.shade300,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          4,
-                                                        ),
-                                                  ),
-                                                  child: Icon(
-                                                    isSelected
-                                                        ? Icons.check
-                                                        : isPastSlot
-                                                        ? Icons.access_time
-                                                        : Icons.access_time,
-                                                    color:
-                                                        isSelected
-                                                            ? Colors.white
-                                                            : isPastSlot
-                                                            ? Colors
-                                                                .grey
-                                                                .shade500
-                                                            : isPeak
-                                                            ? Colors
-                                                                .amber
-                                                                .shade500
-                                                            : Colors
-                                                                .green
-                                                                .shade500,
-                                                  ),
-                                                ),
-                                              );
-                                            }),
-                                          ],
-                                        );
-                                      }).toList(),
-                                ),
-                              ),
+                                return Container(
+                                  width: 82,
+                                  height: 50,
+                                  alignment: Alignment.center,
+                                  color: Colors.white,
+                                  child: Text(
+                                    slot,
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          isPeak
+                                              ? Colors.amber.shade500
+                                              : Colors.grey.shade500,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ],
                           ),
                         ),
                       ),
                     ),
-
-                    // Sticky court names
+                    // Left Court Name Column
                     Positioned(
                       top: 50,
                       left: 0,
-                      width: 110,
                       bottom: 0,
+                      width: 110,
                       child: SingleChildScrollView(
-                        controller: _vertical,
-                        scrollDirection: Axis.vertical,
+                        controller: _leftVerticalController,
                         child: Column(
                           children:
                               sortedCourts.map((court) {
-                                print("Courts: ${court['name']}");
                                 return Container(
                                   width: 110,
                                   height: 60,
@@ -719,6 +542,205 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                 );
                               }).toList(),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 50,
+                      left: 110,
+                      right: 0,
+                      bottom: 0,
+                      child: SingleChildScrollView(
+                        controller: _horizontal,
+                        scrollDirection: Axis.horizontal,
+                        child: SingleChildScrollView(
+                          controller: _vertical,
+                          scrollDirection: Axis.vertical,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Grid Content
+                              ...sortedCourts.map((court) {
+                                final courtName = court['name'];
+                                final selectedSlots =
+                                    selectedCourtSlots[courtName] ?? [];
+
+                                return Row(
+                                  children: [
+                                    ...List.generate(controller.timeSlots.length, (
+                                      index,
+                                    ) {
+                                      String slot = controller.timeSlots[index];
+                                      final slotData = slotInfoMap[slot];
+                                      final isPeak =
+                                          slotData?['isPeak'] ?? false;
+                                      courtPrice =
+                                          (slotData?['price'] ?? 0.0).toInt();
+                                      bool isSelected = selectedSlots.contains(
+                                        slot,
+                                      );
+                                      String? user = getBookingUser(
+                                        courtName,
+                                        slot,
+                                      );
+                                      bool isBooked = user != null;
+                                      bool isPastSlot = isSlotInPast(slot);
+
+                                      // Merged selection
+                                      final isFirstInMerged =
+                                          isSelected &&
+                                          (index == 0 ||
+                                              !selectedSlots.contains(
+                                                controller.timeSlots[index - 1],
+                                              ));
+
+                                      int mergeSpan = 1;
+                                      if (isFirstInMerged) {
+                                        for (
+                                          int i = index + 1;
+                                          i < controller.timeSlots.length;
+                                          i++
+                                        ) {
+                                          if (selectedSlots.contains(
+                                            controller.timeSlots[i],
+                                          )) {
+                                            mergeSpan++;
+                                          } else {
+                                            break;
+                                          }
+                                        }
+                                      }
+
+                                      if (isSelected && !isFirstInMerged) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      if (isBooked) {
+                                        final currentUser = user;
+                                        final isFirstBooking =
+                                            index == 0 ||
+                                            getBookingUser(
+                                                  courtName,
+                                                  controller.timeSlots[index -
+                                                      1],
+                                                ) !=
+                                                currentUser;
+
+                                        if (!isFirstBooking) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        // Calculate how many adjacent slots are booked by the same user
+                                        int span = 1;
+                                        for (
+                                          int i = index + 1;
+                                          i < controller.timeSlots.length;
+                                          i++
+                                        ) {
+                                          if (getBookingUser(
+                                                courtName,
+                                                controller.timeSlots[i],
+                                              ) ==
+                                              currentUser) {
+                                            span++;
+                                          } else {
+                                            break;
+                                          }
+                                        }
+
+                                        return Container(
+                                          width: span * 80.0,
+                                          height: 60,
+                                          color: Colors.red.shade50,
+                                          alignment: Alignment.center,
+                                          margin: const EdgeInsets.all(1),
+                                          child: Text(
+                                            currentUser,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w500,
+                                              color: Colors.red.shade500,
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                      return GestureDetector(
+                                        onTap: () {
+                                          if (isBooked || isPastSlot) return;
+                                          setState(() {
+                                            final selected =
+                                                selectedCourtSlots[courtName] ??
+                                                [];
+                                            if (selected.contains(slot)) {
+                                              selected.remove(slot);
+                                            } else {
+                                              bool isAdjacentToAny = false;
+                                              for (var existingSlot
+                                                  in selected) {
+                                                if (isAdjacent(
+                                                  slot,
+                                                  existingSlot,
+                                                )) {
+                                                  isAdjacentToAny = true;
+                                                  break;
+                                                }
+                                              }
+
+                                              if (selected.isEmpty ||
+                                                  isAdjacentToAny) {
+                                                selected.add(slot);
+                                              } else {
+                                                selected.add(slot);
+                                              }
+                                            }
+                                            selectedCourtSlots[courtName] =
+                                                selected;
+                                            selectedCourt = courtName;
+                                          });
+                                        },
+                                        child: Container(
+                                          width: 80.0 * mergeSpan,
+                                          height: 58,
+                                          alignment: Alignment.center,
+                                          margin: const EdgeInsets.all(1),
+                                          decoration: BoxDecoration(
+                                            color:
+                                                isSelected
+                                                    ? Colors.green
+                                                    : isPastSlot
+                                                    ? Colors.grey.shade300
+                                                    : isPeak
+                                                    ? Colors.amber.shade50
+                                                    : Colors.green.shade50,
+                                            border: Border.all(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
+                                          ),
+                                          child: Icon(
+                                            isSelected
+                                                ? Icons.check
+                                                : isPastSlot
+                                                ? Icons.access_time
+                                                : Icons.access_time,
+                                            color:
+                                                isSelected
+                                                    ? Colors.white
+                                                    : isPastSlot
+                                                    ? Colors.grey.shade500
+                                                    : isPeak
+                                                    ? Colors.amber.shade500
+                                                    : Colors.green.shade500,
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                  ],
+                                );
+                              }),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -848,29 +870,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
     if (pickedDate == null) return;
 
-    // // Step 2: Pick Time
-    // TimeOfDay? pickedTime = await showTimePicker(
-    //   context: context,
-    //   initialTime:
-    //       selectedDateTime != null
-    //           ? TimeOfDay.fromDateTime(selectedDateTime!)
-    //           : TimeOfDay.now(),
-    // );
-
-    if (pickedDate == null) return;
-
     // Combine Date and Time
     final combined = DateTime(
       pickedDate.year,
       pickedDate.month,
       pickedDate.day,
-      // pickedTime.hour,
-      // pickedTime.minute,
     );
 
     setState(() {
       selectedDateTime = combined;
+      controller.selectedDate = combined; // Update controller's selected date
     });
+
+    // Refresh slots based on new date
+    await fetchSlotInfo();
   }
 
   String calculateEndTime(String lastSlot) {

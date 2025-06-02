@@ -220,17 +220,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
 
       for (final subSlotInfo in bookingInfo.subSlots) {
+        final startTime = parseDateTime(
+          widget.selectedDateTime,
+          subSlotInfo.startTime,
+        );
+        final endTime = parseDateTime(
+          widget.selectedDateTime,
+          subSlotInfo.endTime,
+        );
+        print('selectedDateTime: ${widget.selectedDateTime}');
         final individualSlot = BookingSlot(
           serviceId: newBookingController.selectedServiceId.value,
           courtId: courtId,
-          startTime: parseDateTime(
-            bookingInfo.selectedDateTime,
-            subSlotInfo.startTime,
-          ),
-          endTime: parseDateTime(
-            bookingInfo.selectedDateTime,
-            subSlotInfo.endTime,
-          ),
+          date: widget.selectedDateTime, // Set the date to match the startTime
+          startTime: startTime,
+          endTime: endTime,
           price: subSlotInfo.price,
           slotType: null,
           repeatDays: null,
@@ -440,46 +444,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
               const SizedBox(height: 16),
 
-              // Cart Items
-              ...[
-                ['Yung Corck', '12', '25.00'],
-                ['Energy Drink', '12', '25.00'],
-                ['Protein Bar', '24', '45.00'],
-                ['Vegan Snack Mix', '12', '30.00'],
-                ['Herbal Tea', '20', '20.00'],
-                ['Electrolyte Powder', '10', '15.00'],
-                ['Organic Nut Butter', '8', '40.00'],
-                ['Chia Seed Pudding', '12', '18.00'],
-              ].map((item) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(item[0], style: GoogleFonts.inter(fontSize: 14)),
-                      Row(
-                        children: [
-                          Text(
-                            'x${item[1]}',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '\$${item[2]}',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+              // // Cart Items
+              // ...[
+              //   ['Yung Corck', '12', '25.00'],
+              //   ['Energy Drink', '12', '25.00'],
+              //   ['Protein Bar', '24', '45.00'],
+              //   ['Vegan Snack Mix', '12', '30.00'],
+              //   ['Herbal Tea', '20', '20.00'],
+              //   ['Electrolyte Powder', '10', '15.00'],
+              //   ['Organic Nut Butter', '8', '40.00'],
+              //   ['Chia Seed Pudding', '12', '18.00'],
+              // ].map((item) {
+              //   return Padding(
+              //     padding: const EdgeInsets.symmetric(vertical: 4),
+              //     child: Row(
+              //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              //       children: [
+              //         Text(item[0], style: GoogleFonts.inter(fontSize: 14)),
+              //         Row(
+              //           children: [
+              //             Text(
+              //               'x${item[1]}',
+              //               style: GoogleFonts.inter(
+              //                 fontSize: 14,
+              //                 fontWeight: FontWeight.w600,
+              //               ),
+              //             ),
+              //             const SizedBox(width: 12),
+              //             Text(
+              //               '\$${item[2]}',
+              //               style: GoogleFonts.inter(
+              //                 fontSize: 14,
+              //                 fontWeight: FontWeight.w500,
+              //               ),
+              //             ),
+              //           ],
+              //         ),
+              //       ],
+              //     ),
+              //   );
+              // }).toList(),
             ],
           ),
         ),
