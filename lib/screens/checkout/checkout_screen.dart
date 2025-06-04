@@ -1,7 +1,6 @@
 // ignore_for_file: must_be_immutable
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -9,14 +8,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../app/getx_binding.dart';
 import '../../config/constants.dart';
-import '../../config/google-fonts.dart';
 import '../../config/palette.dart';
 import '../../controllers/checkout_controller.dart';
 import '../../controllers/customer_controller.dart';
 import '../../controllers/new_booking_controller.dart';
 import '../../controllers/default_controller.dart';
 import '../../models/booking_model.dart';
-import '../../widgets/checkout_number_pad.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final String type;
@@ -25,6 +22,9 @@ class CheckoutScreen extends StatefulWidget {
   final DateTime selectedDateTime;
   final double billAmount;
   final List<BookingInfo> bookings;
+  final String membershipID;
+  final String? membershipName;
+  final bool? isMembershipApplied;
   const CheckoutScreen({
     Key? key,
     required this.type,
@@ -33,6 +33,9 @@ class CheckoutScreen extends StatefulWidget {
     required this.selectedDateTime,
     required this.billAmount,
     required this.bookings,
+    required this.membershipID,
+    required this.membershipName,
+    required this.isMembershipApplied,
   }) : super(key: key);
 
   @override
@@ -83,6 +86,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
     }
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
   }
 
   @override
@@ -90,112 +100,109 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return GetBuilder(
       init: CheckoutController(),
       builder: (controller) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Scaffold(
-            appBar: AppBar(
-              elevation: 0,
-              toolbarHeight: 80,
-              backgroundColor: Colors.white,
-              titleSpacing: 0,
-              automaticallyImplyLeading: false,
-              //leadingWidth: MediaQuery.of(context).size.width / 2.1,
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(width: 22 * ffem),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white, // Navy blue
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade500),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
-                      onPressed: () => Navigator.of(context).pop(),
-                    ),
+        return Scaffold(
+          appBar: AppBar(
+            elevation: 0,
+            toolbarHeight: 80,
+            backgroundColor: Colors.white,
+            titleSpacing: 0,
+            automaticallyImplyLeading: false,
+            //leadingWidth: MediaQuery.of(context).size.width / 2.1,
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(width: 22 * ffem),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white, // Navy blue
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade500),
                   ),
-                  SizedBox(width: 18 * ffem),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Payment',
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                SizedBox(width: 18 * ffem),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Payment',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
                       ),
+                    ),
+                    Text(
+                      'Create new booking based on selected courts',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                // Items count
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade500),
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.layoutDashboard),
+                      SizedBox(width: 5),
                       Text(
-                        'Create new booking based on selected courts',
+                        'Dashboard',
                         style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade900,
+                          fontSize: 16,
                         ),
                       ),
                     ],
                   ),
-                  const Spacer(),
-                  // Items count
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade500),
-                      borderRadius: BorderRadius.circular(6),
-                      color: Colors.white,
-                    ),
-                    child: Row(
+                ),
+                SizedBox(width: 30),
+              ],
+            ),
+          ),
+
+          backgroundColor: Palette.white,
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                Divider(color: Colors.grey.shade300, thickness: 1),
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                  child: SingleChildScrollView(
+                    child: Column(
                       children: [
-                        Icon(LucideIcons.layoutDashboard),
-                        SizedBox(width: 5),
-                        Text(
-                          'Dashboard',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade900,
-                            fontSize: 16,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            buildCartItems(),
+                            SizedBox(width: 20),
+                            buildCheckout(newBookingController, controller),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  SizedBox(width: 30),
-                ],
-              ),
-            ),
-
-            backgroundColor: Palette.white,
-            body: SingleChildScrollView(
-              child: Column(
-                children: [
-                  Divider(color: Colors.grey.shade300, thickness: 1),
-                  Container(
-                    padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              buildCartItems(),
-                              SizedBox(width: 20),
-                              buildCheckout(newBookingController, controller),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -212,7 +219,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           newBookingController.courtList.firstWhere(
             (court) => court['name'] == bookingInfo.courtName,
             orElse: () => {},
-          )?['id']; // Find the court ID based on the name
+          )['id']; // Find the court ID based on the name
 
       if (courtId == null) {
         print('Warning: Could not find court ID for ${bookingInfo.courtName}');
@@ -232,6 +239,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final individualSlot = BookingSlot(
           serviceId: newBookingController.selectedServiceId.value,
           courtId: courtId,
+          court: bookingInfo.courtName,
           date: widget.selectedDateTime, // Set the date to match the startTime
           startTime: startTime,
           endTime: endTime,
@@ -242,6 +250,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           repeatId: null,
           repeatGroupId: null,
           status: 'Selected',
+          bookingId: widget.bookings.first.bookingId,
+          paymentStatus: 'paid',
+          name: widget.customerName,
+          mobile: widget.mobileno,
+          service: newBookingController.selectedService.value,
+          updatedAt: DateTime.now(),
+          updatedBy: authController.userId.toString(),
+          userId: authController.userId.toString(),
         );
         newBookingController.cartItems.add(individualSlot);
       }
@@ -300,24 +316,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade200,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Gold',
-                              style: GoogleFonts.inter(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
+                          if (widget.isMembershipApplied == true) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.shade100,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Colors.amber.shade500,
+                                ),
+                              ),
+                              child: Text(
+                                widget.membershipName ?? '',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.amber.shade800,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -346,7 +367,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        DateFormat('h:mm a').format(widget.selectedDateTime),
+                        DateFormat('h:mm a').format(DateTime.now()),
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           color: Colors.grey.shade600,
@@ -565,7 +586,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         // Handle "Pay Now"
-                        Navigator.pop(context);
+                        newBookingController.clearSelectedSlots(); // Clear selected slots
+                        Navigator.pop(context); // Navigate back to the previous screen (CourtViewScreen/Dashboard)
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
@@ -587,141 +609,231 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   SizedBox(width: 10),
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (totalPaid != '' && totalPaid > 0) {
-                          if (double.parse(balanceAmountController.text) <= 0) {
-                            setState(() {
-                              checkoutController.checkoutPayBtn.value = true;
-                            });
-
-                            if (widget.type == 'Membership') {
-                              checkoutController.makeMembershipPayment(
-                                userId:
-                                    customerController
-                                        .selectedPlan[0]['userId'],
-                                userMembershipId:
-                                    customerController
-                                        .selectedPlan[0]['userMembershipId'],
-                                paymentType: selectedMethod,
-                                promoCode: promoCodeController.text,
-                                notes: notesController.text,
-                                total: double.parse(
-                                  customerController.selectedPlan[0]['price']
-                                      .toString(),
-                                ),
-                                paid: totalPaid,
-                                // paid: double.parse(paidAmountController.text),
-                                balance: double.parse(
-                                  balanceAmountController.text,
-                                ),
-                              );
-                            } else if (widget.type == 'ExistingBooking') {
-                              populateCartWithSubSlots(widget.bookings);
-                              checkoutController.makeBookingPayment(
-                                bookingSlots:
-                                    defaultController.actionBookingSlots
-                                        .where(
-                                          (slot) =>
-                                              slot.paymentStatus != "Paid",
-                                        )
-                                        .toList(),
-                                paymentType: selectedMethod,
-                                promoCode: promoCodeController.text,
-                                notes: notesController.text,
-                                paid: totalPaid,
-                                // paid: double.parse(paidAmountController.text),
-                                balance: double.parse(
-                                  balanceAmountController.text,
-                                ),
-                              );
-                            } else if (widget.type == 'New') {
-                              if (controller.userData.value.id != null) {
-                                populateCartWithSubSlots(widget.bookings);
-                                checkoutController.processFinalCheckout(
-                                  userId: controller.userData.value.id,
-                                  name: controller.nameController.text,
-                                  email: controller.userData.value.email,
-                                  mobile: controller.userData.value.mobile,
-                                  paymentType: selectedMethod,
-                                  promoCode: promoCodeController.text,
-                                  notes: notesController.text,
-                                  paid: totalPaid,
-                                  // paid: double.parse(paidAmountController.text),
-                                  balance: double.parse(
-                                    balanceAmountController.text,
-                                  ),
-                                  bookingId: controller.bookingId,
-                                );
-                              } else {
-                                checkoutController
-                                    .registerUser(
-                                      mobile: widget.mobileno,
-                                      firstName: widget.customerName,
-                                    )
-                                    .then((value) {
-                                      populateCartWithSubSlots(widget.bookings);
-                                      checkoutController.processFinalCheckout(
-                                        userId:
-                                            checkoutController
-                                                .userData
-                                                .value
-                                                .id,
-                                        name: controller.nameController.text,
-                                        email: controller.userData.value.email,
-                                        mobile:
-                                            controller.userData.value.mobile,
-                                        paymentType: selectedMethod,
-                                        promoCode: promoCodeController.text,
-                                        notes: notesController.text,
-                                        paid: totalPaid,
-                                        // paid: double.parse(
-                                        //   paidAmountController.text,
-                                        // ),
-                                        balance: double.parse(
+                    child: Obx(() {
+                      final isProcessing =
+                          checkoutController.isProcessingPayment.value;
+                      return ElevatedButton(
+                        onPressed:
+                            isProcessing
+                                ? null
+                                : () async {
+                                  if (totalPaid > 0) {
+                                    if (double.parse(
                                           balanceAmountController.text,
-                                        ),
-                                        bookingId: controller.bookingId,
+                                        ) <=
+                                        0) {
+                                      setState(() {
+                                        checkoutController
+                                            .checkoutPayBtn
+                                            .value = true;
+                                      });
+
+                                      try {
+                                        if (selectedMethod == 'EFTPOS') {
+                                          await checkoutController
+                                              .processTyroPayment(
+                                                amount: totalPaid,
+                                                reference:
+                                                    'BOOKING-${DateTime.now().millisecondsSinceEpoch}',
+                                                description: 'Booking payment',
+                                              );
+                                        }
+
+                                        // Continue with existing payment processing
+                                        if (widget.type == 'Membership') {
+                                          await checkoutController
+                                              .makeMembershipPayment(
+                                                userId:
+                                                    customerController
+                                                        .selectedPlan[0]['userId'],
+                                                userMembershipId:
+                                                    customerController
+                                                        .selectedPlan[0]['userMembershipId'],
+                                                paymentType: selectedMethod,
+                                                promoCode:
+                                                    promoCodeController.text,
+                                                notes: notesController.text,
+                                                total: double.parse(
+                                                  customerController
+                                                      .selectedPlan[0]['price']
+                                                      .toString(),
+                                                ),
+                                                paid: totalPaid,
+                                                balance: double.parse(
+                                                  balanceAmountController.text,
+                                                ),
+                                              );
+                                        } else if (widget.type ==
+                                            'ExistingBooking') {
+                                          populateCartWithSubSlots(
+                                            widget.bookings,
+                                          );
+                                          await checkoutController
+                                              .makeBookingPayment(
+                                                bookingSlots:
+                                                    defaultController
+                                                        .actionBookingSlots
+                                                        .where(
+                                                          (slot) =>
+                                                              slot.paymentStatus !=
+                                                              "Paid",
+                                                        )
+                                                        .toList(),
+                                                paymentType: selectedMethod,
+                                                promoCode:
+                                                    promoCodeController.text,
+                                                notes: notesController.text,
+                                                paid: totalPaid,
+                                                balance: double.parse(
+                                                  balanceAmountController.text,
+                                                ),
+                                              );
+                                        } else if (widget.type == 'New') {
+                                          if (controller.userData.value.id !=
+                                              null) {
+                                            populateCartWithSubSlots(
+                                              widget.bookings,
+                                            );
+                                            await checkoutController
+                                                .processFinalCheckout(
+                                                  userId:
+                                                      controller
+                                                          .userData
+                                                          .value
+                                                          .id,
+                                                  name:
+                                                      controller
+                                                          .nameController
+                                                          .text,
+                                                  email:
+                                                      controller
+                                                          .userData
+                                                          .value
+                                                          .email,
+                                                  mobile:
+                                                      controller
+                                                          .userData
+                                                          .value
+                                                          .mobile,
+                                                  paymentType: selectedMethod,
+                                                  promoCode:
+                                                      promoCodeController.text,
+                                                  notes: notesController.text,
+                                                  paid: totalPaid,
+                                                  balance: double.parse(
+                                                    balanceAmountController
+                                                        .text,
+                                                  ),
+                                                  bookingId:
+                                                      controller.bookingId,
+                                                  isMembershipApplied:
+                                                      widget
+                                                          .isMembershipApplied,
+                                                );
+                                          } else {
+                                            await checkoutController
+                                                .registerUser(
+                                                  mobile: widget.mobileno,
+                                                  firstName:
+                                                      widget.customerName,
+                                                )
+                                                .then((value) {
+                                                  populateCartWithSubSlots(
+                                                    widget.bookings,
+                                                  );
+                                                  checkoutController
+                                                      .processFinalCheckout(
+                                                        userId:
+                                                            checkoutController
+                                                                .userData
+                                                                .value
+                                                                .id,
+                                                        name:
+                                                            controller
+                                                                .nameController
+                                                                .text,
+                                                        email:
+                                                            controller
+                                                                .userData
+                                                                .value
+                                                                .email,
+                                                        mobile:
+                                                            controller
+                                                                .userData
+                                                                .value
+                                                                .mobile,
+                                                        paymentType:
+                                                            selectedMethod,
+                                                        promoCode:
+                                                            promoCodeController
+                                                                .text,
+                                                        notes:
+                                                            notesController
+                                                                .text,
+                                                        paid: totalPaid,
+                                                        balance: double.parse(
+                                                          balanceAmountController
+                                                              .text,
+                                                        ),
+                                                        bookingId:
+                                                            controller
+                                                                .bookingId,
+                                                        isMembershipApplied:
+                                                            widget
+                                                                .isMembershipApplied,
+                                                      );
+                                                });
+                                          }
+                                        } else if (widget.type == 'Product') {
+                                          checkoutController.productsPayment(
+                                            paymentType: selectedMethod,
+                                            promoCode: promoCodeController.text,
+                                            notes: notesController.text,
+                                            paid: totalPaid,
+                                            balance: double.parse(
+                                              balanceAmountController.text,
+                                            ),
+                                            products:
+                                                shoppingController
+                                                    .productsCartModal,
+                                          );
+                                        }
+                                      } catch (e) {
+                                        showCustomSnackbar(
+                                          'Error',
+                                          e.toString(),
+                                          Colors.red,
+                                        );
+                                      } finally {
+                                        setState(() {
+                                          checkoutController
+                                              .checkoutPayBtn
+                                              .value = false;
+                                        });
+                                      }
+                                    } else {
+                                      showCustomSnackbar(
+                                        'Warning',
+                                        'Invalid Amount',
+                                        Colors.orange,
                                       );
-                                    });
-                              }
-                            } else if (widget.type == 'Product') {
-                              checkoutController.productsPayment(
-                                paymentType: selectedMethod,
-                                promoCode: promoCodeController.text,
-                                notes: notesController.text,
-                                paid: totalPaid,
-                                // paid: double.parse(paidAmountController.text),
-                                balance: double.parse(
-                                  balanceAmountController.text,
-                                ),
-                                products: shoppingController.productsCartModal,
-                              );
-                            }
-                          } else {
-                            showCustomSnackbar(
-                              'Warning',
-                              'Invalid Amount',
-                              Colors.orange,
-                            );
-                          }
-                        } else {
-                          showCustomSnackbar(
-                            'Warning',
-                            'Please enter the Paid Amount',
-                            Colors.orange,
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade500,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
+                                    }
+                                  } else {
+                                    showCustomSnackbar(
+                                      'Warning',
+                                      'Please enter the Paid Amount',
+                                      Colors.orange,
+                                    );
+                                  }
+                                },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade500,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
                         ),
-                      ),
-                      child: Obx(
-                        () =>
+                        child:
                             checkoutController.checkoutPayBtn.value
                                 ? SizedBox(
                                   height: 20,
@@ -739,8 +851,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     color: Colors.white,
                                   ),
                                 ),
-                      ),
-                    ),
+                      );
+                    }),
                   ),
                 ],
               ),
@@ -799,42 +911,74 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildPaymentOptions() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children:
-          paymentMethods.map((method) {
-            final isSelected = selectedMethod == method;
-            return ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isSelected ? Colors.white : Colors.grey[100],
-                side: BorderSide(
-                  color:
-                      isSelected
-                          ? Colors.indigo.shade500
-                          : Colors.grey.shade400,
-                ),
-                minimumSize: Size(50, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: Colors.grey.shade400, width: 1),
-                ),
-              ),
-              onPressed: () {
-                setState(() => selectedMethod = method);
-              },
-              child: Text(
-                method,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  color:
-                      isSelected
-                          ? Colors.indigo.shade500
-                          : Colors.grey.shade400,
-                ),
-              ),
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children:
+              paymentMethods.map((method) {
+                final isSelected = selectedMethod == method;
+                return ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                        isSelected ? Colors.white : Colors.grey[100],
+                    side: BorderSide(
+                      color:
+                          isSelected
+                              ? Colors.indigo.shade500
+                              : Colors.grey.shade400,
+                    ),
+                    minimumSize: Size(50, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(color: Colors.grey.shade400, width: 1),
+                    ),
+                  ),
+                  onPressed: () {
+                    setState(() => selectedMethod = method);
+                  },
+                  child: Text(
+                    method,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w600,
+                      color:
+                          isSelected
+                              ? Colors.indigo.shade500
+                              : Colors.grey.shade400,
+                    ),
+                  ),
+                );
+              }).toList(),
+        ),
+        if (selectedMethod == 'EFTPOS') ...[
+          SizedBox(height: 20),
+          Obx(() {
+            final controller = Get.find<CheckoutController>();
+            return Column(
+              children: [
+                if (controller.isProcessingPayment.value)
+                  CircularProgressIndicator(),
+                if (controller.paymentStatus.value.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Text(
+                      controller.paymentStatus.value,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color:
+                            controller.paymentStatus.value.contains('failed')
+                                ? Colors.red
+                                : Colors.green,
+                      ),
+                    ),
+                  ),
+              ],
             );
-          }).toList(),
+          }),
+        ],
+      ],
     );
   }
 
@@ -898,54 +1042,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center,
               children:
                   row.map((key) {
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (key == '⌫') {
-                            if (customAmountString.isNotEmpty) {
-                              customAmountString = customAmountString.substring(
-                                0,
-                                customAmountString.length - 1,
-                              );
-                            }
-                          } else if (key == '.') {
-                            if (!customAmountString.contains('.')) {
-                              customAmountString += '.';
-                            }
-                          } else {
-                            if (customAmountString == '0') {
-                              customAmountString = key; // replace initial 0
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            if (key == '⌫') {
+                              if (customAmountString.isNotEmpty) {
+                                customAmountString = customAmountString
+                                    .substring(
+                                      0,
+                                      customAmountString.length - 1,
+                                    );
+                              }
+                            } else if (key == '.') {
+                              if (!customAmountString.contains('.')) {
+                                customAmountString += '.';
+                              }
                             } else {
-                              customAmountString += key;
+                              if (customAmountString == '0') {
+                                customAmountString = key; // replace initial 0
+                              } else {
+                                customAmountString += key;
+                              }
                             }
-                          }
 
-                          totalPaid =
-                              double.tryParse(customAmountString) ?? 0.0;
-                        });
-                      },
-                      child: Container(
-                        width: 80,
-                        height: 60,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                          color: Colors.white,
-                        ),
-                        child:
-                            key == '⌫'
-                                ? const Icon(Icons.backspace_outlined)
-                                : Text(
-                                  key,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w500,
+                            totalPaid =
+                                double.tryParse(customAmountString) ?? 0.0;
+                          });
+                        },
+                        child: Container(
+                          width: 100,
+                          height: 60,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(10),
+                            color: Colors.white,
+                          ),
+                          child:
+                              key == '⌫'
+                                  ? const Icon(Icons.backspace_outlined)
+                                  : Text(
+                                    key,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
+                        ),
                       ),
                     );
                   }).toList(),

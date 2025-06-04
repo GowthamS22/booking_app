@@ -12,11 +12,15 @@ import 'package:uuid/uuid.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../config/constants.dart';
 import '../config/palette.dart';
 import '../models/booking_model.dart';
 import '../models/user.dart';
+import '../../../config/palette.dart';
+import '../../../controllers/new_booking_controller.dart';
+import 'package:booking_app/screens/checkout/checkout_screen.dart';
 
 class NewBookingController extends GetxController {
   final supabase = Supabase.instance.client;
@@ -46,7 +50,7 @@ class NewBookingController extends GetxController {
     DateTime.now().day,
   );
 
-  List<BookingSlot> cartItems = [];
+  //List<BookingSlot> cartItems = [];
   List<BookingSlot> editCartItems = [];
   List<BookingSlot> bookedSlots = [];
   List<BookingSlot> dummyCartItems = [];
@@ -77,6 +81,58 @@ class NewBookingController extends GetxController {
   // Add this stream controller
   final _serviceStreamController = StreamController<List<dynamic>>.broadcast();
   Stream<List<dynamic>> get serviceStream => _serviceStreamController.stream;
+
+  var cartItems = <BookingSlot>[].obs;
+  // New state for selected slots
+  var selectedCourtSlots = <String, List<String>>{}.obs;
+  var selectedCourt = Rxn<String>();
+
+  // Method to group selected slots
+  Map<String, List<List<String>>> groupSelectedSlots(
+    Map<String, List<String>> selected,
+  ) {
+    Map<String, List<List<String>>> result = {};
+
+    selected.forEach((court, slots) {
+      if (slots.isEmpty) return;
+      final sortedSlots = [...slots]..sort();
+      final grouped = <List<String>>[];
+
+      List<String> currentGroup = [sortedSlots[0]];
+
+      for (int i = 1; i < sortedSlots.length; i++) {
+        final prev = sortedSlots[i - 1];
+        final curr = sortedSlots[i];
+
+        if (isAdjacent(prev, curr)) {
+          // Assuming isAdjacent is also moved or accessible
+          currentGroup.add(curr);
+        } else {
+          grouped.add(currentGroup);
+          currentGroup = [curr];
+        }
+      }
+
+      grouped.add(currentGroup);
+      result[court] = grouped;
+    });
+
+    return result;
+  }
+
+  // Method to clear selected slots
+  void clearSelectedSlots() {
+    selectedCourtSlots.clear();
+    selectedCourt.value = null;
+  }
+
+  // Method to check if two slots are adjacent
+  bool isAdjacent(String slot1, String slot2) {
+    final format = DateFormat.Hm();
+    final time1 = format.parse(slot1);
+    final time2 = format.parse(slot2);
+    return time1.difference(time2).inMinutes.abs() == 30;
+  }
 
   void toggleDay(String day) {
     if (selectedDays.contains(day)) {
@@ -1724,6 +1780,7 @@ class NewBookingController extends GetxController {
     String? notes,
     String? promoCode,
     String? paymentType,
+    String? bookingId,
   }) async {
     try {
       // Step 1: Validate slot availability
@@ -1741,13 +1798,13 @@ class NewBookingController extends GetxController {
       }
 
       // Step 2: Generate a unique booking ID
-      final existingBookings = await supabase
-          .schema('s22_prod_schema')
-          .from('bookings')
-          .select('id');
-      final int numberOfBookings = existingBookings.length + 1;
-      final String bookingId =
-          'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
+      // final existingBookings = await supabase
+      //     .schema('s22_prod_schema')
+      //     .from('bookings')
+      //     .select('id');
+      // final int numberOfBookings = existingBookings.length + 1;
+      // final String bookingId =
+      //     'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
 
       // Step 3: Insert booking record
       final bookingInsertResponse =

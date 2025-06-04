@@ -53,7 +53,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -63,16 +63,17 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                     Text(
                       "Scheduled Bookings",
                       style: GoogleFonts.inter(
-                        fontSize: 20,
+                        fontSize: 18,
                         color: Colors.black,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
                       "Bookings planned within the next 7 days",
                       style: GoogleFonts.inter(
-                        fontSize: 18,
-                        color: Colors.grey,
+                        fontSize: 16,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -96,8 +97,8 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                       Text(
                         'Today',
                         style: GoogleFonts.inter(
-                          fontSize: 18,
-                          color: Colors.black,
+                          fontSize: 16,
+                          color: Colors.grey.shade900,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -115,8 +116,9 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                       decoration: InputDecoration(
                         hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: Colors.grey,
+                          fontSize: 16,
+                          color: Colors.grey.shade400,
+                          fontWeight: FontWeight.w400,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -167,7 +169,9 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                             LucideIcons.layoutGrid,
                             size: 20,
                             color:
-                                isGridView ? Colors.indigoAccent : Colors.grey,
+                                isGridView
+                                    ? Colors.indigo.shade500
+                                    : Colors.grey.shade900,
                           ),
                         ),
                       ),
@@ -189,7 +193,9 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                             LucideIcons.layoutList,
                             size: 20,
                             color:
-                                !isGridView ? Colors.indigoAccent : Colors.grey,
+                                !isGridView
+                                    ? Colors.indigo.shade500
+                                    : Colors.grey.shade900,
                           ),
                         ),
                       ),
@@ -283,8 +289,9 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                 label: Text(
                                   'Booking ID',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -292,26 +299,35 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                 label: Text(
                                   'Customer',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
                               DataColumn(
-                                label: Text(
-                                  'Date & Time',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
+                                label: Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      'Date & Time',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade900,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
+
                               DataColumn(
                                 label: Text(
                                   'Game & Court',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -319,8 +335,9 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                 label: Text(
                                   'Remaining',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -328,8 +345,9 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                                 label: Text(
                                   'Amount',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -568,7 +586,7 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
             children: [
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.15,
-                width: MediaQuery.of(context).size.width * 0.12,
+                width: MediaQuery.of(context).size.width * 0.10,
                 child: CircularProgressIndicator(
                   value: duration / 60, // adjust denominator as needed
                   color: getProgressColor(duration),

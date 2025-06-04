@@ -40,20 +40,20 @@ class _SidebarMenuState extends State<SidebarMenu> {
           textStyle: const TextStyle(color: Colors.transparent),
           selectedTextStyle: const TextStyle(color: Colors.transparent),
           iconTheme: const IconThemeData(color: Colors.grey, size: 33),
-          selectedIconTheme: const IconThemeData(
-            color: Colors.indigoAccent,
-            size: 28,
-          ),
-          selectedItemDecoration: BoxDecoration(
-            color: Color(0xFFEAEFFF),
-            borderRadius: BorderRadius.zero, // square shape
-          ),
+          // selectedIconTheme: IconThemeData(
+          //   color: Colors.indigo.shade50,
+          //   size: 24,
+          // ),
+          // selectedItemDecoration: BoxDecoration(
+          //   color: Color(0xFFEAEFFF),
+          //   borderRadius: BorderRadius.circular(10), // square shape
+          // ),
           itemDecoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(0), // square
+            borderRadius: BorderRadius.circular(10), // square
           ),
           hoverColor: Colors.transparent,
         ),
-        extendedTheme: const SidebarXTheme(width: 90),
+        extendedTheme: const SidebarXTheme(width: 100),
         toggleButtonBuilder: (context, extended) {
           return const SizedBox.shrink();
         },
@@ -97,10 +97,28 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
 
             iconWidget: Center(
-              child: Icon(
-                LucideIcons.layoutDashboard,
-                color:
-                    controller.selectedIndex == 0 ? Colors.indigo : Colors.grey,
+              child: FittedBox(
+                child: Container(
+                  width: 45,
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color:
+                        controller.selectedIndex == 0
+                            ? Color(0xFFEAEFFF)
+                            : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      LucideIcons.layoutDashboard,
+                      color:
+                          controller.selectedIndex == 0
+                              ? Colors.indigo
+                              : Colors.grey,
+                      size: 24,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -109,50 +127,140 @@ class _SidebarMenuState extends State<SidebarMenu> {
             onTap: () {
               defaultController.changeTabIndex(1);
             },
-            iconWidget: Icon(
-              LucideIcons.calendar,
-              color:
-                  controller.selectedIndex == 1 ? Colors.indigo : Colors.grey,
+            iconWidget: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color:
+                      controller.selectedIndex == 1
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.shoppingCart,
+                    color:
+                        controller.selectedIndex == 1
+                            ? Colors.indigo.shade900
+                            : Colors.grey,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
           SidebarXItem(
             onTap: () {
               defaultController.changeTabIndex(2);
             },
-            iconWidget: Icon(
-              LucideIcons.shoppingCart,
-              color:
-                  controller.selectedIndex == 2 ? Colors.indigo : Colors.grey,
+            iconWidget: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color:
+                      controller.selectedIndex == 2
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.users,
+                    color:
+                        controller.selectedIndex == 2
+                            ? Colors.indigo.shade900
+                            : Colors.grey,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
           SidebarXItem(
             onTap: () {
               defaultController.changeTabIndex(3);
             },
-            iconWidget: Icon(
-              LucideIcons.users,
-              color:
-                  controller.selectedIndex == 3 ? Colors.indigo : Colors.grey,
+            iconWidget: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color:
+                      controller.selectedIndex == 3
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.settings,
+                    color:
+                        controller.selectedIndex == 3
+                            ? Colors.indigo.shade900
+                            : Colors.grey,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
           SidebarXItem(
             onTap: () {
               defaultController.changeTabIndex(4);
             },
-            iconWidget: Icon(
-              LucideIcons.pieChart,
-              color:
-                  controller.selectedIndex == 4 ? Colors.indigo : Colors.grey,
+            iconWidget: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color:
+                      controller.selectedIndex == 4
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.pieChart,
+                    color:
+                        controller.selectedIndex == 4
+                            ? Colors.indigo.shade900
+                            : Colors.grey,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
           SidebarXItem(
             onTap: () {
               defaultController.changeTabIndex(5);
             },
-            iconWidget: Icon(
-              LucideIcons.settings,
-              color:
-                  controller.selectedIndex == 5 ? Colors.indigo : Colors.grey,
+            iconWidget: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color:
+                      controller.selectedIndex == 5
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.bell, // or Icons.notifications_none_rounded
+                    color:
+                        controller.selectedIndex == 5
+                            ? Colors.indigo.shade900
+                            : Colors.grey,
+                    size: 24,
+                  ),
+                ),
+              ),
             ),
           ),
         ],

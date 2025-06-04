@@ -30,8 +30,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   final ScrollController _vertical = ScrollController();
   final ScrollController _headerHorizontalController = ScrollController();
   final ScrollController _leftVerticalController = ScrollController();
-  Map<String, List<String>> selectedCourtSlots = {};
-  String? selectedCourt;
   DateTime selectedDate = DateTime.now();
   DateTime? selectedDateTime;
   var courtPrice = 0;
@@ -285,7 +283,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               ),
             ),
             SizedBox(width: 10),
-            if (selectedCourtSlots.isNotEmpty) ...[
+            if (controller.selectedCourtSlots.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -298,7 +296,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 ),
                 child: GestureDetector(
                   onTap: () {
-                    final grouped = groupSelectedSlots(selectedCourtSlots);
+                    final grouped = controller.groupSelectedSlots(controller.selectedCourtSlots);
                     List<BookingInfo> bookings = [];
                     String membershipPlan = '';
                     double memberPrice = 0.0;
@@ -351,6 +349,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       membershipPlan,
                       memberPrice,
                       membershipApplied,
+                      selectedMembershipId ?? '',
                       bookings,
                     );
                   },
@@ -377,10 +376,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 ),
                 child: GestureDetector(
                   onTap: () {
-                    setState(() {
-                      selectedCourtSlots.clear();
-                      selectedCourt = null;
-                    });
+                    controller.clearSelectedSlots();
                   },
                   child: Text(
                     'Clear Selection',
@@ -471,12 +467,70 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   // Fallback to regular string comparison if pattern doesn't match
                   return aName.compareTo(bName);
                 });
+                final amSlots =
+                    controller.timeSlots.where((slot) {
+                      final hour = int.parse(slot.split(":")[0]);
+                      return hour < 12;
+                    }).toList();
+
+                final pmSlots =
+                    controller.timeSlots.where((slot) {
+                      final hour = int.parse(slot.split(":")[0]);
+                      return hour >= 12;
+                    }).toList();
+
                 return Stack(
                   children: [
-                    // Top Time Slot Header
+                    // AM/PM Header
                     Positioned(
                       top: 0,
-                      left: 110,
+                      left: 120,
+                      right: 0,
+                      height: 20,
+                      child: SingleChildScrollView(
+                        controller: _headerHorizontalController,
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            // AM block
+                            if (amSlots.isNotEmpty)
+                              Container(
+                                width: amSlots.length * 82, // width per slot
+                                alignment: Alignment.center,
+                                color: Colors.grey.shade200,
+                                child: Text(
+                                  'AM',
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                ),
+                              ),
+                            // PM block
+                            if (pmSlots.isNotEmpty)
+                              Container(
+                                width: pmSlots.length * 82,
+                                alignment: Alignment.center,
+                                color: Colors.grey.shade300,
+                                child: Text(
+                                  'PM',
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 12,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Top Time Slot Header
+                    Positioned(
+                      top: 20, // Adjusted position
+                      left: 120,
                       right: 0,
                       height: 50,
                       child: SingleChildScrollView(
@@ -492,6 +546,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 final isPeak = slotData?['isPeak'] ?? false;
                                 courtPrice =
                                     (slotData?['price'] ?? 0.0).toInt();
+                                // Parse and convert to 12-hour format manually (without AM/PM)
+                                final parts = slot.split(":");
+                                int hour = int.parse(parts[0]);
+                                final minute = int.parse(parts[1]);
+
+                                String hour12 = ((hour % 12 == 0)
+                                        ? 12
+                                        : hour % 12)
+                                    .toString()
+                                    .padLeft(2, '0');
+                                String minuteStr = minute.toString().padLeft(
+                                  2,
+                                  '0',
+                                );
+                                final formattedTime = "$hour12:$minuteStr";
 
                                 return Container(
                                   width: 82,
@@ -499,7 +568,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   alignment: Alignment.center,
                                   color: Colors.white,
                                   child: Text(
-                                    slot,
+                                    formattedTime,
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w600,
                                       color:
@@ -515,19 +584,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         ),
                       ),
                     ),
+
                     // Left Court Name Column
                     Positioned(
-                      top: 50,
+                      top: 70, // Adjusted position (50 + 20 for AM/PM header)
                       left: 0,
                       bottom: 0,
-                      width: 110,
+                      width: 120,
                       child: SingleChildScrollView(
                         controller: _leftVerticalController,
                         child: Column(
                           children:
                               sortedCourts.map((court) {
                                 return Container(
-                                  width: 110,
+                                  width: 160,
                                   height: 60,
                                   alignment: Alignment.centerLeft,
                                   padding: const EdgeInsets.symmetric(
@@ -546,8 +616,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       ),
                     ),
                     Positioned(
-                      top: 50,
-                      left: 110,
+                      top: 70, // Adjusted position
+                      left: 120,
                       right: 0,
                       bottom: 0,
                       child: SingleChildScrollView(
@@ -563,7 +633,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               ...sortedCourts.map((court) {
                                 final courtName = court['name'];
                                 final selectedSlots =
-                                    selectedCourtSlots[courtName] ?? [];
+                                    controller.selectedCourtSlots[courtName] ?? [];
 
                                 return Row(
                                   children: [
@@ -668,7 +738,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           if (isBooked || isPastSlot) return;
                                           setState(() {
                                             final selected =
-                                                selectedCourtSlots[courtName] ??
+                                                controller.selectedCourtSlots[courtName] ??
                                                 [];
                                             if (selected.contains(slot)) {
                                               selected.remove(slot);
@@ -692,9 +762,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 selected.add(slot);
                                               }
                                             }
-                                            selectedCourtSlots[courtName] =
+                                            controller.selectedCourtSlots[courtName] =
                                                 selected;
-                                            selectedCourt = courtName;
+                                            controller.selectedCourt.value = courtName;
                                           });
                                         },
                                         child: Container(
@@ -749,8 +819,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Positioned(
                       top: 0,
                       left: 0,
-                      width: 110,
-                      height: 50,
+                      width: 120,
+                      height: 70,
                       child: Container(
                         color: Colors.white,
                         alignment: Alignment.centerLeft,
@@ -776,10 +846,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       final parts = slot.split(':');
       final hour = int.parse(parts[0]);
       final minute = int.parse(parts[1]);
-
-      // Debug logging
-      print('Parsing slot: $slot');
-      print('Parsed hour: $hour, minute: $minute');
 
       // Use selectedDateTime if available, otherwise use current date
       final date = selectedDateTime ?? DateTime.now();
@@ -826,37 +892,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     }
     return 1;
-  }
-
-  Map<String, List<List<String>>> groupSelectedSlots(
-    Map<String, List<String>> selected,
-  ) {
-    Map<String, List<List<String>>> result = {};
-
-    selected.forEach((court, slots) {
-      if (slots.isEmpty) return;
-      final sortedSlots = [...slots]..sort();
-      final grouped = <List<String>>[];
-
-      List<String> currentGroup = [sortedSlots[0]];
-
-      for (int i = 1; i < sortedSlots.length; i++) {
-        final prev = sortedSlots[i - 1];
-        final curr = sortedSlots[i];
-
-        if (isAdjacent(prev, curr)) {
-          currentGroup.add(curr);
-        } else {
-          grouped.add(currentGroup);
-          currentGroup = [curr];
-        }
-      }
-
-      grouped.add(currentGroup);
-      result[court] = grouped;
-    });
-
-    return result;
   }
 
   void _pickDateTime() async {
@@ -906,7 +941,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   double calculatePrice(int durationInMinutes) {
     // Get all selected slots for the current court
-    final selectedSlots = selectedCourtSlots[selectedCourt] ?? [];
+    final selectedSlots = controller.selectedCourtSlots[controller.selectedCourt] ?? [];
 
     // Calculate total price by summing up each slot's price
     double totalPrice = 0.0;
@@ -944,6 +979,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     String membershipPlan,
     double memberPrice,
     bool isMembershipApplied,
+    String membershipId,
     List<BookingInfo> bookings,
   ) async {
     double total = bookings.fold(
@@ -1044,14 +1080,48 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           Flexible(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Name',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 17,
-                                    color: Colors.grey.shade900,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+
+                                  children: [
+                                    Text(
+                                      'Name',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 17,
+                                        color: Colors.grey.shade900,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    if (isMembershipApplied) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade100,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.amber.shade500,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          membershipPlan,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.amber.shade500,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 const SizedBox(height: 4),
 
@@ -1072,10 +1142,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             .contains(pattern.toLowerCase());
                                       }).toList();
                                     },
-                                    builder: (context, controller, focusNode) {
+                                    builder: (context, _, focusNode) {
                                       return TextFormField(
-                                        controller: controller,
+                                        controller: nameController,
                                         focusNode: focusNode,
+                                        keyboardType: TextInputType.name,
+                                        validator: (value) {
+                                          if (value == null ||
+                                              value.trim().isEmpty) {
+                                            return 'Name is required';
+                                          }
+
+                                          return null;
+                                        },
                                         style: GoogleFonts.inter(
                                           fontSize: 16,
                                           color: Colors.grey.shade900,
@@ -1134,37 +1213,63 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         MediaQuery.of(context).size.width *
                                         0.50,
                                   ),
-                                  child: TextFormField(
+                                  child: TypeAheadField<Map<String, dynamic>>(
                                     controller: mobileController,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 16,
-                                      color: Colors.grey.shade900,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    keyboardType: TextInputType.phone,
-                                    //  initialValue: '0465 657 456',
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 10,
-                                            horizontal: 12,
+                                    suggestionsCallback: (pattern) {
+                                      if (pattern.isEmpty) return [];
+                                      return controller.userList.where((user) {
+                                        return user['mobile']!
+                                            .toLowerCase()
+                                            .contains(pattern.toLowerCase());
+                                      }).toList();
+                                    },
+                                    builder: (context, _, focusNode) {
+                                      return TextFormField(
+                                        controller: mobileController,
+                                        focusNode: focusNode,
+                                        keyboardType: TextInputType.phone,
+                                        validator: (value) {
+                                          if (value == null ||
+                                              value.trim().isEmpty) {
+                                            return 'Mobile number is required';
+                                          }
+                                          if (!RegExp(
+                                            r'^[0-9]{10}$',
+                                          ).hasMatch(value)) {
+                                            return 'Enter a valid 10-digit number';
+                                          }
+                                          return null;
+                                        },
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade900,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                vertical: 10,
+                                                horizontal: 12,
+                                              ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Mobile number is required';
-                                      }
-                                      if (!RegExp(
-                                        r'^[0-9]{10}$',
-                                      ).hasMatch(value)) {
-                                        return 'Enter a valid 10-digit number';
-                                      }
-                                      return null;
+                                        ),
+                                      );
+                                    },
+                                    itemBuilder: (context, suggestion) {
+                                      return ListTile(
+                                        title: Text(suggestion['name']),
+                                        subtitle: Text(suggestion['mobile']),
+                                      );
+                                    },
+                                    onSelected: (suggestion) {
+                                      nameController.text = suggestion['name'];
+                                      mobileController.text =
+                                          suggestion['mobile'];
                                     },
                                   ),
                                 ),
@@ -1337,7 +1442,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Spacer(),
 
                                 Text(
-                                  '\$ ${memberPrice}',
+                                  '\$ ${memberPrice.toStringAsFixed(2)}',
                                   style: GoogleFonts.inter(
                                     fontSize: 16,
                                     color: Colors.amber.shade600,
@@ -1422,11 +1527,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
-                              setState(() {
-                                selectedCourtSlots
-                                    .clear(); // Clear all selected slots
-                                selectedCourt = null;
-                              });
+                              controller.clearSelectedSlots();
                               Navigator.pop(context);
                             },
                             style: ElevatedButton.styleFrom(
@@ -1443,29 +1544,31 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        if (isMembershipApplied) ...[
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                showAdvanceBookingDialog(context, bookings);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: Text(
-                                "Advance Booking",
-                                style: GoogleFonts.inter(
-                                  fontSize: 17,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ] else ...[
+                        //const SizedBox(width: 8),
+
+                        // if (isMembershipApplied) ...[
+                        //   Expanded(
+                        //     child: ElevatedButton(
+                        //       onPressed: () {
+                        //         Navigator.pop(context);
+                        //         showAdvanceBookingDialog(context, bookings);
+                        //       },
+                        //       style: ElevatedButton.styleFrom(
+                        //         backgroundColor: Colors.black,
+                        //         foregroundColor: Colors.white,
+                        //       ),
+                        //       child: Text(
+                        //         "Advance Booking",
+                        //         style: GoogleFonts.inter(
+                        //           fontSize: 17,
+                        //           color: Colors.white,
+                        //           fontWeight: FontWeight.w600,
+                        //         ),
+                        //       ),
+                        //     ),
+                        //   ),
+                        // ] else ...[
+                        if (!isMembershipApplied) ...[
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
@@ -1487,7 +1590,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             ),
                           ),
                         ],
-
                         const SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton(
@@ -1507,10 +1609,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   context,
                                   nameController.text,
                                   mobileController.text,
-                                  selectedCourt.toString(),
+                                  controller.selectedCourt.toString(),
                                   TotalAmount,
                                   selectedDateTime ?? DateTime.now(),
                                   bookings,
+                                  membershipId,
+                                  membershipPlan,
+                                  isMembershipApplied,
                                 );
                               } else {
                                 showCustomSnackbar(
@@ -1555,6 +1660,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     double billAmount,
     DateTime selectedDateTime,
     List<BookingInfo> bookings,
+    String? selectedMembershipId,
+    String? selectedMembershipPlan,
+    bool isMembershipApplied,
   ) async {
     await showDialog(
       context: parentContext,
@@ -1782,7 +1890,54 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () {},
+                            onPressed: () {
+                              if (controller.userData.value.id != null) {
+                                //Check booking edit selected
+                                if (bookings!.length <= 0) {
+                                  // Create Booking
+                                  populateCartWithSubSlots(bookings);
+                                  controller.processCheckout(
+                                    name: controller.nameController.text,
+                                    email: controller.userData.value.email,
+                                    mobile: controller.userData.value.mobile,
+                                    paymentType: 'Cash',
+                                    promoCode: '',
+                                    notes: '',
+                                  );
+                                } else {
+                                  populateCartWithSubSlots(bookings);
+                                  //Update Booking
+                                  if (bookings!.length > 0) {
+                                    controller.updateBookingSlots(
+                                      name: controller.nameController.text,
+                                    );
+                                  }
+                                }
+                              } else {
+                                //Create user and store the booking
+                                controller
+                                    .registerUser(
+                                      mobile:
+                                          controller
+                                              .mobileNumberController
+                                              .text,
+                                      firstName: controller.nameController.text,
+                                    )
+                                    .then((value) {
+                                      //Create Booking
+                                      populateCartWithSubSlots(bookings);
+                                      controller.processCheckout(
+                                        name: controller.nameController.text,
+                                        email: controller.userData.value.email,
+                                        mobile:
+                                            controller.userData.value.mobile,
+                                        paymentType: 'Cash',
+                                        promoCode: '',
+                                        notes: '',
+                                      );
+                                    });
+                              }
+                            },
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.black,
                               side: BorderSide(color: Colors.grey.shade400),
@@ -1815,37 +1970,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   selectedDateTime: selectedDateTime,
                                   billAmount: billAmount,
                                   bookings: bookings,
+                                  membershipID: selectedMembershipId!,
+                                  membershipName: selectedMembershipPlan,
+                                  isMembershipApplied: isMembershipApplied,
                                 ),
                               );
-                              // if (parentContext.mounted) {
-                              //   WidgetsBinding.instance.addPostFrameCallback((
-                              //     _,
-                              //   ) {
-
-                              //     // Navigator.of(parentContext).push(
-                              //     //   MaterialPageRoute(
-                              //     //     builder: (_) => CheckoutScreen(),
-                              //     //   ),
-                              //     // );
-                              //   });
-                              // }
-
-                              // await Future.delayed(Duration(seconds: 2));
-                              // // Navigator.pop(context); // closes dialog
-                              // // ... some async work
-                              // if (!mounted) return;
-                              // // Navigator.of(
-                              // //   context,
-                              // // ).popUntil((route) => route.isFirst);
-                              // // Navigator.pop(parentContext);
-                              // // WidgetsBinding.instance.addPostFrameCallback((_) {
-                              // Navigator.push(
-                              //   context,
-                              //   MaterialPageRoute(
-                              //     builder: (_) => CheckoutScreen(),
-                              //   ),
-                              // );
-                              // });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
@@ -1870,6 +1999,65 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           ),
     );
     // return result ?? false;
+  }
+
+  void populateCartWithSubSlots(List<BookingInfo> bookings) {
+    controller.cartItems.clear(); // Clear any existing items
+
+    for (final bookingInfo in bookings) {
+      final courtId =
+          controller.courtList.firstWhere(
+            (court) => court['name'] == bookingInfo.courtName,
+            orElse: () => {},
+          )?['id']; // Find the court ID based on the name
+
+      if (courtId == null) {
+        print('Warning: Could not find court ID for ${bookingInfo.courtName}');
+        continue; // Skip if court ID is not found
+      }
+
+      for (final subSlotInfo in bookingInfo.subSlots) {
+        final startTime = parseDateTime(
+          selectedDateTime!,
+          subSlotInfo.startTime,
+        );
+        final endTime = parseDateTime(selectedDateTime!, subSlotInfo.endTime);
+        print('selectedDateTime: ${selectedDateTime}');
+        final individualSlot = BookingSlot(
+          serviceId: controller.selectedServiceId.value,
+          courtId: courtId,
+          court: bookingInfo.courtName,
+          date: selectedDateTime, // Set the date to match the startTime
+          startTime: startTime,
+          endTime: endTime,
+          price: subSlotInfo.price,
+          slotType: null,
+          repeatDays: null,
+          repeatEnd: bookingInfo.repeatUntil,
+          repeatId: null,
+          repeatGroupId: null,
+          status: 'Selected',
+          bookingId: bookings.first.bookingId,
+          paymentStatus: 'CASH',
+          name: nameController.text,
+          mobile: mobileController.text,
+          service: controller.selectedCourt.value,
+          updatedAt: DateTime.now(),
+          updatedBy: authController.userId.toString(),
+          userId: authController.userId.toString(),
+        );
+        controller.cartItems.add(individualSlot);
+      }
+      print("SelectedSlots  : ${controller.cartItems}");
+    }
+  }
+
+  // Helper function to combine DateTime and a HH:mm time string
+  DateTime parseDateTime(DateTime date, String time) {
+    final parts = time.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
   //Membership Plan Dialog
@@ -1914,6 +2102,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           .map((e) => e.trim())
                           .toList();
                   isInitialized = true;
+                  selectedMembershipId = plans.first['id'].toString();
                 }
                 return Dialog(
                   backgroundColor: Colors.white,
@@ -1959,6 +2148,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     return GestureDetector(
                                       onTap: () {
                                         setState(() {
+                                          selectedMembershipId =
+                                              plan['id'].toString();
                                           selectedPlan =
                                               plan['name'].toString();
                                           selectedPrice =
@@ -2066,7 +2257,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             ),
                             const SizedBox(height: 8),
                             ...selectedHighlights.map((highlight) {
-                              print("text : $highlight");
                               return Row(
                                 children: [
                                   Icon(
@@ -2113,10 +2303,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Expanded(
                                   child: ElevatedButton(
                                     onPressed: () {
-                                      Navigator.pop(
-                                        context,
-                                      ); // close current booking dialog
-                                      // Then use a post-frame callback to trigger next dialog safely
+                                      Navigator.pop(context);
                                       WidgetsBinding.instance.addPostFrameCallback((
                                         _,
                                       ) {
@@ -2127,13 +2314,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                                           // Now you can pass these values to your booking dialog or controller
                                           print(
-                                            "Selected: $planName | Price: $price | Applied: $isApplied",
+                                            "Selected: $planName | Price: $price | Applied: $isApplied | membershipID: $selectedMembershipId",
                                           );
                                           showBookingDialog(
                                             context,
                                             planName,
                                             price,
                                             isApplied,
+                                            selectedMembershipId!,
                                             bookings,
                                           );
                                         }
@@ -2895,11 +3083,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  // setState(() {
-                                  //   selectedCourtSlots
-                                  //       .clear(); // Clear all selected slots
-                                  //   selectedCourt = null;
-                                  // });
+                                  controller.clearSelectedSlots();
                                   Navigator.pop(context);
                                 },
                                 style: ElevatedButton.styleFrom(

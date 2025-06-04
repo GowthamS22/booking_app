@@ -6,16 +6,14 @@ import 'package:get/get.dart';
 import 'package:booking_app/controllers/order_controller.dart';
 import 'package:booking_app/models/booking_model.dart';
 
-import '../../checkout/checkout_screen.dart';
-
-class UpcomingTabScreen extends StatefulWidget {
-  const UpcomingTabScreen({super.key});
+class AllBookingTabScreen extends StatefulWidget {
+  const AllBookingTabScreen({super.key});
 
   @override
-  State<UpcomingTabScreen> createState() => _UpcomingTabScreenState();
+  State<AllBookingTabScreen> createState() => _AllBookingTabScreenState();
 }
 
-class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
+class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
   final OrderController bookingController = Get.put(OrderController());
   bool isGridView = false;
   List<bool> selectedRows = [];
@@ -54,7 +52,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -63,18 +61,19 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Upcoming Bookings",
+                      "All Bookings",
                       style: GoogleFonts.inter(
-                        fontSize: 20,
+                        fontSize: 18,
                         color: Colors.black,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
-                      "Bookings scheduled to start soon",
+                      "Complete list of all booked slots",
                       style: GoogleFonts.inter(
-                        fontSize: 18,
-                        color: Colors.grey,
+                        fontSize: 16,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ],
@@ -98,8 +97,8 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                       Text(
                         'Today',
                         style: GoogleFonts.inter(
-                          fontSize: 18,
-                          color: Colors.black,
+                          fontSize: 16,
+                          color: Colors.grey.shade900,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -117,8 +116,9 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                       decoration: InputDecoration(
                         hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: Colors.grey,
+                          fontSize: 16,
+                          color: Colors.grey.shade400,
+                          fontWeight: FontWeight.w400,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -169,7 +169,9 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                             LucideIcons.layoutGrid,
                             size: 20,
                             color:
-                                isGridView ? Colors.indigoAccent : Colors.grey,
+                                isGridView
+                                    ? Colors.indigo.shade500
+                                    : Colors.grey.shade900,
                           ),
                         ),
                       ),
@@ -191,7 +193,9 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                             LucideIcons.layoutList,
                             size: 20,
                             color:
-                                !isGridView ? Colors.indigoAccent : Colors.grey,
+                                !isGridView
+                                    ? Colors.indigo.shade500
+                                    : Colors.grey.shade900,
                           ),
                         ),
                       ),
@@ -285,8 +289,9 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                 label: Text(
                                   'Booking ID',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -294,26 +299,35 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                 label: Text(
                                   'Customer',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
                               DataColumn(
-                                label: Text(
-                                  'Date & Time',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
+                                label: Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      'Date & Time',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade900,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
+
                               DataColumn(
                                 label: Text(
                                   'Game & Court',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -321,8 +335,9 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                 label: Text(
                                   'Remaining',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -330,8 +345,9 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                 label: Text(
                                   'Amount',
                                   style: GoogleFonts.inter(
-                                    fontSize: 18,
+                                    fontSize: 16,
                                     fontWeight: FontWeight.w600,
+                                    color: Colors.grey.shade900,
                                   ),
                                 ),
                               ),
@@ -393,7 +409,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                           DataCell(
                                             Column(
                                               crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
+                                                  CrossAxisAlignment.center,
                                               mainAxisAlignment:
                                                   MainAxisAlignment.center,
                                               children: [
@@ -483,7 +499,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                             ElevatedButton(
                                               onPressed: () {
                                                 if (b.paymentStatus != 'Paid') {
-                                                  // CheckoutScreen(type: 'New');
+                                                  //CheckoutScreen(type: 'New');
                                                 }
                                               },
                                               style: ElevatedButton.styleFrom(
@@ -570,7 +586,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
             children: [
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.15,
-                width: MediaQuery.of(context).size.width * 0.12,
+                width: MediaQuery.of(context).size.width * 0.10,
                 child: CircularProgressIndicator(
                   value: duration / 60, // adjust denominator as needed
                   color: getProgressColor(duration),

@@ -12,6 +12,7 @@ import '../config/palette.dart';
 import '../models/booking_model.dart';
 import '../models/shopping_products_models.dart';
 import '../models/user.dart';
+import '../screens/service/tyro_screen.dart';
 import 'customer_controller.dart';
 import 'new_booking_controller.dart';
 import 'default_controller.dart';
@@ -20,6 +21,8 @@ class CheckoutController extends GetxController {
   final supabase = Supabase.instance.client;
   RxBool isLoading = false.obs;
   RxBool checkoutPayBtn = false.obs;
+  RxBool isProcessingPayment = false.obs;
+  RxString paymentStatus = ''.obs;
 
   RxDouble discount = RxDouble(0.0);
 
@@ -28,6 +31,19 @@ class CheckoutController extends GetxController {
   final NewBookingController newBookingController = Get.find();
   final DefaultController defaultController = Get.find();
   final CustomerController customerController = Get.put(CustomerController());
+
+  late TyroService tyroService;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Initialize Tyro service with your credentials
+    tyroService = TyroService(
+      apiKey: 'Test API Key',
+      merchantId: 'YOUR_MERCHANT_ID',
+      isTestMode: true, // Set to false for production
+    );
+  }
 
   Future<void> validatePromocode(String promoCode) async {
     try {
@@ -142,6 +158,7 @@ class CheckoutController extends GetxController {
     double? paid,
     double? balance,
     String? bookingId,
+    bool? isMembershipApplied,
   }) async {
     try {
       final validation = await bulkValidateSlots(
@@ -285,7 +302,7 @@ class CheckoutController extends GetxController {
         print('❌ Exception during insert: $e');
       }
 
-      //printReceipt(bookingSlotItems: newBookingController.cartItems);
+      printReceipt(bookingSlotItems: newBookingController.cartItems);
       newBookingController.cartItems.clear();
       showBookingSuccessAlert();
       isLoading.value = false;
@@ -597,6 +614,80 @@ class CheckoutController extends GetxController {
     }
   }
 
+  Future<void> processTyroPayment({
+    required double amount,
+    required String reference,
+    String? description,
+  }) async {
+    try {
+      isProcessingPayment.value = true;
+      paymentStatus.value = 'Initiating payment...';
+
+      // Initiate payment with Tyro
+      final paymentResponse = await tyroService.initiatePayment(
+        amount: amount,
+        reference: reference,
+        description: description,
+      );
+
+      // Store payment details in Supabase
+      await supabase
+          .schema('s22_prod_schema')
+          .from('payment_transactions')
+          .insert({
+            'payment_id': paymentResponse['id'],
+            'amount': amount,
+            'reference': reference,
+            'status': paymentResponse['status'],
+            'payment_type': 'EFTPOS',
+            'payment_provider': 'Tyro',
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+
+      // Poll for payment status
+      bool isPaymentComplete = false;
+      int attempts = 0;
+      const maxAttempts = 30; // 30 seconds timeout
+
+      while (!isPaymentComplete && attempts < maxAttempts) {
+        await Future.delayed(Duration(seconds: 1));
+        attempts++;
+
+        final statusResponse = await tyroService.getPaymentStatus(
+          paymentResponse['id'],
+        );
+        paymentStatus.value = statusResponse['status'];
+
+        if (statusResponse['status'] == 'completed') {
+          isPaymentComplete = true;
+          // Update payment status in Supabase
+          await supabase
+              .schema('s22_prod_schema')
+              .from('payment_transactions')
+              .update({
+                'status': 'completed',
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('payment_id', paymentResponse['id']);
+        } else if (statusResponse['status'] == 'failed') {
+          throw Exception('Payment failed: ${statusResponse['error_message']}');
+        }
+      }
+
+      if (!isPaymentComplete) {
+        throw Exception('Payment timeout');
+      }
+
+      paymentStatus.value = 'Payment completed successfully';
+    } catch (e) {
+      paymentStatus.value = 'Payment failed: ${e.toString()}';
+      rethrow;
+    } finally {
+      isProcessingPayment.value = false;
+    }
+  }
+
   Future<void> makeBookingPayment({
     String? userId,
     String? subBookingId,
@@ -608,6 +699,16 @@ class CheckoutController extends GetxController {
     List<BookingSlot>? bookingSlots,
   }) async {
     try {
+      if (paymentType == 'EFTPOS') {
+        // Process EFTPOS payment
+        await processTyroPayment(
+          amount: paid!,
+          reference: 'BOOKING-${DateTime.now().millisecondsSinceEpoch}',
+          description: 'Booking payment for ${bookingSlots?.length ?? 0} slots',
+        );
+      }
+
+      // Continue with existing payment processing
       //Insert Booking Payment Details
       var paymentdocRef =
           FirebaseFirestore.instance
@@ -676,50 +777,7 @@ class CheckoutController extends GetxController {
       await batch.commit();
       await paymentBatch.commit();
 
-      // Update Booking Slots Payment
-      /*Map<String?, String?> subBookingToBookingMap = {};
-      for (BookingSlot slot in bookingSlots) {
-        subBookingToBookingMap[slot.subBookingId] = slot.bookingId;
-      }
-
-      if (bookingSlots != null) {
-        Map<String?, double> subBookingTotals = {};
-
-        for (BookingSlot slot in bookingSlots) {
-          subBookingTotals[slot.subBookingId] = (subBookingTotals[slot.subBookingId] ?? 0) + (slot.price ?? 0);
-        }
-
-        WriteBatch paymentBatch = FirebaseFirestore.instance.batch();
-        await Future.forEach(subBookingTotals.entries, (entry) async {
-
-          String? subBookingId = entry.key;
-          String? bookingId    = subBookingToBookingMap[subBookingId];
-
-          if (bookingId != null) {
-            DocumentReference docRef = FirebaseFirestore.instance
-                .collection(authController.centerSlug.toString())
-                .doc('bookingSlotPayments')
-                .collection('bookingSlotPayment')
-                .doc();
-            paymentBatch.set(docRef, {
-              'bookingId': bookingId, // Use the obtained bookingId
-              'subBookingId': subBookingId,
-              'paymentType': paymentType,
-              'total': entry.value,
-              'paidAmount': entry.value,
-              'balance': 0,
-              'status': true,
-              'createdBy': authController.userId.toString(),
-              'updatedBy': authController.userId.toString(),
-              'createdAt': FieldValue.serverTimestamp(),
-              'updatedAt': FieldValue.serverTimestamp(),
-            });
-          }
-        });
-        await paymentBatch.commit();
-      }*/
-
-      //Print Receipt
+      // Print Receipt
       printReceipt(bookingSlotItems: bookingSlots);
 
       // Status Alert
@@ -735,6 +793,7 @@ class CheckoutController extends GetxController {
       });
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      rethrow;
     }
   }
 
@@ -874,18 +933,38 @@ class CheckoutController extends GetxController {
     var dateAndTime = DateFormat('yMd').format(DateTime.now());
     dynamic currentTime = DateFormat('hh:mm:ss').format(DateTime.now());
 
-    DocumentReference docRef = FirebaseFirestore.instance
-        .collection(authController.centerSlug.toString())
-        .doc('admins');
+    final response =
+        await supabase
+            .schema('s22_prod_schema')
+            .from('users') // or your actual table name
+            .select()
+            .single(); // Fetch only one row
 
-    await docRef.get().then((value) {
-      storeName = value.get('name');
-      storeAddress = value.get('address');
-      storeMobile = 'Phone : ${value.get('phone')}';
-      imageUrl = value.get('imageUrl');
-      email = value.get('email');
-      abn = 'ABN : ${value.get('abn')}';
-    });
+    if (response != null) {
+      final data = response;
+
+      storeName = data['name'];
+      storeAddress = data['address'] ?? '123 Main Street, City';
+      storeMobile = 'Phone : ${data['phone']}';
+      //imageUrl = data['imageUrl'];
+      email = data['email'] ?? '';
+      abn = 'ABN : ${data['abn']}' ?? '';
+    } else {
+      // Handle error or null
+    }
+
+    // DocumentReference docRef = FirebaseFirestore.instance
+    //     .collection(authController.centerSlug.toString())
+    //     .doc('admins');
+
+    // await docRef.get().then((value) {
+    //   storeName = value.get('name');
+    //   storeAddress = value.get('address');
+    //   storeMobile = 'Phone : ${value.get('phone')}';
+    //   imageUrl = value.get('imageUrl');
+    //   email = value.get('email');
+    //   abn = 'ABN : ${value.get('abn')}';
+    // });
 
     for (var printerIPs in settingController.printerList) {
       print('checking the IP Address ${printerIPs.printerIP}');

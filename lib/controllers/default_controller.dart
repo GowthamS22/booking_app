@@ -226,30 +226,30 @@ class DefaultController extends GetxController
     //getUpcomingBookingData();
     //getUpcomingBookingSlots();
     super.onInit();
-    tabController = TabController(length: 4, vsync: this);
+    // tabController = TabController(length: 4, vsync: this);
 
-    tabController!.addListener(() {
-      if (tabController!.indexIsChanging) return;
+    // tabController!.addListener(() {
+    //   if (tabController!.indexIsChanging) return;
 
-      switch (tabController!.index) {
-        case 0:
-          bookingController.fetchBookings('active');
-          break;
-        case 1:
-          bookingController.fetchBookings('upcoming');
-          break;
-        case 2:
-          bookingController.fetchBookings('scheduled');
-          break;
-        case 3:
-          bookingController.fetchBookings('all');
-          break;
-      }
-    });
+    //   switch (tabController!.index) {
+    //     case 0:
+    //       bookingController.fetchBookings('active');
+    //       break;
+    //     case 1:
+    //       bookingController.fetchBookings('upcoming');
+    //       break;
+    //     case 2:
+    //       bookingController.fetchBookings('scheduled');
+    //       break;
+    //     case 3:
+    //       bookingController.fetchBookings('all');
+    //       break;
+    //   }
+    // });
 
-    bookingController.fetchBookings('active');
+    // bookingController.fetchBookings('active');
 
-    dashboardTabController = TabController(length: 2, vsync: this);
+    dashboardTabController = TabController(length: 5, vsync: this);
     dashboardTabController!.addListener(() {
       if (dashboardTabController!.indexIsChanging) return;
 
@@ -257,8 +257,20 @@ class DefaultController extends GetxController
         case 0:
           bookingController.fetchBookings('court view');
           break;
+        // case 1:
+        //   bookingController.fetchBookings('Dashboard');
+        //   break;
         case 1:
-          bookingController.fetchBookings('Dashboard');
+          bookingController.fetchBookings('current');
+          break;
+        case 2:
+          bookingController.fetchBookings('upcoming');
+          break;
+        case 3:
+          bookingController.fetchBookings('scheduled');
+          break;
+        case 4:
+          bookingController.fetchBookings('all');
           break;
       }
     });

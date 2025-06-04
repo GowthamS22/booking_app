@@ -4,7 +4,11 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../controllers/default_controller.dart';
+import 'Tabbar/active_tab_screen.dart';
+import 'Tabbar/all_booking_tab_screen.dart';
 import 'Tabbar/court_view_screen.dart';
+import 'Tabbar/schedule_tab_screen.dart';
+import 'Tabbar/upcoming_tab_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,9 +22,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 5,
       child: Scaffold(
-        backgroundColor: Colors.grey.shade200,
+        backgroundColor: Colors.grey.shade100,
         // appBar: AppBar(
         //   automaticallyImplyLeading: false,
         //   elevation: 0,
@@ -117,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 children: [
                   Container(
-                    width: MediaQuery.of(context).size.width / 3.8,
+                    width: MediaQuery.of(context).size.width / 1.8,
                     //    margin: const EdgeInsets.only(left: 16, top: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -141,9 +145,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       labelPadding: const EdgeInsets.symmetric(horizontal: 24),
                       labelColor: Colors.white,
-                      unselectedLabelColor: Colors.black,
+                      unselectedLabelColor: Colors.grey.shade400,
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelStyle: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade50,
+                      ),
+                      unselectedLabelStyle: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
@@ -151,7 +160,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       overlayColor: WidgetStateProperty.all(Colors.transparent),
                       tabs: const [
                         Tab(text: 'Court View'),
-                        Tab(text: 'Dashboard'),
+                        Tab(text: 'Current'),
+                        Tab(text: 'Upcoming'),
+                        Tab(text: 'Scheduled'),
+                        Tab(text: 'All Booking'),
+                        //Tab(text: 'Dashboard'),
                       ],
                     ),
                   ),
@@ -185,7 +198,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: TabBarView(
                   controller: defaultController.dashboardTabController,
                   physics: NeverScrollableScrollPhysics(),
-                  children: [CourtViewScreen(), DashboardTabViewScreen()],
+                  children: [
+                    CourtViewScreen(),
+                    ActiveTabScreen(),
+                    UpcomingTabScreen(),
+                    ScheduledTabScreen(),
+                    AllBookingTabScreen(),
+                    //DashboardTabViewScreen()
+                  ],
                 ),
               ),
             ],

@@ -49,7 +49,7 @@ class OrderController extends GetxController {
           )
         ''');
 
-      if (filterType == 'active') {
+      if (filterType == 'current') {
         final now = DateTime.now();
         final minute = now.minute;
         final slotStart = DateTime(

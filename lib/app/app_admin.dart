@@ -25,15 +25,15 @@ class _AppAdminState extends State<AppAdmin> {
     switch (index) {
       case 0:
         return DashboardScreen();
+      // case 1:
+      //   return OrderScreen();
       case 1:
-        return OrderScreen();
-      case 2:
         return ShoppingScreen();
-      case 3:
+      case 2:
         return CustomerScreen();
-      case 4:
+      case 3:
         return ReportScreen();
-      case 5:
+      case 4:
         return SettingScreen();
       default:
         return DashboardScreen();
