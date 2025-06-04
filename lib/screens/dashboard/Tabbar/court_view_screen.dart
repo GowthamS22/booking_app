@@ -296,7 +296,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 ),
                 child: GestureDetector(
                   onTap: () {
-                    final grouped = controller.groupSelectedSlots(controller.selectedCourtSlots);
+                    final grouped = controller.groupSelectedSlots(
+                      controller.selectedCourtSlots,
+                    );
                     List<BookingInfo> bookings = [];
                     String membershipPlan = '';
                     double memberPrice = 0.0;
@@ -633,7 +635,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               ...sortedCourts.map((court) {
                                 final courtName = court['name'];
                                 final selectedSlots =
-                                    controller.selectedCourtSlots[courtName] ?? [];
+                                    controller.selectedCourtSlots[courtName] ??
+                                    [];
 
                                 return Row(
                                   children: [
@@ -738,7 +741,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           if (isBooked || isPastSlot) return;
                                           setState(() {
                                             final selected =
-                                                controller.selectedCourtSlots[courtName] ??
+                                                controller
+                                                    .selectedCourtSlots[courtName] ??
                                                 [];
                                             if (selected.contains(slot)) {
                                               selected.remove(slot);
@@ -762,9 +766,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 selected.add(slot);
                                               }
                                             }
-                                            controller.selectedCourtSlots[courtName] =
+                                            controller
+                                                    .selectedCourtSlots[courtName] =
                                                 selected;
-                                            controller.selectedCourt.value = courtName;
+                                            controller.selectedCourt.value =
+                                                courtName;
                                           });
                                         },
                                         child: Container(
@@ -849,7 +855,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
       // Use selectedDateTime if available, otherwise use current date
       final date = selectedDateTime ?? DateTime.now();
-      return DateTime(date.year, date.month, date.day, hour, minute);
+      // Create a DateTime with the selected date and the time from the slot string
+      return DateTime(date.year, date.month, date.day, hour, minute, 0, 0, 0);
     } catch (e) {
       print('Error parsing time: $e');
       return DateTime.now();
@@ -918,7 +925,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     });
 
     // Refresh slots based on new date
-    await fetchSlotInfo();
+    await Future.wait([
+      fetchSlotInfo(), // Refresh slot info (peak status, price)
+      controller.fetchBookedSlots(), // Fetch booked slots for the new date
+    ]);
   }
 
   String calculateEndTime(String lastSlot) {
@@ -941,7 +951,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   double calculatePrice(int durationInMinutes) {
     // Get all selected slots for the current court
-    final selectedSlots = controller.selectedCourtSlots[controller.selectedCourt] ?? [];
+    final selectedSlots =
+        controller.selectedCourtSlots[controller.selectedCourt] ?? [];
 
     // Calculate total price by summing up each slot's price
     double totalPrice = 0.0;
