@@ -121,7 +121,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 children: [
                   Container(
-                    width: MediaQuery.of(context).size.width / 1.8,
+                    width: MediaQuery.of(context).size.width / 2.0,
                     //    margin: const EdgeInsets.only(left: 16, top: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -143,19 +143,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: Colors.indigo.shade500,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      labelPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      indicatorPadding: EdgeInsets.all(4),
+                      // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.grey.shade400,
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelStyle: GoogleFonts.inter(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: Colors.grey.shade50,
                       ),
                       unselectedLabelStyle: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
+
                       dividerColor: Colors.transparent,
                       overlayColor: WidgetStateProperty.all(Colors.transparent),
                       tabs: const [
@@ -168,6 +170,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
+
                   Spacer(),
                   Text(
                     DateFormat('MMM d, yyyy').format(DateTime.now()),

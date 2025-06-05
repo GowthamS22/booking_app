@@ -33,21 +33,13 @@ class _SidebarMenuState extends State<SidebarMenu> {
         theme: SidebarXTheme(
           decoration: const BoxDecoration(color: Colors.white),
           margin: EdgeInsets.zero,
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           itemTextPadding: EdgeInsets.zero,
-          itemMargin: const EdgeInsets.symmetric(vertical: 10),
+          // itemMargin: const EdgeInsets.symmetric(vertical: 5),
           selectedItemTextPadding: EdgeInsets.zero,
           textStyle: const TextStyle(color: Colors.transparent),
           selectedTextStyle: const TextStyle(color: Colors.transparent),
           iconTheme: const IconThemeData(color: Colors.grey, size: 33),
-          // selectedIconTheme: IconThemeData(
-          //   color: Colors.indigo.shade50,
-          //   size: 24,
-          // ),
-          // selectedItemDecoration: BoxDecoration(
-          //   color: Color(0xFFEAEFFF),
-          //   borderRadius: BorderRadius.circular(10), // square shape
-          // ),
           itemDecoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10), // square
           ),
@@ -97,27 +89,23 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
 
             iconWidget: Center(
-              child: FittedBox(
-                child: Container(
-                  width: 45,
-                  height: 45,
-                  decoration: BoxDecoration(
-                    color:
-                        controller.selectedIndex == 0
-                            ? Color(0xFFEAEFFF)
-                            : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      LucideIcons.layoutDashboard,
-                      color:
-                          controller.selectedIndex == 0
-                              ? Colors.indigo
-                              : Colors.grey,
-                      size: 24,
-                    ),
-                  ),
+              child: Container(
+                width: 35,
+                height: 35,
+                decoration: BoxDecoration(
+                  color:
+                      controller.selectedIndex == 0
+                          ? Color(0xFFEAEFFF)
+                          : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  LucideIcons.layoutDashboard,
+                  color:
+                      controller.selectedIndex == 0
+                          ? Colors.indigo
+                          : Colors.grey,
+                  size: 22,
                 ),
               ),
             ),
@@ -129,8 +117,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
             iconWidget: Center(
               child: Container(
-                width: 40,
-                height: 40,
+                width: 35,
+                height: 35,
                 decoration: BoxDecoration(
                   color:
                       controller.selectedIndex == 1
@@ -138,15 +126,13 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Center(
-                  child: Icon(
-                    LucideIcons.shoppingCart,
-                    color:
-                        controller.selectedIndex == 1
-                            ? Colors.indigo.shade900
-                            : Colors.grey,
-                    size: 24,
-                  ),
+                child: Icon(
+                  LucideIcons.shoppingCart,
+                  color:
+                      controller.selectedIndex == 1
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
+                  size: 22,
                 ),
               ),
             ),
@@ -157,8 +143,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
             iconWidget: Center(
               child: Container(
-                width: 40,
-                height: 40,
+                width: 35,
+                height: 35,
                 decoration: BoxDecoration(
                   color:
                       controller.selectedIndex == 2
@@ -166,15 +152,13 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Center(
-                  child: Icon(
-                    LucideIcons.users,
-                    color:
-                        controller.selectedIndex == 2
-                            ? Colors.indigo.shade900
-                            : Colors.grey,
-                    size: 24,
-                  ),
+                child: Icon(
+                  LucideIcons.users,
+                  color:
+                      controller.selectedIndex == 2
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
+                  size: 22,
                 ),
               ),
             ),
@@ -185,8 +169,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
             iconWidget: Center(
               child: Container(
-                width: 40,
-                height: 40,
+                width: 35,
+                height: 35,
                 decoration: BoxDecoration(
                   color:
                       controller.selectedIndex == 3
@@ -194,15 +178,13 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Center(
-                  child: Icon(
-                    LucideIcons.settings,
-                    color:
-                        controller.selectedIndex == 3
-                            ? Colors.indigo.shade900
-                            : Colors.grey,
-                    size: 24,
-                  ),
+                child: Icon(
+                  LucideIcons.settings,
+                  color:
+                      controller.selectedIndex == 3
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
+                  size: 22,
                 ),
               ),
             ),
@@ -213,8 +195,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
             iconWidget: Center(
               child: Container(
-                width: 40,
-                height: 40,
+                width: 35,
+                height: 35,
                 decoration: BoxDecoration(
                   color:
                       controller.selectedIndex == 4
@@ -222,15 +204,13 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Center(
-                  child: Icon(
-                    LucideIcons.pieChart,
-                    color:
-                        controller.selectedIndex == 4
-                            ? Colors.indigo.shade900
-                            : Colors.grey,
-                    size: 24,
-                  ),
+                child: Icon(
+                  LucideIcons.pieChart,
+                  color:
+                      controller.selectedIndex == 4
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
+                  size: 22,
                 ),
               ),
             ),
@@ -241,8 +221,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
             },
             iconWidget: Center(
               child: Container(
-                width: 40,
-                height: 40,
+                width: 35,
+                height: 35,
                 decoration: BoxDecoration(
                   color:
                       controller.selectedIndex == 5
@@ -250,20 +230,19 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Center(
-                  child: Icon(
-                    LucideIcons.bell, // or Icons.notifications_none_rounded
-                    color:
-                        controller.selectedIndex == 5
-                            ? Colors.indigo.shade900
-                            : Colors.grey,
-                    size: 24,
-                  ),
+                child: Icon(
+                  LucideIcons.bell, // or Icons.notifications_none_rounded
+                  color:
+                      controller.selectedIndex == 5
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
+                  size: 22,
                 ),
               ),
             ),
           ),
         ],
+
         footerBuilder:
             (context, extended) => Padding(
               padding: const EdgeInsets.only(bottom: 16),

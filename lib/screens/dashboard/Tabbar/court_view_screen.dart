@@ -199,90 +199,96 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Icon(Icons.date_range_sharp, size: 22),
+                child: Icon(Icons.date_range_sharp, size: 20),
               ),
             ),
             const SizedBox(width: 10),
-            Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 150),
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.3,
-                  child: DropdownButtonFormField<String>(
-                    value:
-                        (controller.selectedServiceId.value.isNotEmpty)
-                            ? controller.selectedServiceId.value
-                            : null,
-                    items:
-                        controller.serviceList.map((item) {
-                          return DropdownMenuItem<String>(
-                            value: item['id'],
-                            child: Text(
-                              '${item['name']}',
-                              style: GoogleFonts.inter(fontSize: 15 * ffem),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (value) async {
-                      if (value != null) {
-                        try {
-                          controller.isLoading.value = true;
+            SizedBox(
+              width: MediaQuery.of(context).size.width / 7,
+              child: DropdownButtonFormField<String>(
+                value:
+                    (controller.selectedServiceId.value.isNotEmpty)
+                        ? controller.selectedServiceId.value
+                        : null,
+                items:
+                    controller.serviceList.map((item) {
+                      return DropdownMenuItem<String>(
+                        value: item['id'],
+                        child: Text(
+                          '${item['name']}',
+                          style: GoogleFonts.inter(fontSize: 15 * ffem),
+                        ),
+                      );
+                    }).toList(),
+                onChanged: (value) async {
+                  if (value != null) {
+                    try {
+                      controller.isLoading.value = true;
 
-                          setState(() {
-                            controller.selectedServiceId.value = value;
-                          });
+                      setState(() {
+                        controller.selectedServiceId.value = value;
+                      });
 
-                          // Fetch court list and booked slots in parallel
-                          await Future.wait([
-                            controller.fetchCourtList(),
-                            controller.fetchBookedSlots(),
-                          ]);
+                      // Fetch court list and booked slots in parallel
+                      await Future.wait([
+                        controller.fetchCourtList(),
+                        controller.fetchBookedSlots(),
+                      ]);
 
-                          // Clear and reload court list
-                          controller.courtList.clear();
-                          await controller.fetchCourtList();
+                      // Clear and reload court list
+                      controller.courtList.clear();
+                      await controller.fetchCourtList();
 
-                          // Fetch slot info
-                          await fetchSlotInfo();
-                        } catch (error) {
-                          print('Error loading data: $error');
-                        } finally {
-                          controller.isLoading.value = false;
-                        }
-                      }
-                    },
-                    onSaved: (value) {},
-                    decoration: InputDecoration(
-                      hintText: 'Select game',
-                      hintStyle: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      isDense: true,
-                    ),
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      color: Colors.black,
-                      fontWeight: FontWeight.w500,
+                      // Fetch slot info
+                      await fetchSlotInfo();
+                    } catch (error) {
+                      print('Error loading data: $error');
+                    } finally {
+                      controller.isLoading.value = false;
+                    }
+                  }
+                },
+                onSaved: (value) {},
+                decoration: InputDecoration(
+                  hintText: 'Select game',
+                  hintStyle: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(
+                      color: Colors.grey.shade500,
+                      width: 1.5,
                     ),
                   ),
+                  isDense: true,
+                ),
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  color: Colors.grey.shade900,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             if (controller.selectedCourtSlots.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -374,11 +380,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: GestureDetector(
                   onTap: () {
                     controller.clearSelectedSlots();
+                    setState(() {}); // Add setState to rebuild the UI
                   },
                   child: Text(
                     'Clear Selection',
@@ -486,7 +493,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     // AM/PM Header
                     Positioned(
                       top: 0,
-                      left: 120,
+                      left: 111,
                       right: 0,
                       height: 20,
                       child: SingleChildScrollView(
@@ -497,7 +504,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             // AM block
                             if (amSlots.isNotEmpty)
                               Container(
-                                width: amSlots.length * 82, // width per slot
+                                width: amSlots.length * 82,
                                 alignment: Alignment.center,
                                 color: Colors.grey.shade200,
                                 child: Text(
@@ -531,8 +538,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                     // Top Time Slot Header
                     Positioned(
-                      top: 20, // Adjusted position
-                      left: 120,
+                      top: 20, // Adjusted position (SizedBox 16 + AM/PM 20)
+                      left: 111,
                       right: 0,
                       height: 50,
                       child: SingleChildScrollView(
@@ -589,18 +596,18 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                     // Left Court Name Column
                     Positioned(
-                      top: 70, // Adjusted position (50 + 20 for AM/PM header)
+                      top: 70,
                       left: 0,
                       bottom: 0,
-                      width: 120,
+                      width: 111,
                       child: SingleChildScrollView(
                         controller: _leftVerticalController,
                         child: Column(
                           children:
                               sortedCourts.map((court) {
                                 return Container(
-                                  width: 160,
-                                  height: 60,
+                                  width: 111,
+                                  height: 58,
                                   alignment: Alignment.centerLeft,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -617,9 +624,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         ),
                       ),
                     ),
+
                     Positioned(
                       top: 70, // Adjusted position
-                      left: 120,
+                      left: 111,
                       right: 0,
                       bottom: 0,
                       child: SingleChildScrollView(
@@ -722,10 +730,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                                         return Container(
                                           width: span * 80.0,
-                                          height: 60,
-                                          color: Colors.red.shade50,
+                                          height: 58,
+                                          // color: Colors.red.shade50,
                                           alignment: Alignment.center,
-                                          margin: const EdgeInsets.all(1),
+                                          margin: EdgeInsets.zero,
+                                          decoration: BoxDecoration(
+                                            color: Colors.red.shade50,
+                                            border: Border.all(
+                                              color: Colors.grey.shade200,
+                                            ),
+                                          ),
                                           child: Text(
                                             currentUser,
                                             style: GoogleFonts.inter(
@@ -777,7 +791,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           width: 80.0 * mergeSpan,
                                           height: 58,
                                           alignment: Alignment.center,
-                                          margin: const EdgeInsets.all(1),
+                                          margin: EdgeInsets.zero,
                                           decoration: BoxDecoration(
                                             color:
                                                 isSelected
@@ -790,9 +804,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             border: Border.all(
                                               color: Colors.grey.shade300,
                                             ),
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
+                                            // borderRadius: BorderRadius.circular(
+                                            //   4,
+                                            // ),
                                           ),
                                           child: Icon(
                                             isSelected
@@ -825,7 +839,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Positioned(
                       top: 0,
                       left: 0,
-                      width: 120,
+                      width: 111,
                       height: 70,
                       child: Container(
                         color: Colors.white,
@@ -1903,29 +1917,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           child: OutlinedButton(
                             onPressed: () {
                               if (controller.userData.value.id != null) {
-                                //Check booking edit selected
-                                if (bookings!.length <= 0) {
-                                  // Create Booking
-                                  populateCartWithSubSlots(bookings);
-                                  controller.processCheckout(
-                                    name: controller.nameController.text,
-                                    email: controller.userData.value.email,
-                                    mobile: controller.userData.value.mobile,
-                                    paymentType: 'Cash',
-                                    promoCode: '',
-                                    notes: '',
-                                  );
-                                } else {
-                                  populateCartWithSubSlots(bookings);
-                                  //Update Booking
-                                  if (bookings!.length > 0) {
-                                    controller.updateBookingSlots(
-                                      name: controller.nameController.text,
-                                    );
-                                  }
-                                }
+                                // User exists, create booking with pending payment
+                                populateCartWithSubSlots(bookings);
+                                controller.processCheckout(
+                                  name: controller.nameController.text,
+                                  email: controller.userData.value.email,
+                                  mobile: controller.userData.value.mobile,
+                                  paymentType:
+                                      'Pending', // Set payment type as Pending
+                                  promoCode: '',
+                                  notes:
+                                      'Payment pending - Pay Later option selected',
+                                );
                               } else {
-                                //Create user and store the booking
+                                // Create new user and then create booking with pending payment
                                 controller
                                     .registerUser(
                                       mobile:
@@ -1935,16 +1940,18 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       firstName: controller.nameController.text,
                                     )
                                     .then((value) {
-                                      //Create Booking
+                                      // Create booking with pending payment
                                       populateCartWithSubSlots(bookings);
                                       controller.processCheckout(
                                         name: controller.nameController.text,
                                         email: controller.userData.value.email,
                                         mobile:
                                             controller.userData.value.mobile,
-                                        paymentType: 'Cash',
+                                        paymentType:
+                                            'Pending', // Set payment type as Pending
                                         promoCode: '',
-                                        notes: '',
+                                        notes:
+                                            'Payment pending - Pay Later option selected',
                                       );
                                     });
                               }
