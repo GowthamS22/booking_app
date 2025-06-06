@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../config/constants.dart';
-import '../config/palette.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/default_controller.dart';
-import '../screens/booking/new_booking_screen.dart';
 
 class AppScaffold extends StatefulWidget {
   const AppScaffold({required this.sidebar, required this.body});

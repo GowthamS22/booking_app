@@ -79,7 +79,7 @@ class DefaultController extends GetxController
   bool allSortAscending = true;
   int allSortColumnIndex = 1;
 
-  List<Booking> bookingList = []; // Populate this list with your user data
+  List<Booking> bookingList = [];
   List<Booking> filteredBookingList = [];
   bool BookingSortAscending = true;
   int BookingSortColumnIndex = 1;

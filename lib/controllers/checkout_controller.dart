@@ -936,9 +936,9 @@ class CheckoutController extends GetxController {
     final response =
         await supabase
             .schema('s22_prod_schema')
-            .from('users') // or your actual table name
+            .from('store_details')
             .select()
-            .single(); // Fetch only one row
+            .single();
 
     if (response != null) {
       final data = response;
@@ -966,14 +966,11 @@ class CheckoutController extends GetxController {
     //   abn = 'ABN : ${value.get('abn')}';
     // });
 
-    for (var printerIPs in settingController.printerList) {
-      print('checking the IP Address ${printerIPs.printerIP}');
+    for (var printerIPs in printerController.pairedPrinters) {
+      print('checking the IP Address ${printerIPs.ip}');
 
-      final printerIp = '${printerIPs.printerIP}';
-      final PosPrintResult res = await printer.connect(
-        printerIp,
-        port: printerIPs.printerPort!,
-      );
+      final printerIp = '${printerIPs.ip}';
+      final PosPrintResult res = await printer.connect(printerIp, port: 9100);
       if (res != PosPrintResult.success) {
         shoppingController.productsCartModal.clear();
         showCustomSnackbar(

@@ -1,12 +1,12 @@
 import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/screens/dashboard/dashboardScreen.dart';
-import 'package:booking_app/screens/order/order_screen.dart';
 import 'package:booking_app/widgets/sidebar_menu.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../screens/screens.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/default_controller.dart';
+import '../screens/setting/printer_screen.dart';
 import '../screens/shopping/shopping.dart';
 import '../widgets/app_scaffold.dart';
 
@@ -32,9 +32,11 @@ class _AppAdminState extends State<AppAdmin> {
       case 2:
         return CustomerScreen();
       case 3:
-        return ReportScreen();
+        return PrinterScreen();
       case 4:
-        return SettingScreen();
+        return ReportScreen();
+      case 5:
+        return PrinterScreen();
       default:
         return DashboardScreen();
     }

@@ -1,21 +1,29 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:get/get.dart';
-class PrinterModal {
-  String? printerIP;
-  int? printerPort;
 
-  PrinterModal({
-   this.printerIP,this.printerPort,
-  });
+class PrinterModel {
+  String name;
+  String ip;
+  String port;
+  RxBool isEditing;
 
-  factory PrinterModal.fromDocumentSnapshot(DocumentSnapshot data){
+  PrinterModel({
+    required this.name,
+    required this.ip,
+    required this.port,
+    bool isEditing = false,
+  }) : this.isEditing = isEditing.obs;
 
-    print('showing the printer data ${data['printerDetails']['printerIP']}');
-    return
-      PrinterModal(
-        printerIP: data['printerDetails']['printerIP'],
-        printerPort: data['printerDetails']['printerPort'],
-      );
-  }
+  factory PrinterModel.fromJson(Map<String, dynamic> json) => PrinterModel(
+    name: json['name'],
+    ip: json['ip'],
+    port: json['port'],
+    isEditing: json['isEditing'] ?? false,
+  );
 
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'ip': ip,
+    'port': port,
+    'isEditing': isEditing.value,
+  };
 }

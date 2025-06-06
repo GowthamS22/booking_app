@@ -14,7 +14,6 @@ class SettingScreen extends StatefulWidget {
 }
 
 class _SettingScreenState extends State<SettingScreen> {
-
   final _formKey = GlobalKey<FormState>();
 
   TextEditingController printerIpController = TextEditingController();
@@ -23,80 +22,89 @@ class _SettingScreenState extends State<SettingScreen> {
   @override
   Widget build(BuildContext context) {
     return GetBuilder(
-      init: SettingController(),
+      init: PrinterController(),
       builder: (controller) {
         return Container(
           padding: EdgeInsets.all(20),
           child: Column(
-            children: [
-              buildBody(controller),
-              buildStreamPrinterIP(controller),
-            ],
+            children: [buildBody(controller), buildStreamPrinterIP(controller)],
           ),
         );
       },
     );
   }
 
-  buildStreamPrinterIP(SettingController settingController) {
-    return
-      Obx(() {
-        return ListView.separated(
-            shrinkWrap: true,
-            separatorBuilder: (context, index) => SizedBox(height: 10,),
-            itemCount: settingController.printerList.length,
-            itemBuilder: (context, index) {
-              return ListTile(
-                title: Text('Printer IP : ${settingController.printerList[index]
-                    .printerIP}',
-                  style: TextStyle(fontSize: 18 * ffem,
-                      fontWeight: FontWeight.bold,
-                      color: Palette.primaryColor),),
-                trailing: Text(
-                  'Printer Port : ${settingController.printerList[index]
-                      .printerPort}',
-                  style: TextStyle(fontSize: 18 * ffem,
-                      fontWeight: FontWeight.bold,
-                      color: Palette.primaryColor),),
-              );
-            }
-        );
-      });
+  buildStreamPrinterIP(PrinterController settingController) {
+    return Obx(() {
+      return ListView.separated(
+        shrinkWrap: true,
+        separatorBuilder: (context, index) => SizedBox(height: 10),
+        itemCount: settingController.pairedPrinters.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(
+              'Printer IP : ${settingController.pairedPrinters[index]}',
+              style: TextStyle(
+                fontSize: 18 * ffem,
+                fontWeight: FontWeight.bold,
+                color: Palette.primaryColor,
+              ),
+            ),
+            trailing: Text(
+              'Printer Port : 9100',
+              style: TextStyle(
+                fontSize: 18 * ffem,
+                fontWeight: FontWeight.bold,
+                color: Palette.primaryColor,
+              ),
+            ),
+          );
+        },
+      );
+    });
   }
 
-  buildBody(SettingController controller) {
+  buildBody(PrinterController controller) {
     return ListView(
       shrinkWrap: true,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Settings', style: TextStyle(fontSize: 18 * ffem,
+            Text(
+              'Settings',
+              style: TextStyle(
+                fontSize: 18 * ffem,
                 fontWeight: FontWeight.bold,
-                color: Palette.primaryColor),),
+                color: Palette.primaryColor,
+              ),
+            ),
             Divider(height: 40, color: Palette.darkGrey),
             Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Printer Settings', style: TextStyle(
+                  Text(
+                    'Printer Settings',
+                    style: TextStyle(
                       fontSize: 16 * ffem,
                       fontWeight: FontWeight.bold,
-                      color: Palette.primaryColor),),
-                  SizedBox(height: 20,),
+                      color: Palette.primaryColor,
+                    ),
+                  ),
+                  SizedBox(height: 20),
                   Row(
                     children: [
                       Row(
                         children: [
-                          Text('Printer IP', style: TextStyle(
-                              fontSize: 15 * ffem),),
-                          SizedBox(width: 10,),
+                          Text(
+                            'Printer IP',
+                            style: TextStyle(fontSize: 15 * ffem),
+                          ),
+                          SizedBox(width: 10),
                           Container(
-                            width: MediaQuery
-                                .of(context)
-                                .size
-                                .width / 6.5,
+                            width: MediaQuery.of(context).size.width / 6.5,
                             child: TextFormField(
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -107,39 +115,42 @@ class _SettingScreenState extends State<SettingScreen> {
                               controller: printerIpController,
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                        color: Palette.lightGrey, width: 2),
-                                    borderRadius: BorderRadius.circular(
-                                        5 * ffem)),
+                                  borderSide: BorderSide(
+                                    color: Palette.lightGrey,
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(5 * ffem),
+                                ),
                                 contentPadding: EdgeInsets.symmetric(
-                                    vertical: 10 * ffem, horizontal: 15),
+                                  vertical: 10 * ffem,
+                                  horizontal: 15,
+                                ),
                               ),
                               style: TextStyle(fontSize: 15 * ffem),
                             ),
-                          )
+                          ),
                         ],
                       ),
-                      SizedBox(width: 30,),
+                      SizedBox(width: 30),
                       Row(
                         children: [
-                          Text('Printer Port', style: TextStyle(
-                              fontSize: 15 * ffem),),
-                          SizedBox(width: 10,),
+                          Text(
+                            'Printer Port',
+                            style: TextStyle(fontSize: 15 * ffem),
+                          ),
+                          SizedBox(width: 10),
                           Container(
-                            width: MediaQuery
-                                .of(context)
-                                .size
-                                .width / 6.5,
+                            width: MediaQuery.of(context).size.width / 6.5,
                             child: TextFormField(
                               controller: printerPortController,
                               keyboardType: TextInputType.number,
                               inputFormatters: <TextInputFormatter>[
                                 // for below version 2 use this
                                 FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9]')),
-// for version 2 and greater youcan also use this
-                                FilteringTextInputFormatter.digitsOnly
-
+                                  RegExp(r'[0-9]'),
+                                ),
+                                // for version 2 and greater youcan also use this
+                                FilteringTextInputFormatter.digitsOnly,
                               ],
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -149,49 +160,60 @@ class _SettingScreenState extends State<SettingScreen> {
                               },
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
-                                    borderSide: BorderSide(
-                                        color: Palette.lightGrey, width: 2),
-                                    borderRadius: BorderRadius.circular(
-                                        5 * ffem)),
+                                  borderSide: BorderSide(
+                                    color: Palette.lightGrey,
+                                    width: 2,
+                                  ),
+                                  borderRadius: BorderRadius.circular(5 * ffem),
+                                ),
                                 contentPadding: EdgeInsets.symmetric(
-                                    vertical: 10 * ffem, horizontal: 15),
+                                  vertical: 10 * ffem,
+                                  horizontal: 15,
+                                ),
                               ),
                               style: TextStyle(fontSize: 15 * ffem),
                             ),
-                          )
+                          ),
                         ],
                       ),
-                      SizedBox(width: 30,),
+                      SizedBox(width: 30),
                       ElevatedButton(
-                        child: Text('Save', style: TextStyle(fontSize: 15 *
-                            ffem, color: Palette.white),),
                         onPressed: () {
-                          settingController.savingSettingsPrinter(
-                              printerIpController.text,
-                              int.parse(printerPortController.text));
+                          // settingController.savingSettingsPrinter(
+                          //     printerIpController.text,
+                          //     int.parse(printerPortController.text));
                         },
                         style: ButtonStyle(
-                            backgroundColor: MaterialStatePropertyAll(Palette
-                                .primaryColor),
-                            padding: MaterialStatePropertyAll(EdgeInsets
-                                .symmetric(
-                                vertical: 10 * ffem, horizontal: 15 * ffem)),
-                            shape: MaterialStatePropertyAll(
-                                RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      5 * ffem),
-                                ))
+                          backgroundColor: MaterialStatePropertyAll(
+                            Palette.primaryColor,
+                          ),
+                          padding: MaterialStatePropertyAll(
+                            EdgeInsets.symmetric(
+                              vertical: 10 * ffem,
+                              horizontal: 15 * ffem,
+                            ),
+                          ),
+                          shape: MaterialStatePropertyAll(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(5 * ffem),
+                            ),
+                          ),
                         ),
-                      )
+                        child: Text(
+                          'Save',
+                          style: TextStyle(
+                            fontSize: 15 * ffem,
+                            color: Palette.white,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-
-
                 ],
               ),
             ),
           ],
-        )
+        ),
       ],
     );
   }

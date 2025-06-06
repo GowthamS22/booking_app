@@ -54,6 +54,7 @@ dependencies:
   sidebarx: ^0.17.1
   lucide_icons: ^0.257.0
   flutter_typeahead: ^5.2.0
+  network_info_plus: ^6.1.4
 
 dev_dependencies:
   flutter_test:
