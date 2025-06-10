@@ -39,8 +39,8 @@ class CheckoutController extends GetxController {
     super.onInit();
     // Initialize Tyro service with your credentials
     tyroService = TyroService(
-      apiKey: 'Test API Key',
-      merchantId: 'YOUR_MERCHANT_ID',
+      apiKey: 'd69af83751574e280f3f6738c5a9760f',
+      merchantId: '1',
       isTestMode: true, // Set to false for production
     );
   }
@@ -703,7 +703,7 @@ class CheckoutController extends GetxController {
         // Process EFTPOS payment
         await processTyroPayment(
           amount: paid!,
-          reference: 'BOOKING-${DateTime.now().millisecondsSinceEpoch}',
+          reference: bookingSlots?.first.bookingId ?? '',
           description: 'Booking payment for ${bookingSlots?.length ?? 0} slots',
         );
       }

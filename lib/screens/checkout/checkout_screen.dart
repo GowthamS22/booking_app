@@ -586,8 +586,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         // Handle "Pay Now"
-                        newBookingController.clearSelectedSlots(); // Clear selected slots
-                        Navigator.pop(context); // Navigate back to the previous screen (CourtViewScreen/Dashboard)
+                        newBookingController
+                            .clearSelectedSlots(); // Clear selected slots
+                        Navigator.pop(
+                          context,
+                        ); // Navigate back to the previous screen (CourtViewScreen/Dashboard)
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
@@ -633,8 +636,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           await checkoutController
                                               .processTyroPayment(
                                                 amount: totalPaid,
-                                                reference:
-                                                    'BOOKING-${DateTime.now().millisecondsSinceEpoch}',
+                                                reference: controller.bookingId,
                                                 description: 'Booking payment',
                                               );
                                         }
@@ -934,8 +936,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       side: BorderSide(color: Colors.grey.shade400, width: 1),
                     ),
                   ),
-                  onPressed: () {
-                    setState(() => selectedMethod = method);
+                  onPressed: () async {
+                    if (method == 'EFTPOS') {
+                      // Set the values first
+                      totalPaid = widget.billAmount;
+                      customAmountString = widget.billAmount.toString();
+                      // Then update the state
+                      setState(() {
+                        selectedMethod = method;
+                      });
+                    } else if (method == 'CASH') {
+                      // Set the values first
+                      totalPaid = 0.0;
+                      customAmountString = '';
+                      // Then update the state
+                      setState(() {
+                        selectedMethod = method;
+                      });
+                    } else {
+                      setState(() {
+                        selectedMethod = method;
+                      });
+                    }
                   },
                   child: Text(
                     method,
