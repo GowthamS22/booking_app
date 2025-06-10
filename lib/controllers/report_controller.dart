@@ -229,9 +229,9 @@ class ReportController extends GetxController {
     });
 
     for (var printerIPs in printerController.pairedPrinters) {
-      print('checking the IP Address ${printerIPs.ip}');
+      print('checking the IP Address ${printerIPs['ip']}');
 
-      final printerIp = '${printerIPs.ip}';
+      final printerIp = '${printerIPs['ip']}';
       final PosPrintResult res = await printer.connect(printerIp, port: 9100);
       if (res != PosPrintResult.success) {
         shoppingController.productsCartModal.clear();

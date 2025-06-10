@@ -72,27 +72,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       await controller.fetchServiceList();
 
       if (controller.serviceList.isNotEmpty) {
-        // Set initial service ID to the first available service if list is not empty
+        // Set initial service ID
         controller.selectedServiceId.value = controller.serviceList[0]['id'];
-      } else {
-        // If no services are available, clear the selectedServiceId
-        controller.selectedServiceId.value = '';
-        print('No active services available for today.');
-        controller.isLoading.value = false;
-        return; // Exit if no services are available
+        await Future.wait([
+          controller.fetchCourtList(),
+          controller.fetchBookedSlots(),
+        ]);
+
+        // Clear and reload court list
+        controller.courtList.clear();
+        await controller.fetchCourtList();
+
+        // Fetch slot info
+        await fetchSlotInfo();
       }
-
-      await Future.wait([
-        controller.fetchCourtList(),
-        controller.fetchBookedSlots(),
-      ]);
-
-      // Clear and reload court list
-      // controller.courtList.clear(); // Removed redundant call
-      // await controller.fetchCourtList(); // Removed redundant call
-
-      // Fetch slot info
-      await fetchSlotInfo();
     } catch (error) {
       print('Error loading initial data: $error');
     } finally {
@@ -216,14 +209,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               width: MediaQuery.of(context).size.width / 7,
               child: DropdownButtonFormField<String>(
                 value:
-                    controller.serviceList.any(
-                          (item) =>
-                              item['id'] == controller.selectedServiceId.value,
-                        )
+                    (controller.selectedServiceId.value.isNotEmpty)
                         ? controller.selectedServiceId.value
-                        : (controller.serviceList.isNotEmpty
-                            ? controller.serviceList.first['id']
-                            : null),
+                        : null,
                 items:
                     controller.serviceList.map((item) {
                       return DropdownMenuItem<String>(
@@ -250,8 +238,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       ]);
 
                       // Clear and reload court list
-                      // controller.courtList.clear(); // Removed redundant call
-                      // await controller.fetchCourtList(); // Removed redundant call
+                      controller.courtList.clear();
+                      await controller.fetchCourtList();
 
                       // Fetch slot info
                       await fetchSlotInfo();
@@ -260,24 +248,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     } finally {
                       controller.isLoading.value = false;
                     }
-                  } else if (controller.serviceList.isNotEmpty) {
-                    // If value becomes null but serviceList is not empty, default to the first service
-                    setState(() {
-                      controller.selectedServiceId.value =
-                          controller.serviceList[0]['id'];
-                    });
-                    await Future.wait([
-                      controller.fetchCourtList(),
-                      controller.fetchBookedSlots(),
-                    ]);
-                    controller.courtList.clear();
-                    await controller.fetchCourtList();
-                    await fetchSlotInfo();
-                  } else {
-                    // If value is null and serviceList is empty, clear selectedServiceId
-                    setState(() {
-                      controller.selectedServiceId.value = '';
-                    });
                   }
                 },
                 onSaved: (value) {},

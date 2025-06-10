@@ -1,6 +1,4 @@
 import 'dart:io';
-
-import 'package:booking_app/models/printer_modals.dart';
 import 'package:get/get.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,22 +8,22 @@ class PrinterController extends GetxController {
   final supabase = Supabase.instance.client;
   final isScanning = false.obs;
   final availablePrinters = <Map<String, String>>[].obs;
-  // final pairedPrinters = <Map<String, dynamic>>[].obs;
-  final RxList<PrinterModel> pairedPrinters =
-      <PrinterModel>[
-        PrinterModel(
-          ip: '192.168.1.10',
-          port: '9100',
-          name: 'Kitchen Printer',
-          isEditing: false,
-        ),
-        PrinterModel(
-          ip: '192.168.1.11',
-          port: '9100',
-          name: 'Billing Printer',
-          isEditing: false,
-        ),
-      ].obs;
+  final pairedPrinters = <Map<String, dynamic>>[].obs;
+  // final RxList<PrinterModel> pairedPrinters =
+  //     <PrinterModel>[
+  //       PrinterModel(
+  //         ip: '192.168.1.10',
+  //         port: '9100',
+  //         name: 'Kitchen Printer',
+  //         isEditing: false,
+  //       ),
+  //       PrinterModel(
+  //         ip: '192.168.1.11',
+  //         port: '9100',
+  //         name: 'Billing Printer',
+  //         isEditing: false,
+  //       ),
+  //     ].obs;
   final selectedPrinter = Rxn<Map<String, String>>();
 
   Future<void> scanForPrinters() async {
@@ -93,19 +91,25 @@ class PrinterController extends GetxController {
 
   void pairPrinter(Map<String, String> printer) {
     pairedPrinters.add(
-      PrinterModel(
-        name: printer['name']!,
-        ip: printer['ip']!,
-        port: printer['port']!,
-        isEditing: false,
-      ),
+      {
+        'name': printer['name']!,
+        'ip': printer['ip']!,
+        'port': printer['port']!,
+        'isEditing': false.obs,
+      },
+      // PrinterModel(
+      //   name: printer['name']!,
+      //   ip: printer['ip']!,
+      //   port: printer['port']!,
+      //   isEditing: false,
+      // ),
     );
     updateSupabasePrinters();
   }
 
   void toggleEdit(int index) {
-    pairedPrinters[index].isEditing.value =
-        !pairedPrinters[index].isEditing.value;
+    pairedPrinters[index]['isEditing'].value =
+        !pairedPrinters[index]['isEditing'].value;
   }
 
   void deletePrinter(int index) {
@@ -114,15 +118,14 @@ class PrinterController extends GetxController {
   }
 
   void savePrinter(int index, String ip, String port) {
-    pairedPrinters[index].ip = ip;
-    pairedPrinters[index].port = port;
-    pairedPrinters[index].isEditing.value = false;
+    pairedPrinters[index]['ip'] = ip;
+    pairedPrinters[index]['port'] = port;
+    pairedPrinters[index]['isEditing'].value = false;
     updateSupabasePrinters();
   }
 
   Future<void> updateSupabasePrinters() async {
-    final List<Map<String, dynamic>> printersJson =
-        pairedPrinters.map((printer) => printer.toJson()).toList();
+    final List<Map<String, dynamic>> printersJson = pairedPrinters.toList();
     await supabase
         .schema('s22_prod_schema')
         .from('store_details')

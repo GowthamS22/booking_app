@@ -285,7 +285,10 @@ class NewBookingController extends GetxController {
       double sportPeakFee =
           (sportResponse['peak_fee'] as num?)?.toDouble() ?? 0.0;
 
-      // Always use platform_from_time and platform_to_time from sports table for overall time range
+      List<Map<String, dynamic>> dailySpecialHours = [];
+      String today = DateFormat('EEE').format(selectedDate);
+
+      // Always use platform_from_time and platform_to_time from sports table
       if (sportResponse['platform_from_time'] != null &&
           sportResponse['platform_to_time'] != null) {
         openStart = parseTimeString(sportResponse['platform_from_time']);
@@ -295,10 +298,7 @@ class NewBookingController extends GetxController {
         return [];
       }
 
-      List<Map<String, dynamic>> dailySpecialHours = [];
-      String today = DateFormat('EEE').format(selectedDate);
-
-      // Fetch special hours only to determine if a slot falls within a special peak/non-peak period
+      // Fetch special hours for today
       final specialHoursResponse = await supabase
           .schema('s22_prod_schema')
           .from('special_hours')
@@ -307,7 +307,7 @@ class NewBookingController extends GetxController {
           .contains('days', [today]);
 
       if (specialHoursResponse != null && specialHoursResponse.isNotEmpty) {
-        dailySpecialHours.addAll(specialHoursResponse);
+        dailySpecialHours = specialHoursResponse;
       }
 
       // 5. Generate slots and assign peak/non-peak pricing
@@ -319,22 +319,47 @@ class NewBookingController extends GetxController {
         final slotEnd = addMinutesToTimeOfDay(current, 30);
 
         bool isPeak = isSportEnabled; // Initial peak status from sports table
-        double slotPrice =
-            isSportEnabled
-                ? sportPeakFee
-                : sportRegularFee; // Initial price from sports table
+        double slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee; // Initial price from sports table
+
+        print('--- Slot: ${slotStart.hour.toString().padLeft(2, '0')}:${slotStart.minute.toString().padLeft(2, '0')} - ${slotEnd.hour.toString().padLeft(2, '0')}:${slotEnd.minute.toString().padLeft(2, '0')} ---');
+        print('  Initial isPeak (from sport enabled status): $isPeak');
+        print('  Initial Price: $slotPrice');
 
         // Check if the current slot falls into any special_hours period for today
+        bool specialHourOverride = false; // Flag to indicate if special hours logic was applied
         for (var sh in dailySpecialHours) {
           final specialStart = parseTimeString(sh['from_time']);
           final specialEnd = parseTimeString(sh['to_time']);
 
+          print('  Checking special hour range: ${specialStart.hour.toString().padLeft(2, '0')}:${specialStart.minute.toString().padLeft(2, '0')} - ${specialEnd.hour.toString().padLeft(2, '0')}:${specialEnd.minute.toString().padLeft(2, '0')} (DB status: ${sh['peak_hour_status']})');
+
           if (isTimeInRange(slotStart, specialStart, specialEnd)) {
-            // If a slot falls within ANY special_hours range for today, it's a peak hour
-            isPeak = true;
-            slotPrice = sportPeakFee;
+            bool specialHourDbStatus = sh['peak_hour_status'] ?? false; // Get actual status from DB
+            
+            // Apply the user's requested inversion for special_hours:
+            // If DB status is FALSE, set isPeak to TRUE
+            // If DB status is TRUE, set isPeak to FALSE
+            if (!specialHourDbStatus) {
+              isPeak = true;
+              slotPrice = sportPeakFee;
+              print('    MATCH! Special hour DB status FALSE -> Setting isPeak = TRUE, price = $slotPrice');
+            } else {
+              isPeak = false;
+              slotPrice = sportRegularFee;
+              print('    MATCH! Special hour DB status TRUE -> Setting isPeak = FALSE, price = $slotPrice');
+            }
+            specialHourOverride = true; // Mark that special hours applied an override
             break; // Found a matching special hour, no need to check further
           }
+        }
+
+        // If no special hours applied an override, then use the initial sport's peak status
+        if (!specialHourOverride) {
+            isPeak = isSportEnabled; // Revert to sports table default if no special hour override
+            slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
+            print('  No special hour override. Final isPeak (reverted to sport default) = $isPeak, price = $slotPrice');
+        } else {
+            print('  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice');
         }
 
         for (var court in courtList) {
@@ -1861,7 +1886,7 @@ class NewBookingController extends GetxController {
           court: courtName,
           courtId: subDoc['courtId'],
           startTime: DateTime.parse(subDoc['startTime']),
-          endTime: DateTime.parse(subDoc['end_time']),
+          endTime: DateTime.parse(subDoc['endTime']),
           price: subDoc['price'].toDouble(),
           slotType: subDoc['slotType'],
           repeatDays: subDoc['repeatDays'],

@@ -24,9 +24,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
   final _ipController = TextEditingController();
   final _portController = TextEditingController();
 
-  final List<Map<String, String>> printers = [
-    {'name': 'EPSON TM-T88VI 102', 'ip': '192.168.1.200', 'port': '6738'},
-  ];
+  // final List<Map<String, String>> printers = [
+  //   {'name': 'EPSON TM-T88VI 102', 'ip': '192.168.1.200', 'port': '6738'},
+  // ];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -223,12 +223,12 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                               controller.pairedPrinters[index];
                                           return Obx(() {
                                             return GestureDetector(
-                                              key: ValueKey(printer.name),
+                                              key: ValueKey(printer['name']),
                                               onTap: () {
                                                 controller.selectPrinter({
-                                                  'name': printer.name,
-                                                  'ip': printer.ip,
-                                                  'port': printer.port,
+                                                  'name': printer['name'],
+                                                  'ip': printer['ip'],
+                                                  'port': printer['port'],
                                                 });
                                               },
                                               child: Container(
@@ -250,7 +250,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                         flex: 1,
                                                         child: Center(
                                                           child: Text(
-                                                            printer.name,
+                                                            printer['name'],
                                                             style: GoogleFonts.inter(
                                                               color:
                                                                   Colors
@@ -268,8 +268,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                         flex: 1,
                                                         child: Obx(
                                                           () =>
-                                                              printer
-                                                                      .isEditing
+                                                              printer['isEditing']
                                                                       .value
                                                                   ? Center(
                                                                     child: SizedBox(
@@ -280,12 +279,13 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                           0.09,
                                                                       child: TextFormField(
                                                                         initialValue:
-                                                                            printer.ip,
+                                                                            printer['ip'],
                                                                         onChanged:
                                                                             (
                                                                               val,
                                                                             ) =>
-                                                                                printer.ip = val,
+                                                                                printer['ip'] =
+                                                                                    val,
                                                                         decoration: InputDecoration(
                                                                           border: OutlineInputBorder(
                                                                             borderRadius: BorderRadius.circular(
@@ -308,8 +308,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                   )
                                                                   : Center(
                                                                     child: Text(
-                                                                      printer
-                                                                          .ip,
+                                                                      printer['ip'],
                                                                       style: GoogleFonts.inter(
                                                                         color:
                                                                             Colors.grey.shade900,
@@ -326,8 +325,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                         flex: 1,
                                                         child: Obx(
                                                           () =>
-                                                              printer
-                                                                      .isEditing
+                                                              printer['isEditing']
                                                                       .value
                                                                   ? Center(
                                                                     child: SizedBox(
@@ -338,12 +336,13 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                           0.09,
                                                                       child: TextFormField(
                                                                         initialValue:
-                                                                            printer.port,
+                                                                            printer['port'],
                                                                         onChanged:
                                                                             (
                                                                               val,
                                                                             ) =>
-                                                                                printer.port = val,
+                                                                                printer['port'] =
+                                                                                    val,
                                                                         decoration: InputDecoration(
                                                                           border: OutlineInputBorder(
                                                                             borderRadius: BorderRadius.circular(
@@ -366,8 +365,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                   )
                                                                   : Center(
                                                                     child: Text(
-                                                                      printer
-                                                                          .port,
+                                                                      printer['port'],
                                                                       style: GoogleFonts.inter(
                                                                         color:
                                                                             Colors.grey.shade900,
@@ -389,8 +387,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                           children: [
                                                             IconButton(
                                                               icon: Icon(
-                                                                printer
-                                                                        .isEditing
+                                                                printer['isEditing']
                                                                         .value
                                                                     ? LucideIcons
                                                                         .save
@@ -402,17 +399,13 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                         .black87,
                                                               ),
                                                               onPressed: () {
-                                                                if (printer
-                                                                    .isEditing
+                                                                if (printer['isEditing']
                                                                     .value) {
-                                                                  controller
-                                                                      .savePrinter(
-                                                                        index,
-                                                                        printer
-                                                                            .ip,
-                                                                        printer
-                                                                            .port,
-                                                                      );
+                                                                  controller.savePrinter(
+                                                                    index,
+                                                                    printer['ip'],
+                                                                    printer['port'],
+                                                                  );
                                                                 } else {
                                                                   controller
                                                                       .toggleEdit(
@@ -693,6 +686,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                             },
                           ),
                         ),
+                      Spacer(),
                       Divider(color: Colors.grey.shade300),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
