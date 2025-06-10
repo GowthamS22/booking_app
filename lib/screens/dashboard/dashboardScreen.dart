@@ -162,7 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       overlayColor: WidgetStateProperty.all(Colors.transparent),
                       tabs: const [
                         Tab(text: 'Court View'),
-                        Tab(text: 'Current'),
+                        Tab(text: 'Active'),
                         Tab(text: 'Upcoming'),
                         Tab(text: 'Scheduled'),
                         Tab(text: 'All Booking'),

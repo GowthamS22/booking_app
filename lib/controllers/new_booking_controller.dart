@@ -5,7 +5,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:uuid/uuid.dart';
@@ -213,39 +212,6 @@ class NewBookingController extends GetxController {
       update();
     }
   }
-  // Future<void> fetchUserMobile() async {
-  //   isLoading.value = true;
-
-  //   final response = await supabase
-  //       .schema('s22_prod_schema')
-  //       .from('customers')
-  //       .select('mobile,first_name');
-
-  //   if (response != null) {
-  //     mobileList.clear();
-  //     for (var user in response) {
-  //       mobileList.add(user['mobile']);
-  //     }
-  //   }
-
-  //   isLoading.value = false;
-  //   update();
-  // }
-
-  // Future<void> fetchUserMobile() async {
-  //   isLoading.value = true;
-  //   QuerySnapshot userSnapshot =
-  //       await FirebaseFirestore.instance
-  //           .collection(authController.centerSlug.toString())
-  //           .doc('userDetails')
-  //           .collection('user')
-  //           .get();
-  //   for (var user in userSnapshot.docs) {
-  //     mobileList.add(user['mobile']);
-  //   }
-  //   isLoading.value = false;
-  //   update();
-  // }
 
   Future<void> fetchServiceList() async {
     isLoading.value = true;
@@ -253,18 +219,25 @@ class NewBookingController extends GetxController {
     try {
       final response = await supabase
           .schema('s22_prod_schema')
-          .from('services')
-          .select('id, name, icon')
-          .eq('active', true)
-          .order('display_order', ascending: true);
+          .from('sports')
+          .select(
+            'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,peak_hour_status',
+          )
+          .eq('status', true)
+          .order('platform_index', ascending: true);
 
       if (response != null) {
         serviceList.clear();
         for (var service in response) {
           serviceList.add({
             'id': service['id'],
-            'name': service['name'],
-            'icon': service['icon'],
+            'name': service['sport_name'],
+            'icon': '', // Assuming 'icon' is not present in sports table.
+            'peak_hour_status': service['peak_hour_status'],
+            'platform_from_time': service['platform_from_time'],
+            'platform_to_time': service['platform_to_time'],
+            'regular_fee': service['regular_fee'],
+            'peak_fee': service['peak_fee'],
           });
         }
         // Add the service list to the stream
@@ -288,40 +261,54 @@ class NewBookingController extends GetxController {
     List<Map<String, dynamic>> slots = [];
 
     try {
-      // 1. Fetch specialhours (peak) from services
-      final serviceResponse = await supabase
-          .schema('s22_prod_schema')
-          .from('services')
-          .select('specialhours')
-          .eq('id', serviceId);
-
-      // 2. Fetch opening_times from store_details
-      final storeResponse =
+      // 1. Fetch sport details to check 'enabled' status and get base fees
+      final sportResponse =
           await supabase
               .schema('s22_prod_schema')
-              .from('store_details')
-              .select('opening_times')
+              .from('sports')
+              .select(
+                'peak_hour_status, platform_from_time, platform_to_time, regular_fee, peak_fee',
+              )
+              .eq('id', serviceId)
               .single();
 
-      final today = DateFormat('EEEE').format(selectedDate);
+      if (sportResponse == null) {
+        print('Sport details not found for serviceId: $serviceId');
+        return [];
+      }
 
-      // 3. Decode opening_times
-      final openingTimesRaw = storeResponse['opening_times'];
-      final openingTimes = jsonDecode(openingTimesRaw) as List<dynamic>;
+      final bool isSportEnabled = sportResponse['peak_hour_status'] ?? false;
+      TimeOfDay openStart;
+      TimeOfDay openEnd;
+      double sportRegularFee =
+          (sportResponse['regular_fee'] as num?)?.toDouble() ?? 0.0;
+      double sportPeakFee =
+          (sportResponse['peak_fee'] as num?)?.toDouble() ?? 0.0;
 
-      final opening = openingTimes.firstWhere(
-        (item) => item['day'] == today,
-        orElse: () => null,
-      );
+      // Always use platform_from_time and platform_to_time from sports table for overall time range
+      if (sportResponse['platform_from_time'] != null &&
+          sportResponse['platform_to_time'] != null) {
+        openStart = parseTimeString(sportResponse['platform_from_time']);
+        openEnd = parseTimeString(sportResponse['platform_to_time']);
+      } else {
+        print('Missing platform time data for sport: $serviceId');
+        return [];
+      }
 
-      if (opening == null) return [];
+      List<Map<String, dynamic>> dailySpecialHours = [];
+      String today = DateFormat('EEE').format(selectedDate);
 
-      final openStart = parseTimeString(opening['startTime']);
-      final openEnd = parseTimeString(opening['endTime']);
+      // Fetch special hours only to determine if a slot falls within a special peak/non-peak period
+      final specialHoursResponse = await supabase
+          .schema('s22_prod_schema')
+          .from('special_hours')
+          .select('from_time, to_time, peak_hour_status')
+          .eq('sport_id', serviceId)
+          .contains('days', [today]);
 
-      // 4. Get today's peak hours
-      final specialHours =
-          (serviceResponse.first['specialhours'] ?? []) as List<dynamic>;
+      if (specialHoursResponse != null && specialHoursResponse.isNotEmpty) {
+        dailySpecialHours.addAll(specialHoursResponse);
+      }
 
       // 5. Generate slots and assign peak/non-peak pricing
       TimeOfDay current = openStart;
@@ -331,23 +318,25 @@ class NewBookingController extends GetxController {
         final slotStart = current;
         final slotEnd = addMinutesToTimeOfDay(current, 30);
 
-        bool isPeak = false;
-        double? price;
+        bool isPeak = isSportEnabled; // Initial peak status from sports table
+        double slotPrice =
+            isSportEnabled
+                ? sportPeakFee
+                : sportRegularFee; // Initial price from sports table
 
-        for (var sh in specialHours) {
-          if (sh['day'] != today) continue;
+        // Check if the current slot falls into any special_hours period for today
+        for (var sh in dailySpecialHours) {
+          final specialStart = parseTimeString(sh['from_time']);
+          final specialEnd = parseTimeString(sh['to_time']);
 
-          final peakStart = parseTimeString(sh['startTime']);
-          final peakEnd = parseTimeString(sh['endTime']);
-
-          if (isTimeInRange(slotStart, peakStart, peakEnd)) {
+          if (isTimeInRange(slotStart, specialStart, specialEnd)) {
+            // If a slot falls within ANY special_hours range for today, it's a peak hour
             isPeak = true;
-            price = double.tryParse(sh['price'].toString());
-            break;
+            slotPrice = sportPeakFee;
+            break; // Found a matching special hour, no need to check further
           }
         }
 
-        // If not peak, use courtList to get non-peak price per court
         for (var court in courtList) {
           slots.add({
             'courtId': court['id'],
@@ -355,7 +344,7 @@ class NewBookingController extends GetxController {
             'start': slotStart,
             'end': slotEnd,
             'isPeak': isPeak,
-            'price': isPeak ? price : court['price'],
+            'price': slotPrice,
           });
         }
 
@@ -393,22 +382,6 @@ class NewBookingController extends GetxController {
     return tMinutes >= startMinutes && tMinutes < endMinutes;
   }
 
-  // void fetchServiceList() async {
-  //   isLoading.value = true;
-  //   QuerySnapshot serviceSnapshot = await FirebaseFirestore.instance
-  //       .collection(authController.centerSlug.toString())
-  //       .doc('services')
-  //       .collection('service')
-  //       .where('active',isEqualTo: 1)
-  //       .orderBy('displayOrder',descending: false)
-  //       .get();
-  //   for(var service in serviceSnapshot.docs) {
-  //     serviceList.add({'id':service.id,'name':service['name'],'icon':service['icon']});
-  //   }
-  //   setDefaultSerivce();
-  //   isLoading.value = false;
-  //   update();
-  // }
   List<String> generateTimeSlots(int startHour, int endHour) {
     List<String> slots = [];
     for (int hour = startHour; hour < endHour; hour++) {
@@ -431,46 +404,91 @@ class NewBookingController extends GetxController {
         return;
       }
 
-      final today = DateFormat('EEEE').format(selectedDate);
-      final response = await supabase
-          .schema('s22_prod_schema')
-          .from('services')
-          .select('specialhours')
-          .eq('id', selectedServiceId.value);
+      final today = DateFormat('EEE').format(selectedDate);
 
-      if (response != null && response.isNotEmpty) {
-        specialHoursList = response.first['specialhours'];
+      // Fetch sport details to check 'enabled' status
+      final sportResponse =
+          await supabase
+              .schema('s22_prod_schema')
+              .from('sports')
+              .select('peak_hour_status, platform_from_time, platform_to_time')
+              .eq('id', selectedServiceId.value)
+              .single();
 
-        final todayHours = specialHoursList.firstWhere(
-          (item) => item['day'] == today,
-          orElse: () => null,
-        );
+      if (sportResponse == null) {
+        showCustomSnackbar('Error', 'Sport details not found', Colors.red);
+        isLoading.value = false;
+        update();
+        return;
+      }
 
-        if (todayHours != null &&
-            todayHours['startTime'] != null &&
-            todayHours['endTime'] != null) {
+      final bool isSportEnabled = sportResponse['peak_hour_status'];
+
+      if (isSportEnabled) {
+        // If sport is enabled, use platform_from_time and platform_to_time from sports table
+        if (sportResponse['platform_from_time'] != null &&
+            sportResponse['platform_to_time'] != null) {
           try {
-            startTime = parseTimeString(todayHours['startTime']).hour;
+            startTime =
+                parseTimeString(sportResponse['platform_from_time']).hour;
             endTime =
-                parseTimeString(todayHours['endTime']).hour == 0
+                parseTimeString(sportResponse['platform_to_time']).hour == 0
                     ? 24
-                    : parseTimeString(todayHours['endTime']).hour;
+                    : parseTimeString(sportResponse['platform_to_time']).hour;
 
-            // Generate time slots
             timeSlots.value = generateTimeSlots(startTime, endTime);
             print("Time slots: $timeSlots");
-
-            // Add the updated data to the stream
             _serviceStreamController.add(serviceList);
           } catch (e) {
-            print('Error parsing time: $e');
+            print('Error parsing time from sports table: $e');
             showCustomSnackbar('Time parse error', '$e', Colors.red);
           }
         } else {
-          print('Missing time data for $todayHours');
+          print('Missing platform time data for enabled sport');
+          showCustomSnackbar('Error', 'Missing platform time data', Colors.red);
         }
       } else {
-        showCustomSnackbar('Error : ', response.toString(), Colors.red);
+        // If sport is not enabled, use special_hours for today
+        final specialHoursResponse = await supabase
+            .schema('s22_prod_schema')
+            .from('special_hours')
+            .select('from_time, to_time')
+            .eq('sport_id', selectedServiceId.value)
+            .contains('days', [today]);
+
+        if (specialHoursResponse != null && specialHoursResponse.isNotEmpty) {
+          final todayHours = specialHoursResponse.first;
+          if (todayHours['from_time'] != null &&
+              todayHours['to_time'] != null) {
+            try {
+              startTime = parseTimeString(todayHours['from_time']).hour;
+              endTime =
+                  parseTimeString(todayHours['to_time']).hour == 0
+                      ? 24
+                      : parseTimeString(todayHours['to_time']).hour;
+
+              timeSlots.value = generateTimeSlots(startTime, endTime);
+              print("Time slots: $timeSlots");
+              _serviceStreamController.add(serviceList);
+            } catch (e) {
+              print('Error parsing time from special hours: $e');
+              showCustomSnackbar('Time parse error', '$e', Colors.red);
+            }
+          } else {
+            print('Missing time data for special hours for $today');
+            showCustomSnackbar(
+              'Error',
+              'Missing special hours time data',
+              Colors.red,
+            );
+          }
+        } else {
+          showCustomSnackbar(
+            'Error',
+            'No special hours found for today for the selected service',
+            Colors.red,
+          );
+        }
       }
     } catch (e) {
       print('Error fetching time slots: $e');
@@ -490,106 +508,49 @@ class NewBookingController extends GetxController {
               .replaceAll(RegExp(r'\s+'), ' ')
               .trim();
 
-      // If the time is in 24-hour format (e.g., "09:00")
-      if (!cleanedTimeStr.contains('AM') && !cleanedTimeStr.contains('PM')) {
-        final parts = cleanedTimeStr.split(':');
-        if (parts.length != 2) {
-          throw FormatException('Invalid 24-hour time format');
-        }
-        int hour = int.parse(parts[0]);
-        int minute = int.parse(parts[1]);
-        return TimeOfDay(hour: hour, minute: minute);
+      // Use a more robust DateTime.parse for various formats, then convert to TimeOfDay
+      DateTime parsedDateTime;
+      if (cleanedTimeStr.contains('AM') || cleanedTimeStr.contains('PM')) {
+        // Handle 12-hour format with AM/PM (e.g., "09:00 AM", "6:00 PM")
+        // Dart's DateTime.parse generally handles this if the format is consistent.
+        // If issues persist, consider using DateFormat('h:mm a').parse(cleanedTimeStr).
+        parsedDateTime = DateFormat("h:mm a").parse(cleanedTimeStr);
+      } else if (cleanedTimeStr.length == 5 && cleanedTimeStr.contains(':')) {
+        // Handle 24-hour format without seconds (e.g., "09:00")
+        parsedDateTime = DateFormat("HH:mm").parse(cleanedTimeStr);
+      } else if (cleanedTimeStr.length == 8 && cleanedTimeStr.contains(':')) {
+        // Handle 24-hour format with seconds (e.g., "09:00:00")
+        parsedDateTime = DateFormat("HH:mm:ss").parse(cleanedTimeStr);
+      } else {
+        // Fallback for other potential formats, or throw a specific error
+        throw FormatException('Unrecognized time format: $cleanedTimeStr');
       }
-
-      // If time includes AM/PM (e.g., "09:00 AM")
-      final parts = cleanedTimeStr.split(' ');
-      if (parts.length != 2) {
-        throw FormatException('Invalid 12-hour time format');
-      }
-
-      final timePart = parts[0];
-      final period = parts[1].toUpperCase();
-
-      final timeComponents = timePart.split(':');
-      if (timeComponents.length != 2) {
-        throw FormatException('Invalid 12-hour time format');
-      }
-
-      int hour = int.parse(timeComponents[0]);
-      int minute = int.parse(timeComponents[1]);
-
-      // Convert to 24-hour format
-      if (period == 'PM' && hour != 12) {
-        hour += 12;
-      } else if (period == 'AM' && hour == 12) {
-        hour = 0;
-      }
-
-      return TimeOfDay(hour: hour, minute: minute);
+      return TimeOfDay(
+        hour: parsedDateTime.hour,
+        minute: parsedDateTime.minute,
+      );
     } catch (e) {
-      print('Time parse error: $e for input "$timeStr"');
+      print('Time parse error: $e for input "$timeStr" ');
       return const TimeOfDay(hour: 0, minute: 0); // or a fallback
     }
   }
 
-  // void fetchStartEndTime() async {
-  //   isLoading.value = true;
-  //   QuerySnapshot openingSnapshot =
-  //       await FirebaseFirestore.instance
-  //           .collection(authController.centerSlug.toString())
-  //           .doc('admins')
-  //           .collection('openingTimes')
-  //           .where(
-  //             'day',
-  //             isEqualTo: DateFormat('EEEE').format(selectedDate).toString(),
-  //           )
-  //           .get();
-  //   if (openingSnapshot.docs.isNotEmpty) {
-  //     DocumentSnapshot openingDoc = openingSnapshot.docs.first;
-  //     startTime = convertTimestampToTimeOfDay(openingDoc['startTime']).hour;
-  //     endTime =
-  //         convertTimestampToTimeOfDay(openingDoc['endTime']).hour == 0
-  //             ? 24
-  //             : convertTimestampToTimeOfDay(openingDoc['endTime']).hour;
-  //   }
-  //   isLoading.value = false;
-  //   update();
-  // }
-
   Future<void> setDefaultSerivce() async {
     final response = await supabase
         .schema('s22_prod_schema')
-        .from('services')
-        .select('id, name')
-        .eq('active', true)
-        .order('display_order', ascending: true);
+        .from('sports')
+        .select('id, sport_name')
+        .eq('status', true)
+        .order('platform_index', ascending: true);
 
     if (response.isNotEmpty) {
       final service = response.first;
-      selectedService.value = service['name'];
+      selectedService.value = service['sport_name'];
       selectedServiceId.value = service['id'];
     }
     fetchCourtList();
     update();
   }
-
-  // void setDefaultSerivce() async {
-  //   QuerySnapshot serviceSnapshot =
-  //       await FirebaseFirestore.instance
-  //           .collection(authController.centerSlug.toString())
-  //           .doc('services')
-  //           .collection('service')
-  //           .where('active', isEqualTo: 1)
-  //           .orderBy('displayOrder', descending: false)
-  //           .get();
-  //   if (serviceSnapshot.docs.isNotEmpty) {
-  //     DocumentSnapshot serviceDoc = serviceSnapshot.docs.first;
-  //     selectedService.value = serviceDoc['name'];
-  //     selectedServiceId.value = serviceDoc.id;
-  //   }
-  //   fetchCourtList();
-  //   update();
-  // }
 
   Future<void> fetchCourtList() async {
     isLoading.value = true;
@@ -598,23 +559,38 @@ class NewBookingController extends GetxController {
       if (selectedServiceId.isNotEmpty) {
         final response = await supabase
             .schema('s22_prod_schema')
-            .from('courts')
-            .select('id, name, price')
-            .eq('service_id', selectedServiceId.value)
+            .from('sports')
+            .select(
+              'id, sport_name, platform_name, platform_index, no_of_platform, regular_fee, peak_fee, peak_hour_status',
+            )
+            .eq('sport_name', selectedService.value)
             .eq('status', true)
-            .order('created_at', ascending: true);
+            .order('platform_index', ascending: true);
 
         if (response is List) {
-          courtList.value =
-              response
-                  .map<Map<String, dynamic>>(
-                    (court) => {
-                      'id': court['id'],
-                      'name': court['name'],
-                      'price': court['price'],
-                    },
-                  )
-                  .toList();
+          List<Map<String, dynamic>> generatedCourts = [];
+          final Uuid uuid = Uuid();
+
+          for (var sport in response) {
+            final int numberOfPlatforms = sport['no_of_platform'] ?? 0;
+            final String platformName = sport['platform_name'] ?? 'Court';
+
+            for (int i = 1; i <= numberOfPlatforms; i++) {
+              generatedCourts.add({
+                'id':
+                    uuid.v4(), // Generate a unique ID for each platform instance
+                'name':
+                    '${platformName} ${i.toString().padLeft(2, '0')}', // e.g., "Court 01"
+                'price': sport['regular_fee'], // Use regular_fee as base price
+                'no_of_platform': 1, // Each is a single platform
+                'peak_fee': sport['peak_fee'],
+                'peak_hour_status': sport['peak_hour_status'],
+                'sport_id':
+                    sport['id'], // Keep a reference to the parent sport's ID
+              });
+            }
+          }
+          courtList.value = generatedCourts;
 
           await fetchSpecialHours();
           await fetchBookedSlots();
@@ -632,30 +608,6 @@ class NewBookingController extends GetxController {
     }
   }
 
-  // Future<void> fetchCourtList() async {
-  //   if (selectedServiceId.isNotEmpty) {
-  //     QuerySnapshot courtSnapshot =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('courts')
-  //             .collection('court')
-  //             .where('serviceId', isEqualTo: selectedServiceId.toString())
-  //             .where('status', isEqualTo: true)
-  //             .orderBy('createdAt', descending: false)
-  //             .get();
-  //     for (var court in courtSnapshot.docs) {
-  //       courtList.add({
-  //         'id': court.id,
-  //         'name': court['name'],
-  //         'price': court['price'],
-  //       });
-  //     }
-  //     fetchSpecialHours();
-  //     fetechBookedSlots();
-  //     isLoading.value = false;
-  //     update();
-  //   }
-  // }
   Future<List<Map<String, dynamic>>> fetchMembershipPlans() async {
     final response = await supabase
         .schema('s22_prod_schema')
@@ -673,28 +625,20 @@ class NewBookingController extends GetxController {
     if (selectedServiceId.isNotEmpty) {
       final response = await supabase
           .schema('s22_prod_schema')
-          .from('services')
-          .select()
-          .eq('id', selectedServiceId);
+          .from('special_hours')
+          .select('id, days, from_time, to_time, peak_hour_status')
+          .eq('sport_id', selectedServiceId);
 
       if (response.isNotEmpty) {
         specialHoursList.clear();
         for (var hour in response) {
-          final List<dynamic> specials = hour['specialhours'];
-
-          if (specials.isNotEmpty) {
-            for (var special in specials) {
-              specialHoursList.add({
-                'id': hour['id'],
-                'specialhours': specials,
-                'day': special['day'],
-                'dateRange': special['dateRange'],
-                'startTime': special['startTime'],
-                'endTime': special['endTime'],
-                'price': special['price'],
-              });
-            }
-          }
+          specialHoursList.add({
+            'id': hour['id'],
+            'day': hour['days'],
+            'startTime': hour['from_time'],
+            'endTime': hour['to_time'],
+            'peak_hour_status': hour['peak_hour_status'] ?? false,
+          });
         }
         update();
       } else {
@@ -713,29 +657,6 @@ class NewBookingController extends GetxController {
       );
     }
   }
-
-  // Future<void> fetchSpecialHours() async {
-  //   if (selectedServiceId.isNotEmpty) {
-  //     QuerySnapshot specialHoursSnapshot =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('specialHours')
-  //             .collection('specialHour')
-  //             .where('serviceId', isEqualTo: selectedServiceId.toString())
-  //             .get();
-  //     for (var hour in specialHoursSnapshot.docs) {
-  //       specialHoursList.add({
-  //         'id': hour.id,
-  //         'day': hour['day'],
-  //         'dateRange': hour['dateRange'],
-  //         'startTime': hour['startTime'],
-  //         'endTime': hour['endTime'],
-  //         'price': hour['price'],
-  //       });
-  //     }
-  //     update();
-  //   }
-  // }
 
   Future<void> fetchBookedSlots() async {
     final startOfDay = DateTime(
@@ -802,38 +723,6 @@ class NewBookingController extends GetxController {
     }
   }
 
-  // Future<void> fetechBookedSlots() async {
-  //   if (selectedServiceId.isNotEmpty) {
-  //     QuerySnapshot bookedSlotsSnapshot =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('bookingSlots')
-  //             .collection('bookingSlot')
-  //             .where('serviceId', isEqualTo: selectedServiceId.toString())
-  //             .where('date', isEqualTo: selectedDate)
-  //             .where('status', isEqualTo: 'Booked')
-  //             .get();
-  //     for (var booked in bookedSlotsSnapshot.docs) {
-  //       bookedSlots.add(
-  //         BookingSlot(
-  //           id: booked.id,
-  //           userId: booked['userId'],
-  //           name: booked['name'],
-  //           mobile: booked['mobile'],
-  //           date: booked['date'].toDate(),
-  //           serviceId: booked['serviceId'],
-  //           courtId: booked['courtId'],
-  //           startTime: booked['startTime'].toDate(),
-  //           endTime: booked['endTime'].toDate(),
-  //           price: booked['price'].toDouble(),
-  //           status: booked['status'],
-  //         ),
-  //       );
-  //     }
-  //     update();
-  //   }
-  // }
-
   Future<void> bookSlot({
     DateTime? date,
     String? service,
@@ -844,56 +733,8 @@ class NewBookingController extends GetxController {
     DateTime? endTime,
     double? price,
   }) async {
-    //cartItems.clear();
-    //SharedPreferences preferences = await SharedPreferences.getInstance();
-
+    // The price is expected to be finalized by getSlotsWithPeakStatusAndPrice
     double? finalizedPrice = price;
-    //var today = "Monday";
-    var today = DateFormat('EEEE').format(date!);
-    for (var hour in specialHoursList) {
-      TimeOfDay selectedStartTime = TimeOfDay(
-        hour: startTime!.hour,
-        minute: startTime.minute,
-      );
-      TimeOfDay selectedEndTime = TimeOfDay(
-        hour: endTime!.hour,
-        minute: endTime.minute,
-      );
-      TimeOfDay specialStartTime = parseTimeString(hour['startTime']);
-      TimeOfDay specialEndTime = parseTimeString(hour['endTime']);
-      // TimeOfDay specialStartTime = convertTimestampToTimeOfDay(
-      //   hour['startTime'],
-      // );
-      // TimeOfDay specialEndTime = convertTimestampToTimeOfDay(hour['endTime']);
-
-      if (hour['day'] == today) {
-        int startTimeComparision = compareTimeOfDay(
-          selectedStartTime,
-          specialStartTime,
-        );
-        int endTimeComparision = compareTimeOfDay(
-          selectedEndTime,
-          specialEndTime,
-        );
-
-        if (startTimeComparision >= 0 && endTimeComparision <= 0) {
-          finalizedPrice = double.parse(hour['price'].toString());
-        }
-      } else if (hour['day'] == 'All') {
-        int startTimeComparision = compareTimeOfDay(
-          selectedStartTime,
-          specialStartTime,
-        );
-        int endTimeComparision = compareTimeOfDay(
-          selectedEndTime,
-          specialEndTime,
-        );
-
-        if (startTimeComparision >= 0 && endTimeComparision <= 0) {
-          finalizedPrice = hour['price'].toDouble();
-        }
-      }
-    }
 
     if (currentPlan.length > 0) {
       double tempDiscount =
@@ -916,22 +757,6 @@ class NewBookingController extends GetxController {
       ),
     );
     update();
-
-    /*List<Map<String, dynamic>> cartListJson = cartItems.map((item) => {
-      'date': item.date,
-      'serviceId': item.serviceId,
-      'courtId': item.courtId,
-      'startTime': item.startTime,
-      'endTime': item.endTime,
-    }).toList();
-    saveCartList(cartListJson);*/
-  }
-
-  void saveCartList(List<Map<String, dynamic>> cartList) async {
-    /*SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> cartJsonList = cartList.map((item) => jsonEncode(item)).toList();
-    prefs.setStringList('cartList', cartJsonList);
-    update();*/
   }
 
   bool checkBooked({
@@ -943,8 +768,6 @@ class NewBookingController extends GetxController {
     print(
       "bookedSlots : ${dateToFind}','${serviceIdToFind}','${courtIdToFind}','${startTimeToFind}",
     );
-    // print('bookingSlots : ${bookedSlots[0]}');
-    //print('bookingSlots1 : ${bookedSlots[1]}');
     bool bookingExists = bookedSlots.any(
       (item) =>
           item.date == dateToFind &&
@@ -1052,58 +875,6 @@ class NewBookingController extends GetxController {
   }) {
     // Delete the BookingSlot that matches the specified values
     if (slotTypeToRemove == 'Repeated') {
-      /*Iterable<BookingSlot> deleteItems = cartItems.where((bookingSlot) =>
-          (bookingSlot.startTime!.isAfter(startTimeToRemove!) || bookingSlot.startTime!.isAtSameMomentAs(startTimeToRemove!)) &&
-          (bookingSlot.endTime!.isBefore(endTimeToRemove!) || bookingSlot.endTime!.isAtSameMomentAs(endTimeToRemove!)) &&
-          bookingSlot.date == dateToRemove &&
-          bookingSlot.serviceId == serviceIdToRemove &&
-          bookingSlot.courtId == courtIdToRemove
-      );
-
-      for(var deleteItem in deleteItems) {
-        dummyCartItems.add(deleteItem);
-      }
-
-      for(var deleteItem in dummyCartItems) {
-        String cleanString    = deleteItem.repeatDays!.replaceAll(RegExp(r'[{}\s]'), '');
-        List<String> daysList = cleanString.split(',');
-        for(var day in daysList) {
-          int dayOfWeek = convertDayStringToDayOfWeek(day.toString());
-          List<DateTime> upcomingDays = getUpcomingDays(deleteItem.date!,deleteItem.repeatEnd!,dayOfWeek);
-          for(var upcoming in upcomingDays) {
-            cartItems.removeWhere((bookingSlot) {
-
-              int finalDay = endTimeToRemove!.hour==0 ? upcoming.day + 1 : upcoming.day ;
-
-              DateTime rmStartTime = DateTime(upcoming.year,upcoming.month,upcoming.day,startTimeToRemove!.hour,startTimeToRemove!.minute);
-              DateTime rmEndTime   = DateTime(upcoming.year,upcoming.month,finalDay,endTimeToRemove!.hour,endTimeToRemove!.minute);
-
-              return (
-                  (bookingSlot.startTime!.isAfter(rmStartTime!) || bookingSlot.startTime!.isAtSameMomentAs(rmStartTime!)) &&
-                  (bookingSlot.endTime!.isBefore(rmEndTime!) || bookingSlot.endTime!.isAtSameMomentAs(rmEndTime!)) &&
-                  bookingSlot.date == upcoming &&
-                  bookingSlot.serviceId == serviceIdToRemove &&
-                  bookingSlot.courtId == courtIdToRemove &&
-                  bookingSlot.slotType == 'Repeat-Item'
-              );
-            });
-
-          }
-        }
-      }
-
-      cartItems.removeWhere((bookingSlot) {
-        return (
-            (bookingSlot.startTime!.isAfter(startTimeToRemove!) || bookingSlot.startTime!.isAtSameMomentAs(startTimeToRemove!)) &&
-                (bookingSlot.endTime!.isBefore(endTimeToRemove!) || bookingSlot.endTime!.isAtSameMomentAs(endTimeToRemove!)) &&
-                bookingSlot.date == dateToRemove &&
-                bookingSlot.serviceId == serviceIdToRemove &&
-                bookingSlot.courtId == courtIdToRemove
-        );
-      });
-      print(cartItems.length);
-      dummyCartItems.clear();
-      update();*/
       cartItems.removeWhere(
         (bookingSlot) => bookingSlot.repeatGroupId == repeatGroupIdToRemove,
       );
@@ -1148,55 +919,6 @@ class NewBookingController extends GetxController {
     }
   }
 
-  // Future<void> getUserDatabyMobile(String mobile) async {
-  //   //isLoading.value = true;
-  //   currentPlan.clear();
-  //   try {
-  //     QuerySnapshot userSnapshot =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('userDetails')
-  //             .collection('user')
-  //             .where('mobile', isEqualTo: mobile.toString())
-  //             .get();
-  //     if (userSnapshot.docs.isNotEmpty) {
-  //       DocumentSnapshot userDoc = userSnapshot.docs.first;
-  //       userData.value = User.fromDocument(userDoc);
-  //       userData.value.id = userDoc.id;
-
-  //       if (userData.value.userMembershipId != null &&
-  //           userData.value.userMembershipId != '') {
-  //         //Membership
-  //         DocumentSnapshot userMembershipSnapshot =
-  //             await FirebaseFirestore.instance
-  //                 .collection(authController.centerSlug.toString())
-  //                 .doc('userMemberships')
-  //                 .collection('userMembership')
-  //                 .doc(userData.value.userMembershipId.toString())
-  //                 .get();
-  //         if (userMembershipSnapshot.exists) {
-  //           DocumentSnapshot membershipSnapshot =
-  //               await FirebaseFirestore.instance
-  //                   .collection(authController.centerSlug.toString())
-  //                   .doc('membershipPlans')
-  //                   .collection('membershipPlan')
-  //                   .doc(userMembershipSnapshot['membershipPlanId'])
-  //                   .get();
-  //           currentPlan.add({
-  //             'plan': membershipSnapshot['name'],
-  //             'discount': membershipSnapshot['discount'],
-  //           });
-  //         }
-  //       }
-  //     } else {}
-  //   } catch (e) {
-  //     print('Error fetching user: $e');
-  //   } finally {
-  //     //isLoading.value = false;
-  //     update();
-  //   }
-  // }
-
   double get totalAmount {
     return cartItems.fold(0, (double sum, BookingSlot bookingSlot) {
       return sum + (bookingSlot.price ?? 0);
@@ -1208,7 +930,6 @@ class NewBookingController extends GetxController {
         authController.gst.isEmpty
             ? '0.0'
             : authController.gst.value.toString();
-    // return (totalAmount - discount.value) * double.parse(gst) / 100;
     var value = double.parse(
       ((totalAmount - discount.value) * double.parse(gst) / 100).toString(),
     );
@@ -1231,8 +952,6 @@ class NewBookingController extends GetxController {
     Get.dialog(
       Theme(
         data: ThemeData(
-          // Set the overlay color of the AlertDialog
-          //backgroundColor: Palette.lightGrey,
           hoverColor: MaterialStateColor.resolveWith((states) {
             return Palette
                 .lightGrey; // Replace with the desired color and opacity
@@ -1243,7 +962,6 @@ class NewBookingController extends GetxController {
             borderRadius: BorderRadius.circular(20),
           ),
           contentPadding: EdgeInsets.all(40),
-          //title: Center(child: Text('Booking Success',style: TextStyle(color: Palette.primaryColor,fontSize: 40),)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1271,7 +989,7 @@ class NewBookingController extends GetxController {
     String? address,
     String? mobile,
     String? postcode,
-    String? password, // Only if you store it (not recommended in plain text)
+    String? password,
     String? aboutus,
     BuildContext? context,
   }) async {
@@ -1297,7 +1015,6 @@ class NewBookingController extends GetxController {
                 'profile_picture': '',
                 'status': false,
                 'created_at': DateTime.now().toIso8601String(),
-                //'updated_at': DateTime.now().toIso8601String(),
               })
               .select()
               .single();
@@ -1319,9 +1036,7 @@ class NewBookingController extends GetxController {
           country: response['country'],
           imageUrl: response['profile_picture'],
           status: response['status'],
-          //userMembershipId: response['user_membership_id'],
           createdAt: DateTime.parse(response['created_at']),
-          // updatedAt: DateTime.parse(response['updated_at']),
         );
       }
     } catch (e) {
@@ -1331,59 +1046,6 @@ class NewBookingController extends GetxController {
       isLoading.value = false;
     }
   }
-
-  // Future<void> registerUser({
-  //   String? email,
-  //   String? firstName,
-  //   String? lastName,
-  //   String? address,
-  //   String? mobile,
-  //   String? postcode,
-  //   String? password,
-  //   String? aboutus,
-  //   BuildContext? context,
-  // }) async {
-  //   try {
-  //     //Insert data
-  //     var docRef =
-  //         FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('userDetails')
-  //             .collection('user')
-  //             .doc();
-
-  //     docRef.set({
-  //       'email': email,
-  //       'firstName': firstName,
-  //       'lastName': lastName,
-  //       'address': address,
-  //       'mobile': mobile,
-  //       'postcode': postcode,
-  //       'password': password,
-  //       'aboutus': aboutus,
-  //       'dateOfBirth': null,
-  //       'city': '',
-  //       'state': '',
-  //       'country': '',
-  //       'imageUrl': '',
-  //       'userMembershipId': '',
-  //       'verificationStatus': false,
-  //       'createdAt': DateTime.now(),
-  //       'updatedAt': DateTime.now(),
-  //     });
-
-  //     if (docRef.id != '') {
-  //       DocumentSnapshot<Map<String, dynamic>> snapshot = await docRef.get();
-  //       userData.value = User.fromDocument(snapshot);
-  //       userData.value.id = snapshot.id;
-  //     }
-  //   } catch (e) {
-  //     //Status Alert
-  //     showCustomSnackbar('Failed', '${e.toString()}', Colors.red);
-  //   } finally {
-  //     isLoading.value = false;
-  //   }
-  // }
 
   List<BookingSlot> mergeBookingSlots(List<BookingSlot> cartItemsMrg) {
     if (cartItemsMrg.isEmpty) return [];
@@ -1652,50 +1314,8 @@ class NewBookingController extends GetxController {
     String? repeatId,
     String? repeatGroupId,
   }) async {
+    // The price is expected to be finalized by getSlotsWithPeakStatusAndPrice
     double? finalizedPrice = price;
-    var today = DateFormat('EEEE').format(date!);
-    for (var hour in specialHoursList) {
-      TimeOfDay selectedStartTime = TimeOfDay(
-        hour: startTime!.hour,
-        minute: startTime.minute,
-      );
-      TimeOfDay selectedEndTime = TimeOfDay(
-        hour: endTime!.hour,
-        minute: endTime.minute,
-      );
-      TimeOfDay specialStartTime = convertTimestampToTimeOfDay(
-        hour['startTime'],
-      );
-      TimeOfDay specialEndTime = convertTimestampToTimeOfDay(hour['endTime']);
-
-      if (hour['day'] == today) {
-        int startTimeComparision = compareTimeOfDay(
-          selectedStartTime,
-          specialStartTime,
-        );
-        int endTimeComparision = compareTimeOfDay(
-          selectedEndTime,
-          specialEndTime,
-        );
-
-        if (startTimeComparision >= 0 && endTimeComparision <= 0) {
-          finalizedPrice = hour['price'].toDouble();
-        }
-      } else if (hour['day'] == 'All') {
-        int startTimeComparision = compareTimeOfDay(
-          selectedStartTime,
-          specialStartTime,
-        );
-        int endTimeComparision = compareTimeOfDay(
-          selectedEndTime,
-          specialEndTime,
-        );
-
-        if (startTimeComparision >= 0 && endTimeComparision <= 0) {
-          finalizedPrice = hour['price'].toDouble();
-        }
-      }
-    }
 
     if (currentPlan.length > 0) {
       double tempDiscount =
@@ -1725,52 +1345,52 @@ class NewBookingController extends GetxController {
     update();
   }
 
-  Future<void> validatePromocode(String promoCode) async {
-    try {
-      final QuerySnapshot discountSnapshot =
-          await FirebaseFirestore.instance
-              .collection(authController.centerSlug.toString())
-              .doc('discounts')
-              .collection('discount')
-              .where('code', isEqualTo: promoCode.toString())
-              .where('expireAt', isGreaterThanOrEqualTo: Timestamp.now())
-              .where('active', isEqualTo: 1)
-              .get();
+  // Future<void> validatePromocode(String promoCode) async {
+  //   try {
+  //     final QuerySnapshot discountSnapshot =
+  //         await FirebaseFirestore.instance
+  //             .collection(authController.centerSlug.toString())
+  //             .doc('discounts')
+  //             .collection('discount')
+  //             .where('code', isEqualTo: promoCode.toString())
+  //             .where('expireAt', isGreaterThanOrEqualTo: Timestamp.now())
+  //             .where('active', isEqualTo: 1)
+  //             .get();
 
-      if (discountSnapshot.docs.isNotEmpty) {
-        for (var doc in discountSnapshot.docs) {
-          var code = doc['code'];
-          final QuerySnapshot couponUsageSnapshot =
-              await FirebaseFirestore.instance
-                  .collection(authController.centerSlug.toString())
-                  .doc('couponUsages')
-                  .collection('couponUsage')
-                  .where('userId', isEqualTo: authController.userId.toString())
-                  .where('couponId', isEqualTo: code.toString())
-                  .get();
-          if (couponUsageSnapshot.docs.isEmpty) {
-            if (doc['discountType'] == 'Fixed') {
-              discount.value = doc['discount'];
-            } else {
-              discount.value = totalAmount / 100 * doc['discount'];
-            }
-            showCustomSnackbar('Success', 'Promo Applied ', Colors.green);
-          } else {
-            discount.value = 0;
-            showCustomSnackbar('Failed', 'Promo Already Used', Colors.red);
-          }
-        }
-      } else {
-        discount.value = 0;
-        showCustomSnackbar('Failed', 'Invalid Promo Code', Colors.red);
-      }
-    } catch (e) {
-      print(e.toString());
-    } finally {
-      isLoading.value = false;
-      update();
-    }
-  }
+  //     if (discountSnapshot.docs.isNotEmpty) {
+  //       for (var doc in discountSnapshot.docs) {
+  //         var code = doc['code'];
+  //         final QuerySnapshot couponUsageSnapshot =
+  //             await FirebaseFirestore.instance
+  //                 .collection(authController.centerSlug.toString())
+  //                 .doc('couponUsages')
+  //                 .collection('couponUsage')
+  //                 .where('userId', isEqualTo: authController.userId.toString())
+  //                 .where('couponId', isEqualTo: code.toString())
+  //                 .get();
+  //         if (couponUsageSnapshot.docs.isEmpty) {
+  //           if (doc['discountType'] == 'Fixed') {
+  //             discount.value = doc['discount'];
+  //           } else {
+  //             discount.value = totalAmount / 100 * doc['discount'];
+  //           }
+  //           showCustomSnackbar('Success', 'Promo Applied ', Colors.green);
+  //         } else {
+  //           discount.value = 0;
+  //           showCustomSnackbar('Failed', 'Promo Already Used', Colors.red);
+  //         }
+  //       }
+  //     } else {
+  //       discount.value = 0;
+  //       showCustomSnackbar('Failed', 'Invalid Promo Code', Colors.red);
+  //     }
+  //   } catch (e) {
+  //     print(e.toString());
+  //   } finally {
+  //     isLoading.value = false;
+  //     update();
+  //   }
+  // }
 
   //On click Confirm Booking
   Future<void> processCheckout({
@@ -2241,7 +1861,7 @@ class NewBookingController extends GetxController {
           court: courtName,
           courtId: subDoc['courtId'],
           startTime: DateTime.parse(subDoc['startTime']),
-          endTime: DateTime.parse(subDoc['endTime']),
+          endTime: DateTime.parse(subDoc['end_time']),
           price: subDoc['price'].toDouble(),
           slotType: subDoc['slotType'],
           repeatDays: subDoc['repeatDays'],
@@ -2313,13 +1933,13 @@ class NewBookingController extends GetxController {
       final response =
           await supabase
               .schema('s22_prod_schema')
-              .from('services')
-              .select('name')
+              .from('sports')
+              .select('sport_name')
               .eq('id', serviceId)
               .single();
 
-      if (response != null && response['name'] != null) {
-        serviceName = response['name'];
+      if (response != null && response['sport_name'] != null) {
+        serviceName = response['sport_name'];
         prefs.setString('service_$serviceId', serviceName!);
       } else {
         throw Exception('Service not found in Supabase');
@@ -2328,26 +1948,6 @@ class NewBookingController extends GetxController {
 
     return serviceName;
   }
-  // Future<String> getServiceName(String serviceId) async {
-  //   SharedPreferences prefs = await SharedPreferences.getInstance();
-  //   String? serviceName = prefs.getString('service_$serviceId');
-  //   if (serviceName == null) {
-  //     // Service name not found in cache, fetch it from Firestore
-  //     DocumentSnapshot serviceDoc =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('services')
-  //             .collection('service')
-  //             .doc(serviceId)
-  //             .get();
-  //     serviceName = serviceDoc['name'];
-  //     prefs.setString(
-  //       'service_$serviceId',
-  //       serviceName!,
-  //     ); // Cache the service name
-  //   }
-  //   return serviceName;
-  // }
 
   // Function to get court name from local cache or Firestore
 
@@ -2359,13 +1959,13 @@ class NewBookingController extends GetxController {
       final response =
           await supabase
               .schema('s22_prod_schema')
-              .from('courts')
-              .select('name')
+              .from('sports')
+              .select('platform_name')
               .eq('id', courtId)
               .single();
 
-      if (response != null && response['name'] != null) {
-        courtName = response['name'];
+      if (response != null && response['platform_name'] != null) {
+        courtName = response['platform_name'];
         prefs.setString('court_$courtId', courtName!);
       } else {
         throw Exception('Court not found in Supabase');
@@ -2373,109 +1973,6 @@ class NewBookingController extends GetxController {
     }
 
     return courtName;
-  }
-  // Future<String> getCourtName(String courtId) async {
-  //   SharedPreferences prefs = await SharedPreferences.getInstance();
-  //   String? courtName = prefs.getString('court_$courtId');
-  //   if (courtName == null) {
-  //     // Court name not found in cache, fetch it from Firestore
-  //     DocumentSnapshot courtDoc =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('courts')
-  //             .collection('court')
-  //             .doc(courtId)
-  //             .get();
-  //     courtName = courtDoc['name'];
-  //     prefs.setString('court_$courtId', courtName!); // Cache the court name
-  //   }
-  //   return courtName;
-  // }
-
-  Future<void> updateBookingSlots({String? name}) async {
-    try {
-      for (var item in editCartItems!) {
-        QuerySnapshot querySnapshot =
-            await FirebaseFirestore.instance
-                .collection(authController.centerSlug.toString())
-                .doc('bookingSlots')
-                .collection('bookingSlot')
-                .where('subBookingId', isEqualTo: item.subBookingId.toString())
-                .get();
-
-        List<Future<void>> updateFutures = [];
-        for (DocumentSnapshot docSnapshot in querySnapshot.docs) {
-          updateFutures.add(
-            docSnapshot.reference.update({
-              'status': 'Cancelled',
-              'updatedBy': authController.userId.toString(),
-              'updatedAt': DateTime.now(),
-            }),
-          );
-        }
-        await Future.wait(updateFutures);
-      }
-
-      //Insert Booking Slots
-      WriteBatch insertBatch = FirebaseFirestore.instance.batch();
-      for (var slot in cartItems) {
-        DocumentReference docRefs =
-            await FirebaseFirestore.instance
-                .collection(authController.centerSlug.toString())
-                .doc('bookingSlots')
-                .collection('bookingSlot')
-                .doc();
-        insertBatch.set(docRefs, {
-          'bookingId': editCartItems[0].bookingId,
-          'subBookingId': slot.subBookingId,
-          'userId': editCartItems[0].userId,
-          'name': editCartItems[0].name,
-          'mobile': editCartItems[0].mobile,
-          'date': slot.date,
-          'serviceId': slot.serviceId,
-          'courtId': slot.courtId,
-          'startTime': slot.startTime,
-          'endTime': slot.endTime,
-          'price': slot.price!.toDouble(),
-          'slotType': slot.slotType,
-          'repeatDays': slot.repeatDays.toString(),
-          'repeatEnd': slot.repeatEnd,
-          'repeatId': slot.repeatId,
-          'repeatGroupId': slot.repeatGroupId,
-          'paymentStatus': 'Pending',
-          'status': 'Booked',
-          'createdBy': authController.userId.toString(),
-          'updatedBy': authController.userId.toString(),
-          'createdAt': DateTime.now(),
-          'updatedAt': DateTime.now(),
-        });
-      }
-      //Execute Insert
-      await insertBatch.commit();
-
-      //Clear Cart Items
-      cartItems.clear();
-
-      //Update the confirm status
-      confirmBtn.value = false;
-
-      //Status Alert
-      showBookingSuccessAlert();
-
-      //Re initiate bookings
-      fetchBookedSlots();
-
-      //Update the Page
-      isLoading.value = false;
-      update();
-
-      //Redirect
-      Future.delayed(Duration(seconds: 1), () {
-        Get.offAllNamed('/');
-      });
-    } catch (e) {
-      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
-    } finally {}
   }
 
   void printReceipt() async {
@@ -2556,111 +2053,6 @@ class NewBookingController extends GetxController {
     return abbreviatedDays;
   }
 
-  Future<void> updateBooking({
-    required bookingId,
-    List<BookingSlot>? selectedBSlots,
-  }) async {
-    try {
-      /*WriteBatch batch = FirebaseFirestore.instance.batch();
-
-      for (BookingSlot bSlot in selectedBSlots) {
-        QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-            .collection(authController.centerSlug.toString())
-            .doc('bookingSlots')
-            .collection('bookingSlot')
-            .where('subBookingId', isEqualTo: bSlot.subBookingId.toString())
-            .get();
-
-        querySnapshot.docs.forEach((docSnapshot) {
-          batch.delete(docSnapshot.reference);
-        });
-      }*/
-
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-
-      for (BookingSlot bSlot in selectedBSlots!) {
-        QuerySnapshot querySnapshot =
-            await FirebaseFirestore.instance
-                .collection(authController.centerSlug.toString())
-                .doc('bookingSlots')
-                .collection('bookingSlot')
-                .where('subBookingId', isEqualTo: bSlot.subBookingId.toString())
-                .get();
-
-        querySnapshot.docs.forEach((docSnapshot) {
-          batch.update(docSnapshot.reference, {
-            'status': 'Cancelled',
-            'updatedBy': authController.userId.toString(),
-            'updatedAt': DateTime.now(),
-          });
-        });
-      }
-
-      // Commit the batch
-      await batch.commit().then((value) async {
-        //Insert Booking Slots
-        WriteBatch insertBatch = FirebaseFirestore.instance.batch();
-        for (var slot in cartItems) {
-          DocumentReference docRefs =
-              await FirebaseFirestore.instance
-                  .collection(authController.centerSlug.toString())
-                  .doc('bookingSlots')
-                  .collection('bookingSlot')
-                  .doc();
-          insertBatch.set(docRefs, {
-            'bookingId': bookingId,
-            'subBookingId': slot.subBookingId,
-            // 'userId': userData.value.id,
-            'name': slot.name,
-            'mobile': slot.mobile,
-            'date': slot.date,
-            'serviceId': slot.serviceId,
-            'courtId': slot.courtId,
-            'startTime': slot.startTime,
-            'endTime': slot.endTime,
-            'price': slot.price,
-            'slotType': slot.slotType,
-            'repeatDays': slot.repeatDays.toString(),
-            'repeatEnd': slot.repeatEnd,
-            'repeatId': slot.repeatId,
-            'repeatGroupId': slot.repeatGroupId,
-            'paymentStatus': 'Pending',
-            'status': 'Booked',
-            'createdBy': authController.userId.toString(),
-            'updatedBy': authController.userId.toString(),
-            'createdAt': DateTime.now(),
-            'updatedAt': DateTime.now(),
-          });
-        }
-        //Execute Insert
-        await insertBatch.commit();
-      });
-
-      //Clear Cart Items
-      cartItems.clear();
-
-      //Update the confirm status
-      confirmBtn.value = false;
-
-      //Status Alert
-      showBookingSuccessAlert();
-
-      //Re initiate bookings
-      fetchBookedSlots();
-
-      //Update the Page
-      isLoading.value = false;
-      update();
-
-      //Redirect
-      Future.delayed(Duration(seconds: 1), () {
-        Get.offAllNamed('/');
-      });
-    } catch (e) {
-      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
-    } finally {}
-  }
-
   Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
     int matchingSlotCount = 0;
 
@@ -2679,24 +2071,6 @@ class NewBookingController extends GetxController {
 
     return matchingSlotCount == 0;
   }
-
-  // Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
-  //   int matchingDocumentCount = 0;
-  //   for (var item in selectedBSlots!) {
-  //     QuerySnapshot querySnapshot =
-  //         await FirebaseFirestore.instance
-  //             .collection(authController.centerSlug.toString())
-  //             .doc('bookingSlots')
-  //             .collection('bookingSlot')
-  //             .where('serviceId', isEqualTo: item.serviceId)
-  //             .where('courtId', isEqualTo: item.courtId)
-  //             .where('startTime', isEqualTo: item.startTime)
-  //             .where('status', isEqualTo: 'Booked')
-  //             .get();
-  //     matchingDocumentCount += querySnapshot.docs.length;
-  //   }
-  //   return matchingDocumentCount == 0 ? true : false;
-  // }
 
   Future<void> changeCourt({String? subBookingId, String? courtId}) async {
     try {
@@ -2764,69 +2138,6 @@ class NewBookingController extends GetxController {
     }
   }
 
-  // Future<void> changeCourt({String? subBookingId, String? courtId}) async {
-  //   try {
-  //     Iterable<BookingSlot> selectedSlots = bookedSlots.where(
-  //       (item) => item.subBookingId == subBookingId,
-  //     );
-  //     bool availableStatus;
-  //     int matchingDocumentCount = 0;
-  //     for (var item in selectedSlots!) {
-  //       QuerySnapshot querySnapshot =
-  //           await FirebaseFirestore.instance
-  //               .collection(authController.centerSlug.toString())
-  //               .doc('bookingSlots')
-  //               .collection('bookingSlot')
-  //               .where('serviceId', isEqualTo: item.serviceId)
-  //               .where('courtId', isEqualTo: courtId)
-  //               .where('startTime', isEqualTo: item.startTime)
-  //               .where('status', isEqualTo: 'Booked')
-  //               .get();
-  //       matchingDocumentCount += querySnapshot.docs.length;
-  //     }
-  //     availableStatus = matchingDocumentCount == 0 ? true : false;
-  //     if (availableStatus == true) {
-  //       QuerySnapshot querySnapshot =
-  //           await FirebaseFirestore.instance
-  //               .collection(authController.centerSlug.toString())
-  //               .doc('bookingSlots')
-  //               .collection('bookingSlot')
-  //               .where('subBookingId', isEqualTo: subBookingId.toString())
-  //               .get();
-
-  //       List<Future<void>> updateFutures = [];
-  //       for (DocumentSnapshot docSnapshot in querySnapshot.docs) {
-  //         updateFutures.add(
-  //           docSnapshot.reference.update({
-  //             'courtId': courtId,
-  //             'updatedBy': authController.userId.toString(),
-  //             'updatedAt': DateTime.now(),
-  //           }),
-  //         );
-  //       }
-  //       await Future.wait(updateFutures).then((value) {
-  //         selectedBookingId.value = '';
-  //         update();
-  //         Get.back();
-  //         showCustomSnackbar(
-  //           'Success',
-  //           'Court Changed Successfully',
-  //           Colors.green,
-  //         );
-  //       });
-  //     } else {
-  //       showCustomSnackbar(
-  //         'Warning',
-  //         'Select Court Not Available',
-  //         Colors.orange,
-  //       );
-  //     }
-  //   } catch (e) {
-  //   } finally {
-  //     courtChangeBtn.value = false;
-  //   }
-  // }
-
   Stream<List<BookingSlot>> getBookingSlotStream() {
     if (selectedServiceId.isEmpty) {
       return Stream.value([]);
@@ -2893,6 +2204,7 @@ class NewBookingController extends GetxController {
               endTime: DateTime.parse(slot['end_time']),
               price: (slot['price'] as num).toDouble(),
               status: slot['status'],
+              subBookingId: slot['sub_booking_id'],
             );
           }).toList();
 

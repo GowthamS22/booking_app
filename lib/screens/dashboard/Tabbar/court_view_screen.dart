@@ -72,20 +72,27 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       await controller.fetchServiceList();
 
       if (controller.serviceList.isNotEmpty) {
-        // Set initial service ID
+        // Set initial service ID to the first available service if list is not empty
         controller.selectedServiceId.value = controller.serviceList[0]['id'];
-        await Future.wait([
-          controller.fetchCourtList(),
-          controller.fetchBookedSlots(),
-        ]);
-
-        // Clear and reload court list
-        controller.courtList.clear();
-        await controller.fetchCourtList();
-
-        // Fetch slot info
-        await fetchSlotInfo();
+      } else {
+        // If no services are available, clear the selectedServiceId
+        controller.selectedServiceId.value = '';
+        print('No active services available for today.');
+        controller.isLoading.value = false;
+        return; // Exit if no services are available
       }
+
+      await Future.wait([
+        controller.fetchCourtList(),
+        controller.fetchBookedSlots(),
+      ]);
+
+      // Clear and reload court list
+      // controller.courtList.clear(); // Removed redundant call
+      // await controller.fetchCourtList(); // Removed redundant call
+
+      // Fetch slot info
+      await fetchSlotInfo();
     } catch (error) {
       print('Error loading initial data: $error');
     } finally {
@@ -209,9 +216,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               width: MediaQuery.of(context).size.width / 7,
               child: DropdownButtonFormField<String>(
                 value:
-                    (controller.selectedServiceId.value.isNotEmpty)
+                    controller.serviceList.any(
+                          (item) =>
+                              item['id'] == controller.selectedServiceId.value,
+                        )
                         ? controller.selectedServiceId.value
-                        : null,
+                        : (controller.serviceList.isNotEmpty
+                            ? controller.serviceList.first['id']
+                            : null),
                 items:
                     controller.serviceList.map((item) {
                       return DropdownMenuItem<String>(
@@ -238,8 +250,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       ]);
 
                       // Clear and reload court list
-                      controller.courtList.clear();
-                      await controller.fetchCourtList();
+                      // controller.courtList.clear(); // Removed redundant call
+                      // await controller.fetchCourtList(); // Removed redundant call
 
                       // Fetch slot info
                       await fetchSlotInfo();
@@ -248,6 +260,24 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     } finally {
                       controller.isLoading.value = false;
                     }
+                  } else if (controller.serviceList.isNotEmpty) {
+                    // If value becomes null but serviceList is not empty, default to the first service
+                    setState(() {
+                      controller.selectedServiceId.value =
+                          controller.serviceList[0]['id'];
+                    });
+                    await Future.wait([
+                      controller.fetchCourtList(),
+                      controller.fetchBookedSlots(),
+                    ]);
+                    controller.courtList.clear();
+                    await controller.fetchCourtList();
+                    await fetchSlotInfo();
+                  } else {
+                    // If value is null and serviceList is empty, clear selectedServiceId
+                    setState(() {
+                      controller.selectedServiceId.value = '';
+                    });
                   }
                 },
                 onSaved: (value) {},
@@ -539,7 +569,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     // Top Time Slot Header
                     Positioned(
                       top: 20, // Adjusted position (SizedBox 16 + AM/PM 20)
-                      left: 111,
+                      left: 100,
                       right: 0,
                       height: 50,
                       child: SingleChildScrollView(
@@ -572,7 +602,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 final formattedTime = "$hour12:$minuteStr";
 
                                 return Container(
-                                  width: 82,
+                                  width: 80,
                                   height: 50,
                                   alignment: Alignment.center,
                                   color: Colors.white,
@@ -599,24 +629,26 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       top: 70,
                       left: 0,
                       bottom: 0,
-                      width: 111,
+                      width: 100,
                       child: SingleChildScrollView(
                         controller: _leftVerticalController,
                         child: Column(
                           children:
                               sortedCourts.map((court) {
                                 return Container(
-                                  width: 111,
+                                  width: 100,
                                   height: 58,
                                   alignment: Alignment.centerLeft,
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
+                                    horizontal: 10,
                                   ),
                                   color: Colors.white,
                                   child: Text(
                                     court['name'],
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade900,
+                                      fontSize: 16,
                                     ),
                                   ),
                                 );
@@ -627,7 +659,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                     Positioned(
                       top: 70, // Adjusted position
-                      left: 111,
+                      left: 100,
                       right: 0,
                       bottom: 0,
                       child: SingleChildScrollView(
@@ -839,7 +871,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Positioned(
                       top: 0,
                       left: 0,
-                      width: 111,
+                      width: 100,
                       height: 70,
                       child: Container(
                         color: Colors.white,
@@ -847,7 +879,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Text(
                           'Court/Time',
-                          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade400,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                     ),

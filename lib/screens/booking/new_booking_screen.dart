@@ -2032,9 +2032,9 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                       } else {
                         //Update Booking
                         if (widget.selectedBSlots!.length > 0) {
-                          controller.updateBookingSlots(
-                            name: controller.nameController.text,
-                          );
+                          // controller.updateBookingSlots(
+                          //   name: controller.nameController.text,
+                          // );
                         }
                       }
                     } else {

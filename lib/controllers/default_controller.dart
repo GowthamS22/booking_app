@@ -220,8 +220,8 @@ class DefaultController extends GetxController
 
   @override
   void onInit() {
-    fetchServiceList();
-    fetchCourtList();
+    // fetchServiceList();
+    // fetchCourtList();
     //getBookingData();
     //getUpcomingBookingData();
     //getUpcomingBookingSlots();
@@ -261,7 +261,7 @@ class DefaultController extends GetxController
         //   bookingController.fetchBookings('Dashboard');
         //   break;
         case 1:
-          bookingController.fetchBookings('current');
+          bookingController.fetchBookings('Active');
           break;
         case 2:
           bookingController.fetchBookings('upcoming');
@@ -335,37 +335,62 @@ class DefaultController extends GetxController
     );
   }
 
-  void fetchServiceList() async {
-    serviceList.clear();
-    isLoading.value = true;
+  // Future<void> fetchServiceList() async {
+  //   isLoading.value = true;
 
-    final response = await supabase
-        .schema('s22_prod_schema')
-        .from('services')
-        .select('id, name, icon, display_order')
-        .filter('active', 'eq', true)
-        .order('display_order', ascending: true);
+  //   try {
+  //     final response = await supabase
+  //         .schema('s22_prod_schema')
+  //         .from('sports')
+  //         .select(
+  //           'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,enabled',
+  //         )
+  //         .eq('status', true)
+  //         .order('platform_index', ascending: true);
 
-    if (response.isNotEmpty) {
-      final List services = response;
-      for (var service in services) {
-        serviceList.add({
-          'id': service['id'],
-          'name': service['name'],
-          'icon': service['icon'],
-        });
-      }
-    } else {
-      showCustomSnackbar(
-        'Error fetching service',
-        response.toString(),
-        Colors.redAccent,
-      );
-    }
+  //     if (response != null) {
+  //       serviceList.clear();
+  //       for (var service in response) {
+  //         serviceList.add({
+  //           'id': service['id'],
+  //           'name': service['sport_name'],
+  //           'icon': '', // Assuming 'icon' is not present in sports table.
+  //           'enabled': service['enabled'],
+  //           'platform_from_time': service['platform_from_time'],
+  //           'platform_to_time': service['platform_to_time'],
+  //           'regular_fee': service['regular_fee'],
+  //           'peak_fee': service['peak_fee'],
+  //         });
+  //       }
+  //       // Add the service list to the stream
+  //       _serviceStreamController.add(serviceList);
+  //       setDefaultSerivce();
+  //     }
+  //   } catch (e) {
+  //     print('Error fetching services: $e');
+  //     _serviceStreamController.addError(e);
+  //   } finally {
+  //     isLoading.value = false;
+  //     update();
+  //   }
+  // }
 
-    isLoading.value = false;
-    update();
-  }
+  //  Future<void> setDefaultSerivce() async {
+  //   final response = await supabase
+  //       .schema('s22_prod_schema')
+  //       .from('sports')
+  //       .select('id, sport_name')
+  //       .eq('status', true)
+  //       .order('platform_index', ascending: true);
+
+  //   if (response.isNotEmpty) {
+  //     final service = response.first;
+  //     selectedService.value = service['sport_name'];
+  //     selectedServiceId.value = service['id'];
+  //   }
+  //   fetchCourtList();
+  //   update();
+  // }
 
   // void fetchServiceList() async {
   //   serviceList.clear();
