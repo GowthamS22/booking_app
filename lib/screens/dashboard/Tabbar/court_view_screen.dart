@@ -493,7 +493,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     // AM/PM Header
                     Positioned(
                       top: 0,
-                      left: 111,
+                      left: 100,
                       right: 0,
                       height: 20,
                       child: SingleChildScrollView(
@@ -504,7 +504,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             // AM block
                             if (amSlots.isNotEmpty)
                               Container(
-                                width: amSlots.length * 82,
+                                width: amSlots.length * 80,
                                 alignment: Alignment.center,
                                 color: Colors.grey.shade200,
                                 child: Text(
@@ -519,7 +519,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             // PM block
                             if (pmSlots.isNotEmpty)
                               Container(
-                                width: pmSlots.length * 82,
+                                width: pmSlots.length * 80,
                                 alignment: Alignment.center,
                                 color: Colors.grey.shade300,
                                 child: Text(
