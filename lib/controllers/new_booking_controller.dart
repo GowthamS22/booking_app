@@ -64,6 +64,8 @@ class NewBookingController extends GetxController {
   RxList<Map<String, dynamic>> courtNameLists = <Map<String, dynamic>>[].obs;
   List<Map<String, String>> userList = [];
   Rx<User> userData = User().obs;
+  RxList<Map<String, dynamic>> membershipPlans =
+      <Map<String, dynamic>>[].obs; // New: To store membership plans
 
   final selectedDays = Set<String>().obs;
   DateTime? repeatUntil;
@@ -152,6 +154,7 @@ class NewBookingController extends GetxController {
     fetchUserMobile();
     fetchServiceList();
     fetchStartEndTime();
+    fetchMembershipPlans(); // Fetch membership plans on init
     super.onInit();
     mobileNumberController = TextEditingController();
     bookingdateController = TextEditingController();
@@ -215,38 +218,141 @@ class NewBookingController extends GetxController {
 
   Future<void> fetchServiceList() async {
     isLoading.value = true;
-
     try {
-      final response = await supabase
+      final today = DateFormat(
+        'EEE',
+      ).format(selectedDate); // Get full day name (e.g., 'Monday')
+
+      // Fetch all sports
+      final sportsResponse = await supabase
           .schema('s22_prod_schema')
           .from('sports')
           .select(
             'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,peak_hour_status',
           )
-          .eq('status', true)
-          .order('platform_index', ascending: true);
+          .order(
+            'platform_index',
+            ascending: true,
+          ); // Order by index to check 0 first
 
-      if (response != null) {
-        serviceList.clear();
-        for (var service in response) {
-          serviceList.add({
-            'id': service['id'],
-            'name': service['sport_name'],
-            'icon': '', // Assuming 'icon' is not present in sports table.
-            'peak_hour_status': service['peak_hour_status'],
-            'platform_from_time': service['platform_from_time'],
-            'platform_to_time': service['platform_to_time'],
-            'regular_fee': service['regular_fee'],
-            'peak_fee': service['peak_fee'],
-          });
-        }
-        // Add the service list to the stream
-        _serviceStreamController.add(serviceList);
-        setDefaultSerivce();
+      // Fetch active days for today
+      final activeDaysResponse = await supabase
+          .schema('s22_prod_schema')
+          .from('active_days')
+          .select('sport_id, day_name, status')
+          .eq('day_name', today);
+      //.eq('status', true);
+
+      if (sportsResponse == null || activeDaysResponse == null) {
+        // Handle case where no data is returned
+        showCustomSnackbar(
+          'Error',
+          'Failed to fetch sports or active days data.',
+          Colors.red,
+        );
+        isLoading.value = false;
+        update();
+        return;
       }
+
+      final List<Map<String, dynamic>> availableSports = [];
+
+      for (var sport in sportsResponse) {
+        final sportId = sport['id'];
+        final sportStatus =
+            sport['status'] ?? false; // Default to false if null
+
+        // Check if this sport has an active day entry for today with status true
+        final isActiveToday = activeDaysResponse.any(
+          (activeDay) =>
+              activeDay['sport_id'] == sportId && activeDay['status'] == true,
+        );
+
+        availableSports.add({
+          'id': sport['id'],
+          'name': sport['sport_name'],
+          'icon': '',
+          'peak_hour_status': sport['peak_hour_status'],
+          'platform_from_time': sport['platform_from_time'],
+          'platform_to_time': sport['platform_to_time'],
+          'regular_fee': sport['regular_fee'],
+          'peak_fee': sport['peak_fee'],
+          'platform_index':
+              sport['platform_index'], // Include platform_index for sorting
+          'is_available': sportStatus && isActiveToday,
+        });
+      }
+
+      // Sort availableSports by platform_index to check index 0 first
+      availableSports.sort((a, b) {
+        final indexA = int.tryParse(a['platform_index'] ?? '0') ?? 0;
+        final indexB = int.tryParse(b['platform_index'] ?? '0') ?? 0;
+        return indexA.compareTo(indexB);
+      });
+
+      if (availableSports.isNotEmpty) {
+        serviceList.clear();
+
+        // Add only truly available sports to the serviceList for the dropdown
+        serviceList.addAll(
+          availableSports
+              .where((sport) => sport['is_available'] == true)
+              .toList(),
+        );
+
+        if (serviceList.isNotEmpty) {
+          // Check if any available sports were added after filtering
+          // Set default to first available sport from the *filtered* serviceList
+          final firstAvailableSport = serviceList.firstWhere(
+            (sport) =>
+                sport['is_available'] == true, // Redundant but safe check
+            orElse: () => null,
+          );
+
+          if (firstAvailableSport != null) {
+            selectedService.value = firstAvailableSport['name'];
+            selectedServiceId.value = firstAvailableSport['id'];
+            fetchCourtList(); // Call fetchCourtList only after selectedServiceId is set
+          } else {
+            // Fallback for an unlikely scenario where serviceList is not empty but no available sport is found
+            showCustomSnackbar(
+              'No Sports Available',
+              'No sports are scheduled for today.',
+              Colors.orange,
+            );
+            selectedService.value = '';
+            selectedServiceId.value = '';
+          }
+        } else {
+          // Case: availableSports was not empty, but after filtering, serviceList became empty
+          showCustomSnackbar(
+            'No Sports Available',
+            'No sports are scheduled for today.',
+            Colors.orange,
+          );
+          selectedService.value = '';
+          selectedServiceId.value = '';
+        }
+      } else {
+        // No sports available at all (initial sportsResponse was empty)
+        showCustomSnackbar(
+          'No Sports Available',
+          'No sports are configured in the system.',
+          Colors.orange,
+        );
+        serviceList.clear();
+      }
+      _serviceStreamController.add(
+        serviceList,
+      ); // Always update the stream here once at the end of this block
     } catch (e) {
       print('Error fetching services: $e');
       _serviceStreamController.addError(e);
+      showCustomSnackbar(
+        'Error',
+        'An error occurred while fetching services.',
+        Colors.red,
+      );
     } finally {
       isLoading.value = false;
       update();
@@ -319,47 +425,66 @@ class NewBookingController extends GetxController {
         final slotEnd = addMinutesToTimeOfDay(current, 30);
 
         bool isPeak = isSportEnabled; // Initial peak status from sports table
-        double slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee; // Initial price from sports table
+        double slotPrice =
+            isSportEnabled
+                ? sportPeakFee
+                : sportRegularFee; // Initial price from sports table
 
-        print('--- Slot: ${slotStart.hour.toString().padLeft(2, '0')}:${slotStart.minute.toString().padLeft(2, '0')} - ${slotEnd.hour.toString().padLeft(2, '0')}:${slotEnd.minute.toString().padLeft(2, '0')} ---');
+        print(
+          '--- Slot: ${slotStart.hour.toString().padLeft(2, '0')}:${slotStart.minute.toString().padLeft(2, '0')} - ${slotEnd.hour.toString().padLeft(2, '0')}:${slotEnd.minute.toString().padLeft(2, '0')} ---',
+        );
         print('  Initial isPeak (from sport enabled status): $isPeak');
         print('  Initial Price: $slotPrice');
 
         // Check if the current slot falls into any special_hours period for today
-        bool specialHourOverride = false; // Flag to indicate if special hours logic was applied
+        bool specialHourOverride =
+            false; // Flag to indicate if special hours logic was applied
         for (var sh in dailySpecialHours) {
           final specialStart = parseTimeString(sh['from_time']);
           final specialEnd = parseTimeString(sh['to_time']);
 
-          print('  Checking special hour range: ${specialStart.hour.toString().padLeft(2, '0')}:${specialStart.minute.toString().padLeft(2, '0')} - ${specialEnd.hour.toString().padLeft(2, '0')}:${specialEnd.minute.toString().padLeft(2, '0')} (DB status: ${sh['peak_hour_status']})');
+          print(
+            '  Checking special hour range: ${specialStart.hour.toString().padLeft(2, '0')}:${specialStart.minute.toString().padLeft(2, '0')} - ${specialEnd.hour.toString().padLeft(2, '0')}:${specialEnd.minute.toString().padLeft(2, '0')} (DB status: ${sh['peak_hour_status']})',
+          );
 
           if (isTimeInRange(slotStart, specialStart, specialEnd)) {
-            bool specialHourDbStatus = sh['peak_hour_status'] ?? false; // Get actual status from DB
-            
+            bool specialHourDbStatus =
+                sh['peak_hour_status'] ?? false; // Get actual status from DB
+
             // Apply the user's requested inversion for special_hours:
             // If DB status is FALSE, set isPeak to TRUE
             // If DB status is TRUE, set isPeak to FALSE
             if (!specialHourDbStatus) {
               isPeak = true;
               slotPrice = sportPeakFee;
-              print('    MATCH! Special hour DB status FALSE -> Setting isPeak = TRUE, price = $slotPrice');
+              print(
+                '    MATCH! Special hour DB status FALSE -> Setting isPeak = TRUE, price = $slotPrice',
+              );
             } else {
               isPeak = false;
               slotPrice = sportRegularFee;
-              print('    MATCH! Special hour DB status TRUE -> Setting isPeak = FALSE, price = $slotPrice');
+              print(
+                '    MATCH! Special hour DB status TRUE -> Setting isPeak = FALSE, price = $slotPrice',
+              );
             }
-            specialHourOverride = true; // Mark that special hours applied an override
+            specialHourOverride =
+                true; // Mark that special hours applied an override
             break; // Found a matching special hour, no need to check further
           }
         }
 
         // If no special hours applied an override, then use the initial sport's peak status
         if (!specialHourOverride) {
-            isPeak = isSportEnabled; // Revert to sports table default if no special hour override
-            slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
-            print('  No special hour override. Final isPeak (reverted to sport default) = $isPeak, price = $slotPrice');
+          isPeak =
+              isSportEnabled; // Revert to sports table default if no special hour override
+          slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
+          print(
+            '  No special hour override. Final isPeak (reverted to sport default) = $isPeak, price = $slotPrice',
+          );
         } else {
-            print('  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice');
+          print(
+            '  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice',
+          );
         }
 
         for (var court in courtList) {
@@ -533,21 +658,14 @@ class NewBookingController extends GetxController {
               .replaceAll(RegExp(r'\s+'), ' ')
               .trim();
 
-      // Use a more robust DateTime.parse for various formats, then convert to TimeOfDay
       DateTime parsedDateTime;
       if (cleanedTimeStr.contains('AM') || cleanedTimeStr.contains('PM')) {
-        // Handle 12-hour format with AM/PM (e.g., "09:00 AM", "6:00 PM")
-        // Dart's DateTime.parse generally handles this if the format is consistent.
-        // If issues persist, consider using DateFormat('h:mm a').parse(cleanedTimeStr).
         parsedDateTime = DateFormat("h:mm a").parse(cleanedTimeStr);
       } else if (cleanedTimeStr.length == 5 && cleanedTimeStr.contains(':')) {
-        // Handle 24-hour format without seconds (e.g., "09:00")
         parsedDateTime = DateFormat("HH:mm").parse(cleanedTimeStr);
       } else if (cleanedTimeStr.length == 8 && cleanedTimeStr.contains(':')) {
-        // Handle 24-hour format with seconds (e.g., "09:00:00")
         parsedDateTime = DateFormat("HH:mm:ss").parse(cleanedTimeStr);
       } else {
-        // Fallback for other potential formats, or throw a specific error
         throw FormatException('Unrecognized time format: $cleanedTimeStr');
       }
       return TimeOfDay(
@@ -560,69 +678,87 @@ class NewBookingController extends GetxController {
     }
   }
 
-  Future<void> setDefaultSerivce() async {
-    final response = await supabase
-        .schema('s22_prod_schema')
-        .from('sports')
-        .select('id, sport_name')
-        .eq('status', true)
-        .order('platform_index', ascending: true);
-
-    if (response.isNotEmpty) {
-      final service = response.first;
-      selectedService.value = service['sport_name'];
-      selectedServiceId.value = service['id'];
-    }
-    fetchCourtList();
-    update();
-  }
-
   Future<void> fetchCourtList() async {
     isLoading.value = true;
 
     try {
-      if (selectedServiceId.isNotEmpty) {
-        final response = await supabase
-            .schema('s22_prod_schema')
-            .from('sports')
-            .select(
-              'id, sport_name, platform_name, platform_index, no_of_platform, regular_fee, peak_fee, peak_hour_status',
-            )
-            .eq('sport_name', selectedService.value)
-            .eq('status', true)
-            .order('platform_index', ascending: true);
+      if (selectedServiceId.isEmpty) {
+        courtList.clear();
+        _serviceStreamController.add(serviceList);
+        isLoading.value = false;
+        update();
+        return;
+      }
 
-        if (response is List) {
-          List<Map<String, dynamic>> generatedCourts = [];
-          final Uuid uuid = Uuid();
+      final response = await supabase
+          .schema('s22_prod_schema')
+          .from('sports')
+          .select(
+            'id, sport_name, platform_name, platform_index, no_of_platform, regular_fee, peak_fee, peak_hour_status, status, platform_status(id, sport_id, platform_id, status, created_at, updated_at)',
+          )
+          .eq('id', selectedServiceId.value) // Changed from sport_name to id
+          .eq('status', true)
+          .order('platform_index', ascending: true);
 
-          for (var sport in response) {
-            final int numberOfPlatforms = sport['no_of_platform'] ?? 0;
-            final String platformName = sport['platform_name'] ?? 'Court';
+      if (response is List) {
+        List<Map<String, dynamic>> generatedCourts = [];
+        final Uuid uuid = Uuid();
 
-            for (int i = 1; i <= numberOfPlatforms; i++) {
-              generatedCourts.add({
-                'id':
-                    uuid.v4(), // Generate a unique ID for each platform instance
-                'name':
-                    '${platformName} ${i.toString().padLeft(2, '0')}', // e.g., "Court 01"
-                'price': sport['regular_fee'], // Use regular_fee as base price
-                'no_of_platform': 1, // Each is a single platform
-                'peak_fee': sport['peak_fee'],
-                'peak_hour_status': sport['peak_hour_status'],
-                'sport_id':
-                    sport['id'], // Keep a reference to the parent sport's ID
-              });
-            }
+        for (var sport in response) {
+          final int numberOfPlatforms = sport['no_of_platform'] ?? 0;
+          final String platformName = sport['platform_name'] ?? 'Court';
+          final bool sportOverallStatus = sport['status'] ?? false;
+          final String platformIndexType =
+              sport['platform_index'] ?? 'numeric'; // Get platform_index
+
+          // Extract platform_status entries for this sport
+          final List<dynamic> currentSportPlatformStatuses =
+              sport['platform_status'] ?? [];
+          final Map<String, bool> platformStatusMap = {};
+          final Map<String, String> platformIdMap =
+              {}; // To store platform_status IDs
+          for (var ps in currentSportPlatformStatuses) {
+            // Use the numeric platform_id (converted to string) as the key
+            platformStatusMap[ps['platform_id'].toString()] =
+                ps['status'] ?? false;
+            platformIdMap[ps['platform_id'].toString()] =
+                ps['id']; // Store the ID from platform_status
           }
-          courtList.value = generatedCourts;
 
-          await fetchSpecialHours();
-          await fetchBookedSlots();
+          for (int i = 1; i <= numberOfPlatforms; i++) {
+            String generatedCourtName;
+            if (platformIndexType == 'alphabetical') {
+              generatedCourtName =
+                  '${platformName} ${String.fromCharCode(64 + i)}'; // A, B, C...
+            } else {
+              generatedCourtName =
+                  '${platformName} ${i.toString().padLeft(2, '0')}'; // 01, 02, 03...
+            }
+            bool individualCourtStatus = sportOverallStatus;
 
-          // Add the updated data to the stream
-          _serviceStreamController.add(serviceList);
+            if (platformStatusMap.containsKey(i.toString())) {
+              individualCourtStatus = platformStatusMap[i.toString()]!;
+            }
+            final String courtId = platformIdMap[i.toString()] ?? uuid.v4();
+
+            generatedCourts.add({
+              'id': courtId,
+              'name': generatedCourtName,
+              'price': sport['regular_fee'],
+              'no_of_platform': 1,
+              'peak_fee': sport['peak_fee'],
+              'peak_hour_status': sport['peak_hour_status'],
+              'sport_id': sport['id'],
+              'status': individualCourtStatus,
+            });
+          }
         }
+        courtList.value = generatedCourts;
+
+        await fetchSpecialHours();
+        await fetchBookedSlots();
+      } else {
+        courtList.clear();
       }
     } catch (e) {
       print('Error fetching court list: $e');
@@ -633,17 +769,31 @@ class NewBookingController extends GetxController {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchMembershipPlans() async {
-    final response = await supabase
-        .schema('s22_prod_schema')
-        .from('membershipplan')
-        .select('*')
-        .order('price');
-    if (response.isEmpty) {
-      throw Exception('No membership plans found');
-    }
+  Future<void> fetchMembershipPlans() async {
+    try {
+      final response = await supabase
+          .schema('s22_prod_schema')
+          .from('membershipplan')
+          .select('*')
+          .order('price');
 
-    return List<Map<String, dynamic>>.from(response);
+      if (response.isEmpty) {
+        print('No membership plans found');
+        membershipPlans.clear();
+      }
+
+      membershipPlans.assignAll(List<Map<String, dynamic>>.from(response));
+    } catch (e) {
+      print('Error fetching membership plans: $e');
+      // Handle error, e.g., show a snackbar
+      showCustomSnackbar(
+        'Error',
+        'Failed to load membership plans: $e',
+        Colors.red,
+      );
+    } finally {
+      update();
+    }
   }
 
   Future<void> fetchSpecialHours() async {
@@ -668,11 +818,10 @@ class NewBookingController extends GetxController {
         update();
       } else {
         showCustomSnackbar(
-          'Error fetching courts with special hours:',
-          response.toString(),
-          Colors.redAccent,
+          'No Special Hours',
+          'No special hours found for the selected service.',
+          Colors.orange,
         );
-        print('Error fetching courts with special hours: ${response}');
       }
     } else {
       showCustomSnackbar(

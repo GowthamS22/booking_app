@@ -601,6 +601,13 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                 (controller.selectedServiceId.value.isNotEmpty)
                                     ? controller.selectedServiceId.value
                                     : null,
+                            hint: Text(
+                              'Select Sport',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15 * ffem,
+                                color: Colors.grey,
+                              ),
+                            ),
                             decoration: InputDecoration(
                               border: OutlineInputBorder(
                                 borderSide: BorderSide(
@@ -618,23 +625,33 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                 controller.serviceList.map((item) {
                                   return DropdownMenuItem<String>(
                                     value: item['id'],
+                                    enabled: item['is_available'] == true,
                                     child: Text(
-                                      '${item['name']}',
+                                      '${item['name']}${item['is_available'] == false ? ' (Not Available)' : ''}',
                                       style: GoogleFonts.poppins(
                                         fontSize: 15 * ffem,
+                                        color: item['is_available'] == false ? Colors.grey : Colors.black,
                                       ),
                                     ),
                                   );
                                 }).toList(),
                             onChanged: (value) {
-                              setState(() {
-                                controller.selectedServiceId.value = value!;
-                                //controller.bookedSlots.clear();
-                                controller.fetchBookedSlots();
-                                controller.courtList.clear();
-                                controller.fetchCourtList();
-                                controller.fetchStartEndTime();
-                              });
+                              if (value != null) {
+                                final selectedSport = controller.serviceList.firstWhere(
+                                  (sport) => sport['id'] == value,
+                                  orElse: () => {'is_available': false},
+                                );
+                                
+                                if (selectedSport['is_available'] == true) {
+                                  setState(() {
+                                    controller.selectedServiceId.value = value;
+                                    controller.fetchBookedSlots();
+                                    controller.courtList.clear();
+                                    controller.fetchCourtList();
+                                    controller.fetchStartEndTime();
+                                  });
+                                }
+                              }
                             },
                             onSaved: (value) {},
                           ),

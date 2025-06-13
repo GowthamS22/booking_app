@@ -220,8 +220,8 @@ class DefaultController extends GetxController
 
   @override
   void onInit() {
-    // fetchServiceList();
-    // fetchCourtList();
+    fetchServiceList();
+    //fetchCourtList();
     //getBookingData();
     //getUpcomingBookingData();
     //getUpcomingBookingSlots();
@@ -335,62 +335,63 @@ class DefaultController extends GetxController
     );
   }
 
-  // Future<void> fetchServiceList() async {
-  //   isLoading.value = true;
+  Future<void> fetchServiceList() async {
+    isLoading.value = true;
 
-  //   try {
-  //     final response = await supabase
-  //         .schema('s22_prod_schema')
-  //         .from('sports')
-  //         .select(
-  //           'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,enabled',
-  //         )
-  //         .eq('status', true)
-  //         .order('platform_index', ascending: true);
+    try {
+      final response = await supabase
+          .schema('s22_prod_schema')
+          .from('sports')
+          .select(
+            'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,enabled',
+          )
+          .eq('status', true)
+          .order('platform_index', ascending: true);
 
-  //     if (response != null) {
-  //       serviceList.clear();
-  //       for (var service in response) {
-  //         serviceList.add({
-  //           'id': service['id'],
-  //           'name': service['sport_name'],
-  //           'icon': '', // Assuming 'icon' is not present in sports table.
-  //           'enabled': service['enabled'],
-  //           'platform_from_time': service['platform_from_time'],
-  //           'platform_to_time': service['platform_to_time'],
-  //           'regular_fee': service['regular_fee'],
-  //           'peak_fee': service['peak_fee'],
-  //         });
-  //       }
-  //       // Add the service list to the stream
-  //       _serviceStreamController.add(serviceList);
-  //       setDefaultSerivce();
-  //     }
-  //   } catch (e) {
-  //     print('Error fetching services: $e');
-  //     _serviceStreamController.addError(e);
-  //   } finally {
-  //     isLoading.value = false;
-  //     update();
-  //   }
-  // }
+      if (response != null) {
+        serviceList.clear();
+        for (var service in response) {
+          serviceList.add({
+            'id': service['id'],
+            'name': service['sport_name'],
+            'icon': '', // Assuming 'icon' is not present in sports table.
+            'enabled': service['enabled'],
+            'platform_from_time': service['platform_from_time'],
+            'platform_to_time': service['platform_to_time'],
+            'regular_fee': service['regular_fee'],
+            'peak_fee': service['peak_fee'],
+          });
+        }
+        // Add the service list to the stream
+        //_serviceStreamController.add(serviceList);
+        setDefaultSerivce();
+      }
+    } catch (e) {
+      print('Error fetching services: $e');
+      // _serviceStreamController.addError(e);
+    } finally {
+      isLoading.value = false;
+      update();
+    }
+  }
 
-  //  Future<void> setDefaultSerivce() async {
-  //   final response = await supabase
-  //       .schema('s22_prod_schema')
-  //       .from('sports')
-  //       .select('id, sport_name')
-  //       .eq('status', true)
-  //       .order('platform_index', ascending: true);
+  Future<void> setDefaultSerivce() async {
+    final response = await supabase
+        .schema('s22_prod_schema')
+        .from('sports')
+        .select('id, sport_name')
+        .eq('status', true)
+        .order('platform_index', ascending: true);
 
-  //   if (response.isNotEmpty) {
-  //     final service = response.first;
-  //     selectedService.value = service['sport_name'];
-  //     selectedServiceId.value = service['id'];
-  //   }
-  //   fetchCourtList();
-  //   update();
-  // }
+    if (response.isNotEmpty) {
+      final service = response.first;
+      serviceList.add({'id': service['id'], 'name': service['sport_name']});
+      // selectedService.value = service['sport_name'];
+      // selectedServiceId.value = service['id'];
+    }
+    //fetchCourtList();
+    update();
+  }
 
   // void fetchServiceList() async {
   //   serviceList.clear();
@@ -434,31 +435,31 @@ class DefaultController extends GetxController
     }
   }
 
-  void fetchCourtList() async {
-    courtList.clear();
+  // void fetchCourtList() async {
+  //   courtList.clear();
 
-    final response = await supabase
-        .schema('s22_prod_schema')
-        .from('courts')
-        .select('id, name')
-        .eq('status', true);
+  //   final response = await supabase
+  //       .schema('s22_prod_schema')
+  //       .from('courts')
+  //       .select('id, name')
+  //       .eq('status', true);
 
-    if (response.isEmpty) {
-      showCustomSnackbar(
-        'Error fetching courts',
-        response.toString(),
-        Colors.redAccent,
-      );
-    } else {
-      final data = response as List;
-      for (var court in data) {
-        courtList.add({'id': court['id'], 'name': court['name']});
-      }
-    }
+  //   if (response.isEmpty) {
+  //     showCustomSnackbar(
+  //       'Error fetching courts',
+  //       response.toString(),
+  //       Colors.redAccent,
+  //     );
+  //   } else {
+  //     final data = response as List;
+  //     for (var court in data) {
+  //       courtList.add({'id': court['id'], 'name': court['name']});
+  //     }
+  //   }
 
-    isLoading.value = false;
-    update();
-  }
+  //   isLoading.value = false;
+  //   update();
+  // }
 
   // void fetchCourtList() async {
   //   courtList.clear();
@@ -1644,19 +1645,24 @@ class DefaultController extends GetxController
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? serviceName = prefs.getString('service_$serviceId');
     if (serviceName == null) {
-      // Service name not found in cache, fetch it from Firestore
-      DocumentSnapshot serviceDoc =
-          await FirebaseFirestore.instance
-              .collection(authController.centerSlug.toString())
-              .doc('services')
-              .collection('service')
-              .doc(serviceId)
-              .get();
-      serviceName = serviceDoc['name'];
-      prefs.setString(
-        'service_$serviceId',
-        serviceName!,
-      ); // Cache the service name
+      // Service name not found in cache, fetch it from Supabase
+      final response =
+          await supabase
+              .schema('s22_prod_schema')
+              .from('sports')
+              .select('sport_name')
+              .eq('id', serviceId)
+              .single();
+
+      if (response != null && response['sport_name'] != null) {
+        serviceName = response['sport_name'];
+        prefs.setString(
+          'service_$serviceId',
+          serviceName!,
+        ); // Cache the service name
+      } else {
+        throw Exception('Service not found in Supabase');
+      }
     }
     return serviceName;
   }
@@ -1666,16 +1672,21 @@ class DefaultController extends GetxController
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? courtName = prefs.getString('court_$courtId');
     if (courtName == null) {
-      // Court name not found in cache, fetch it from Firestore
-      DocumentSnapshot courtDoc =
-          await FirebaseFirestore.instance
-              .collection(authController.centerSlug.toString())
-              .doc('courts')
-              .collection('court')
-              .doc(courtId)
-              .get();
-      courtName = courtDoc['name'];
-      prefs.setString('court_$courtId', courtName!); // Cache the court name
+      // Court name not found in cache, fetch it from Supabase
+      final response =
+          await supabase
+              .schema('s22_prod_schema')
+              .from('sports')
+              .select('platform_name')
+              .eq('id', courtId)
+              .single();
+
+      if (response != null && response['platform_name'] != null) {
+        courtName = response['platform_name'];
+        prefs.setString('court_$courtId', courtName!); // Cache the court name
+      } else {
+        throw Exception('Court not found in Supabase');
+      }
     }
     return courtName;
   }

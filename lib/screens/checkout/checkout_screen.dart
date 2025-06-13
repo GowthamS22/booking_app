@@ -643,28 +643,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                                         // Continue with existing payment processing
                                         if (widget.type == 'Membership') {
-                                          await checkoutController
-                                              .makeMembershipPayment(
-                                                userId:
-                                                    customerController
-                                                        .selectedPlan[0]['userId'],
-                                                userMembershipId:
-                                                    customerController
-                                                        .selectedPlan[0]['userMembershipId'],
-                                                paymentType: selectedMethod,
-                                                promoCode:
-                                                    promoCodeController.text,
-                                                notes: notesController.text,
-                                                total: double.parse(
-                                                  customerController
-                                                      .selectedPlan[0]['price']
-                                                      .toString(),
-                                                ),
-                                                paid: totalPaid,
-                                                balance: double.parse(
-                                                  balanceAmountController.text,
-                                                ),
-                                              );
+                                          await checkoutController.makeMembershipPayment(
+                                            userId:
+                                                customerController
+                                                    .selectedPlan[0]['userId'],
+                                            userMembershipId:
+                                                customerController
+                                                    .selectedPlan[0]['userMembershipId'],
+                                            paymentType: selectedMethod,
+                                            promoCode: promoCodeController.text,
+                                            notes: notesController.text,
+                                            total: double.parse(
+                                              customerController
+                                                  .selectedPlan[0]['price']
+                                                  .toString(),
+                                            ),
+                                            paid: totalPaid,
+                                            balance: double.parse(
+                                              balanceAmountController.text,
+                                            ),
+                                            //membershipId: widget.membershipID,
+                                          );
                                         } else if (widget.type ==
                                             'ExistingBooking') {
                                           populateCartWithSubSlots(
@@ -731,6 +730,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   isMembershipApplied:
                                                       widget
                                                           .isMembershipApplied,
+                                                  membershipId:
+                                                      widget.membershipID,
                                                 );
                                           } else {
                                             await checkoutController
@@ -738,6 +739,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   mobile: widget.mobileno,
                                                   firstName:
                                                       widget.customerName,
+                                                  membershipId:
+                                                      widget.membershipID,
                                                 )
                                                 .then((value) {
                                                   populateCartWithSubSlots(
@@ -783,6 +786,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                         isMembershipApplied:
                                                             widget
                                                                 .isMembershipApplied,
+                                                        membershipId:
+                                                            widget.membershipID,
                                                       );
                                                 });
                                           }

@@ -41,12 +41,13 @@ class OrderController extends GetxController {
               last_name
             )
           ),
-          courts (
-            name
-          ),
-          services (
-            name
-          )
+          platform_status!court_id (
+        platform_id,
+        sport_id,
+        sports (
+          platform_name
+        )
+      )
         ''');
 
       if (filterType == 'current') {

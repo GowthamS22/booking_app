@@ -29,7 +29,7 @@ class CheckoutController extends GetxController {
   Rx<User> userData = User().obs;
 
   final NewBookingController newBookingController = Get.find();
-  final DefaultController defaultController = Get.find();
+  //final DefaultController defaultController = Get.find();
   final CustomerController customerController = Get.put(CustomerController());
 
   late TyroService tyroService;
@@ -101,6 +101,7 @@ class CheckoutController extends GetxController {
     String? postcode,
     String? password,
     String? aboutus,
+    String? membershipId,
     BuildContext? context,
   }) async {
     isLoading.value = true;
@@ -120,6 +121,7 @@ class CheckoutController extends GetxController {
                 'password': password,
                 'aboutus': aboutus,
                 'created_at': DateTime.now().toIso8601String(),
+                'membershipplan_id': membershipId,
                 // 'updated_at': DateTime.now().toIso8601String(),
                 'date_of_birth': null,
                 'city': '',
@@ -129,7 +131,7 @@ class CheckoutController extends GetxController {
                 'status': false,
               })
               .select()
-              .single(); // Returns the inserted row
+              .single();
 
       if (response['id'] != null) {
         userData.value.id = response['id'];
@@ -159,6 +161,7 @@ class CheckoutController extends GetxController {
     double? balance,
     String? bookingId,
     bool? isMembershipApplied,
+    String? membershipId,
   }) async {
     try {
       final validation = await bulkValidateSlots(
@@ -174,6 +177,16 @@ class CheckoutController extends GetxController {
         isLoading.value = false;
         update();
         return;
+      }
+
+      if (isMembershipApplied == true &&
+          membershipId != null &&
+          userId != null) {
+        await supabase
+            .schema('s22_prod_schema')
+            .from('customers')
+            .update({'membershipplan_id': membershipId})
+            .eq('id', userId);
       }
 
       // // Step 2: Generate a unique booking ID
@@ -314,190 +327,6 @@ class CheckoutController extends GetxController {
     }
   }
 
-  // Future<void> processFinalCheckout({
-  //   String? userId,
-  //   String? name,
-  //   String? mobile,
-  //   String? email,
-  //   String? notes,
-  //   String? promoCode,
-  //   String? paymentType,
-  //   double? paid,
-  //   double? balance,
-  // }) async {
-  //   try {
-  //     //Validation
-  //     Future<bool> validation = bulkValidateSlots(
-  //       selectedBSlots: newBookingController.cartItems,
-  //     );
-
-  //     if (await validation == false) {
-  //       showCustomSnackbar(
-  //         'Failed',
-  //         'Some bookings are not Available',
-  //         Colors.red,
-  //       );
-
-  //       checkoutPayBtn.value = false;
-
-  //       //Update the Page
-  //       isLoading.value = false;
-  //       update();
-  //     } else {
-  //       // Reference to the bookings collection
-  //       final QuerySnapshot snapshot =
-  //           await FirebaseFirestore.instance
-  //               .collection(authController.centerSlug.toString())
-  //               .doc('bookings')
-  //               .collection('booking')
-  //               .get();
-  //       final int numberOfBookings = snapshot.size + 1;
-  //       // Generate the custom booking ID in the format "BOOKING001"
-  //       final String bookingId =
-  //           'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
-
-  //       //Insert Booking
-  //       var docRef = FirebaseFirestore.instance
-  //           .collection(authController.centerSlug.toString())
-  //           .doc('bookings')
-  //           .collection('booking')
-  //           .doc(bookingId);
-
-  //       await docRef
-  //           .set({
-  //             'userId': userId,
-  //             'name': name,
-  //             'mobile': mobile,
-  //             'email': email,
-  //             'notes': notes,
-  //             'subTotal': subTotal,
-  //             'discount': discount.value,
-  //             'gst': gstPrice,
-  //             'total': grandtotalPrice,
-  //             'paymentType': paymentType,
-  //             'paymentStatus':
-  //                 (grandtotalPrice <= paid!) ? 'Paid' : 'Partially',
-  //             //Status : Pending, Paid, Partially, Failed, Refunded,
-  //             'status': 'Booked',
-  //             // Status : Booked, Cancelled
-  //             'createdBy': authController.userId.toString(),
-  //             'updatedBy': authController.userId.toString(),
-  //             'createdAt': DateTime.now(),
-  //             'updatedAt': DateTime.now(),
-  //           })
-  //           .then((value) async {
-  //             //Insert Booking Payment Details
-  //             var paymentdocRef =
-  //                 FirebaseFirestore.instance
-  //                     .collection(authController.centerSlug.toString())
-  //                     .doc('bookingPayments')
-  //                     .collection('bookingPayment')
-  //                     .doc();
-  //             await paymentdocRef.set({
-  //               'userId': userId,
-  //               'date': DateTime.now(),
-  //               'paymentType': paymentType,
-  //               'paymentVia': 'APP',
-  //               'subTotal': subTotal,
-  //               'discount': discount.value,
-  //               'gst': gstPrice,
-  //               'total': grandtotalPrice,
-  //               'paidAmount': paid,
-  //               'balance': balance,
-  //               'status': true,
-  //               'notes': notes.toString(),
-  //               'createdBy': authController.userId.toString(),
-  //               'updatedBy': authController.userId.toString(),
-  //               'createdAt': DateTime.now(),
-  //               'updatedAt': DateTime.now(),
-  //             });
-
-  //             //Insert Booking Slot
-  //             WriteBatch batch = FirebaseFirestore.instance.batch();
-  //             WriteBatch paymentBatch = FirebaseFirestore.instance.batch();
-  //             for (var slot in newBookingController.cartItems) {
-  //               //Insert Booking Slots
-  //               DocumentReference docRefs =
-  //                   await FirebaseFirestore.instance
-  //                       .collection(authController.centerSlug.toString())
-  //                       .doc('bookingSlots')
-  //                       .collection('bookingSlot')
-  //                       .doc();
-  //               batch.set(docRefs, {
-  //                 'bookingId': docRef.id,
-  //                 'subBookingId': slot.subBookingId,
-  //                 'userId': userId,
-  //                 'name': name,
-  //                 'mobile': mobile,
-  //                 'date': slot.date,
-  //                 'serviceId': slot.serviceId,
-  //                 'courtId': slot.courtId,
-  //                 'startTime': slot.startTime,
-  //                 'endTime': slot.endTime,
-  //                 'price': slot.price,
-  //                 'slotType': slot.slotType,
-  //                 'repeatDays': slot.repeatDays.toString(),
-  //                 'repeatEnd': slot.repeatEnd,
-  //                 'repeatId': slot.repeatId,
-  //                 'repeatGroupId': slot.repeatGroupId,
-  //                 'paymentStatus': 'Paid',
-  //                 'status': 'Booked',
-  //                 'createdBy': authController.userId.toString(),
-  //                 'updatedBy': authController.userId.toString(),
-  //                 'createdAt': DateTime.now(),
-  //                 'updatedAt': DateTime.now(),
-  //               });
-
-  //               //Insert Booking Slot Payment
-  //               DocumentReference slotPaymentRef =
-  //                   await FirebaseFirestore.instance
-  //                       .collection(authController.centerSlug.toString())
-  //                       .doc('bookingSlotPayments')
-  //                       .collection('bookingSlotPayment')
-  //                       .doc();
-  //               paymentBatch.set(slotPaymentRef, {
-  //                 'bookingPaymentId': paymentdocRef.id,
-  //                 'bookingId': docRef.id,
-  //                 'subBookingId': slot.subBookingId,
-  //                 'paymentType': paymentType,
-  //                 'total': slot.price,
-  //                 'paidAmount': slot.price,
-  //                 'balance': 0,
-  //                 'status': true,
-  //                 'createdBy': authController.userId.toString(),
-  //                 'updatedBy': authController.userId.toString(),
-  //                 'createdAt': FieldValue.serverTimestamp(),
-  //                 // Use serverTimestamp()
-  //                 'updatedAt': FieldValue.serverTimestamp(),
-  //                 // Use serverTimestamp()
-  //               });
-  //             }
-  //             await batch.commit();
-  //             await paymentBatch.commit();
-  //           });
-
-  //       printReceipt(bookingSlotItems: newBookingController.cartItems);
-
-  //       //Clear Cart Items
-  //       newBookingController.cartItems.clear();
-
-  //       //Status Alert
-  //       showBookingSuccessAlert();
-
-  //       //Update the Page
-  //       isLoading.value = false;
-  //       update();
-
-  //       //Redirect
-  //       Future.delayed(Duration(seconds: 1), () {
-  //         Get.offAllNamed('/');
-  //       });
-  //     }
-  //   } catch (e) {
-  //     showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
-  //   } finally {}
-  // }
-
   double get membershipAmount {
     double val =
         customerController.selectedPlan.length > 0
@@ -590,7 +419,7 @@ class CheckoutController extends GetxController {
             'items': map,
           });
 
-      printReceipt(bookingSlotItems: defaultController.actionBookingSlots);
+      //printReceipt(bookingSlotItems: defaultController.actionBookingSlots);
 
       // Status Alert
       showPaymentSuccessAlert();

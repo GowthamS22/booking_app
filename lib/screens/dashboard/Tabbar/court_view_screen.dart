@@ -32,13 +32,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   final ScrollController _leftVerticalController = ScrollController();
   DateTime selectedDate = DateTime.now();
   DateTime? selectedDateTime;
-  var courtPrice = 0;
   bool isDate = false;
-  String? selectedPlan;
   String? selectedMembershipId;
   List<Map<String, dynamic>> slotInfo = [];
   Set<int> expandedIndexes = {};
   Map<String, Map<String, dynamic>> slotInfoMap = {};
+  String? _selectedPlan;
+  double _selectedPrice = 0.0;
+  double memberPrice = 0.0;
+  bool isMembershipApplied = false;
+  var courtPrice = 0.0;
+  double membershipPrice = 0.0;
+  double totalPrice = 0.0;
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +91,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
         // Fetch slot info
         await fetchSlotInfo();
+
+        // Initialize selected membership plan after fetching all plans
+        if (controller.membershipPlans.isNotEmpty) {
+          _selectedPlan = controller.membershipPlans.first["name"];
+          _selectedPrice =
+              double.tryParse(
+                controller.membershipPlans.first["price"].toString(),
+              ) ??
+              0;
+        }
       }
     } catch (error) {
       print('Error loading initial data: $error');
@@ -209,44 +225,55 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               width: MediaQuery.of(context).size.width / 7,
               child: DropdownButtonFormField<String>(
                 value:
-                    (controller.selectedServiceId.value.isNotEmpty)
+                    controller.selectedServiceId.value.isNotEmpty
                         ? controller.selectedServiceId.value
                         : null,
                 items:
                     controller.serviceList.map((item) {
+                      final bool isDisabled = item['is_available'] == false;
+
                       return DropdownMenuItem<String>(
                         value: item['id'],
+                        enabled: !isDisabled,
                         child: Text(
                           '${item['name']}',
-                          style: GoogleFonts.inter(fontSize: 15 * ffem),
+                          style: GoogleFonts.inter(
+                            fontSize: 15 * ffem,
+                            color:
+                                isDisabled
+                                    ? Colors.grey.shade400
+                                    : Colors.black,
+                          ),
                         ),
                       );
                     }).toList(),
                 onChanged: (value) async {
                   if (value != null) {
-                    try {
-                      controller.isLoading.value = true;
+                    final selectedItem = controller.serviceList.firstWhere(
+                      (element) => element['id'] == value,
+                    );
 
-                      setState(() {
-                        controller.selectedServiceId.value = value;
-                      });
+                    if (selectedItem['is_available']) {
+                      try {
+                        controller.isLoading.value = true;
 
-                      // Fetch court list and booked slots in parallel
-                      await Future.wait([
-                        controller.fetchCourtList(),
-                        controller.fetchBookedSlots(),
-                      ]);
+                        setState(() {
+                          controller.selectedServiceId.value = value;
+                        });
 
-                      // Clear and reload court list
-                      controller.courtList.clear();
-                      await controller.fetchCourtList();
+                        await Future.wait([
+                          controller.fetchCourtList(),
+                          controller.fetchBookedSlots(),
+                        ]);
 
-                      // Fetch slot info
-                      await fetchSlotInfo();
-                    } catch (error) {
-                      print('Error loading data: $error');
-                    } finally {
-                      controller.isLoading.value = false;
+                        controller.courtList.clear();
+                        await controller.fetchCourtList();
+                        await fetchSlotInfo();
+                      } catch (error) {
+                        print('Error loading data: $error');
+                      } finally {
+                        controller.isLoading.value = false;
+                      }
                     }
                   }
                 },
@@ -288,6 +315,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 ),
               ),
             ),
+
             const SizedBox(width: 10),
             if (controller.selectedCourtSlots.isNotEmpty) ...[
               Container(
@@ -351,8 +379,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         );
                       }
                     });
-
-                    showBookingDialog(
+                    openBookingRightDrawer(
                       context,
                       membershipPlan,
                       memberPrice,
@@ -554,7 +581,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 final slotData = slotInfoMap[slot];
                                 final isPeak = slotData?['isPeak'] ?? false;
                                 courtPrice =
-                                    (slotData?['price'] ?? 0.0).toInt();
+                                    (slotData?['price'] ?? 0.0).toDouble();
                                 // Parse and convert to 12-hour format manually (without AM/PM)
                                 final parts = slot.split(":");
                                 int hour = int.parse(parts[0]);
@@ -658,7 +685,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       final isPeak =
                                           slotData?['isPeak'] ?? false;
                                       courtPrice =
-                                          (slotData?['price'] ?? 0.0).toInt();
+                                          (slotData?['price'] ?? 0.0)
+                                              .toDouble();
                                       bool isSelected = selectedSlots.contains(
                                         slot,
                                       );
@@ -872,10 +900,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       final parts = slot.split(':');
       final hour = int.parse(parts[0]);
       final minute = int.parse(parts[1]);
-
-      // Use selectedDateTime if available, otherwise use current date
       final date = selectedDateTime ?? DateTime.now();
-      // Create a DateTime with the selected date and the time from the slot string
       return DateTime(date.year, date.month, date.day, hour, minute, 0, 0, 0);
     } catch (e) {
       print('Error parsing time: $e');
@@ -944,11 +969,33 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       controller.selectedDate = combined; // Update controller's selected date
     });
 
-    // Refresh slots based on new date
-    await Future.wait([
-      fetchSlotInfo(), // Refresh slot info (peak status, price)
-      controller.fetchBookedSlots(), // Fetch booked slots for the new date
-    ]);
+    // Clear all data before fetching new data
+    controller.courtList.clear();
+    controller.timeSlots.clear();
+    controller.bookedSlots.clear();
+    slotInfo.clear();
+    slotInfoMap.clear();
+
+    try {
+      // Fetch data in sequence to respect dependencies
+      await controller.fetchServiceList();
+
+      if (controller.serviceList.isNotEmpty) {
+        // Set initial service ID if not already set
+        if (controller.selectedServiceId.value.isEmpty) {
+          controller.selectedServiceId.value = controller.serviceList[0]['id'];
+        }
+
+        // Fetch court list first as it's needed for slots
+        await controller.fetchCourtList();
+
+        // Then fetch booked slots and slot info
+        await Future.wait([controller.fetchBookedSlots(), fetchSlotInfo()]);
+      }
+    } catch (error) {
+      print('Error refreshing data after date change: $error');
+      // Show error to user if needed
+    }
   }
 
   String calculateEndTime(String lastSlot) {
@@ -1004,8 +1051,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     return time1.difference(time2).inMinutes.abs() == 30;
   }
 
-  //Booking Dialog Dialog
-  Future<void> showBookingDialog(
+  void updateTotalPrice() {
+    if (isMembershipApplied) {
+      totalPrice = courtPrice + membershipPrice;
+    } else {
+      totalPrice = courtPrice;
+    }
+    setState(() {}); // update UI
+  }
+
+  Future<void> openBookingRightDrawer(
     BuildContext context,
     String membershipPlan,
     double memberPrice,
@@ -1013,666 +1068,885 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     String membershipId,
     List<BookingInfo> bookings,
   ) async {
-    double total = bookings.fold(
-      0,
-      (sum, b) =>
-          sum + b.subSlots.fold(0.0, (sum, subSlot) => sum + subSlot.price),
-    );
+    // courtPrice = bookings.fold(
+    //   0.0,
+    //   (sum, b) =>
+    //       sum +
+    //       b.subSlots.fold(
+    //         0.0,
+    //         (subSum, subSlot) => subSum + (subSlot.price as num).toDouble(),
+    //       ),
+    // );
 
+    Color? borderColor;
+    Color? backgroundColor;
+    Color? textColor;
+    if (membershipPlan.toString().toLowerCase().contains('gold')) {
+      borderColor = Colors.amber.shade500;
+      backgroundColor = Colors.amber.shade50;
+      textColor = Colors.amber.shade800;
+    } else if (membershipPlan.toString().toLowerCase().contains('platinum')) {
+      borderColor = Colors.indigo.shade500;
+      backgroundColor = Colors.indigo.shade50;
+      textColor = Colors.indigo.shade700;
+    }
     if (!mounted) return;
-
-    await showDialog(
+    await showGeneralDialog(
       context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth:
-                  MediaQuery.of(context).size.width /
-                  1.5, // 💡 Set this to your preferred max width
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'New Booking',
-                              style: GoogleFonts.inter(
-                                fontSize: 18,
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
+      barrierLabel: "New Booking",
+      barrierDismissible: false,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0), // from right
+            end: Offset.zero,
+          ).animate(animation),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width / 2.5,
+              child: Material(
+                color: Colors.white,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    setState(() {
+                      courtPrice = bookings.fold(
+                        0.0,
+                        (sum, b) =>
+                            sum +
+                            b.subSlots.fold(
+                              0.0,
+                              (subSum, subSlot) =>
+                                  subSum +
+                                  (subSlot.price is num
+                                      ? subSlot.price.toDouble()
+                                      : 0.0),
                             ),
-                            Text(
-                              'Create new booking based on selected courts',
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              selectedDateTime != null
-                                  ? DateFormat(
-                                    'd MMM yyyy',
-                                  ).format(selectedDateTime!)
-                                  : DateFormat(
-                                    'd MMM yyyy',
-                                  ).format(DateTime.now()),
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            Text(
-                              // selectedDateTime != null
-                              //     ? DateFormat(
-                              //       'h:mm a',
-                              //     ).format(selectedDateTime!)
-                              //     :
-                              DateFormat('h:mm a').format(DateTime.now()),
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Form(
-                      key: _formKey,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
+                      );
+                    });
+                    totalPrice =
+                        courtPrice + (isMembershipApplied ? memberPrice : 0.0);
+                    return Container(
+                      color: Colors.white,
+                      height: MediaQuery.of(context).size.height,
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Name Field
-                          Flexible(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          // Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'New Booking',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 18,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Create new booking based on selected courts',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    selectedDateTime != null
+                                        ? DateFormat(
+                                          'd MMM yyyy',
+                                        ).format(selectedDateTime!)
+                                        : DateFormat(
+                                          'd MMM yyyy',
+                                        ).format(DateTime.now()),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
+                                    // selectedDateTime != null
+                                    //     ? DateFormat(
+                                    //       'h:mm a',
+                                    //     ).format(selectedDateTime!)
+                                    //     :
+                                    DateFormat('h:mm a').format(DateTime.now()),
+                                    style: GoogleFonts.inter(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          Divider(color: Colors.grey.shade300),
+                          const SizedBox(height: 16),
+                          Form(
+                            key: _formKey,
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                // Name Field
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
 
-                                  children: [
-                                    Text(
-                                      'Name',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 17,
-                                        color: Colors.grey.shade900,
-                                        fontWeight: FontWeight.w500,
+                                        children: [
+                                          Text(
+                                            'Name',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              color: Colors.grey.shade900,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          if (isMembershipApplied) ...[
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: backgroundColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: borderColor!,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                membershipPlan,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: textColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    if (isMembershipApplied) ...[
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
+                                      const SizedBox(height: 4),
+
+                                      ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          minWidth: 200,
+                                          maxWidth:
+                                              MediaQuery.of(
+                                                context,
+                                              ).size.width *
+                                              0.50,
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.amber.shade100,
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.amber.shade500,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          membershipPlan,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            color: Colors.amber.shade500,
-                                          ),
+                                        child: TypeAheadField<
+                                          Map<String, dynamic>
+                                        >(
+                                          controller: nameController,
+                                          suggestionsCallback: (pattern) {
+                                            if (pattern.isEmpty) return [];
+                                            return controller.userList.where((
+                                              user,
+                                            ) {
+                                              return user['name']!
+                                                  .toLowerCase()
+                                                  .contains(
+                                                    pattern.toLowerCase(),
+                                                  );
+                                            }).toList();
+                                          },
+                                          builder: (context, _, focusNode) {
+                                            return TextFormField(
+                                              controller: nameController,
+                                              focusNode: focusNode,
+                                              keyboardType: TextInputType.name,
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.trim().isEmpty) {
+                                                  return 'Name is required';
+                                                }
+
+                                                return null;
+                                              },
+                                              style: GoogleFonts.inter(
+                                                fontSize: 16,
+                                                color: Colors.grey.shade800,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              decoration: InputDecoration(
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 10,
+                                                      horizontal: 12,
+                                                    ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  borderSide: BorderSide(
+                                                    color: Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          itemBuilder: (context, suggestion) {
+                                            return ListTile(
+                                              title: Text(suggestion['name']),
+                                              subtitle: Text(
+                                                suggestion['mobile'],
+                                              ),
+                                            );
+                                          },
+                                          onSelected: (suggestion) {
+                                            nameController.text =
+                                                suggestion['name'];
+                                            mobileController.text =
+                                                suggestion['mobile'];
+                                          },
                                         ),
                                       ),
                                     ],
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minWidth: 200,
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width *
-                                        0.50,
                                   ),
-                                  child: TypeAheadField<Map<String, dynamic>>(
-                                    controller: nameController,
-                                    suggestionsCallback: (pattern) {
-                                      if (pattern.isEmpty) return [];
-                                      return controller.userList.where((user) {
-                                        return user['name']!
-                                            .toLowerCase()
-                                            .contains(pattern.toLowerCase());
-                                      }).toList();
-                                    },
-                                    builder: (context, _, focusNode) {
-                                      return TextFormField(
-                                        controller: nameController,
-                                        focusNode: focusNode,
-                                        keyboardType: TextInputType.name,
-                                        validator: (value) {
-                                          if (value == null ||
-                                              value.trim().isEmpty) {
-                                            return 'Name is required';
-                                          }
-
-                                          return null;
-                                        },
+                                ),
+                                const SizedBox(width: 16),
+                                // Mobile Field
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Mobile',
                                         style: GoogleFonts.inter(
                                           fontSize: 16,
                                           color: Colors.grey.shade900,
                                           fontWeight: FontWeight.w500,
                                         ),
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                vertical: 10,
-                                                horizontal: 12,
-                                              ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ConstrainedBox(
+                                        constraints: BoxConstraints(
+                                          minWidth: 200,
+                                          maxWidth:
+                                              MediaQuery.of(
+                                                context,
+                                              ).size.width *
+                                              0.50,
                                         ),
-                                      );
-                                    },
-                                    itemBuilder: (context, suggestion) {
-                                      return ListTile(
-                                        title: Text(suggestion['name']),
-                                        subtitle: Text(suggestion['mobile']),
-                                      );
-                                    },
-                                    onSelected: (suggestion) {
-                                      nameController.text = suggestion['name'];
-                                      mobileController.text =
-                                          suggestion['mobile'];
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          // Mobile Field
-                          Flexible(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mobile',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 17,
-                                    color: Colors.grey.shade900,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minWidth: 200,
-                                    maxWidth:
-                                        MediaQuery.of(context).size.width *
-                                        0.50,
-                                  ),
-                                  child: TypeAheadField<Map<String, dynamic>>(
-                                    controller: mobileController,
-                                    suggestionsCallback: (pattern) {
-                                      if (pattern.isEmpty) return [];
-                                      return controller.userList.where((user) {
-                                        return user['mobile']!
-                                            .toLowerCase()
-                                            .contains(pattern.toLowerCase());
-                                      }).toList();
-                                    },
-                                    builder: (context, _, focusNode) {
-                                      return TextFormField(
-                                        controller: mobileController,
-                                        focusNode: focusNode,
-                                        keyboardType: TextInputType.phone,
-                                        validator: (value) {
-                                          if (value == null ||
-                                              value.trim().isEmpty) {
-                                            return 'Mobile number is required';
-                                          }
-                                          if (!RegExp(
-                                            r'^[0-9]{10}$',
-                                          ).hasMatch(value)) {
-                                            return 'Enter a valid 10-digit number';
-                                          }
-                                          return null;
-                                        },
-                                        style: GoogleFonts.inter(
-                                          fontSize: 16,
-                                          color: Colors.grey.shade900,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                vertical: 10,
-                                                horizontal: 12,
-                                              ),
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    itemBuilder: (context, suggestion) {
-                                      return ListTile(
-                                        title: Text(suggestion['name']),
-                                        subtitle: Text(suggestion['mobile']),
-                                      );
-                                    },
-                                    onSelected: (suggestion) {
-                                      nameController.text = suggestion['name'];
-                                      mobileController.text =
-                                          suggestion['mobile'];
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    Text(
-                      'Court Information',
-                      style: GoogleFonts.inter(
-                        fontSize: 17,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Booking Details List
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.grey.shade400,
-                            ), // outer border
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Column(
-                            children: List.generate(bookings.length, (index) {
-                              final booking = bookings[index];
-                              final isLast = index == bookings.length - 1;
-
-                              return Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0,
-                                      vertical: 12,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            booking.courtName,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        if (booking.subSlots.any(
-                                          (subSlot) => subSlot.isPeak,
-                                        )) ...[
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text.rich(
-                                              TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text:
-                                                        "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color:
-                                                          Colors.green.shade600,
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text:
-                                                        "(${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color:
-                                                          Colors
-                                                              .orange
-                                                              .shade700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ] else ...[
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text(
-                                              "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                        child: TypeAheadField<
+                                          Map<String, dynamic>
+                                        >(
+                                          controller: mobileController,
+                                          suggestionsCallback: (pattern) {
+                                            if (pattern.isEmpty) return [];
+                                            return controller.userList.where((
+                                              user,
+                                            ) {
+                                              return user['mobile']!
+                                                  .toLowerCase()
+                                                  .contains(
+                                                    pattern.toLowerCase(),
+                                                  );
+                                            }).toList();
+                                          },
+                                          builder: (context, _, focusNode) {
+                                            return TextFormField(
+                                              controller: mobileController,
+                                              focusNode: focusNode,
+                                              keyboardType: TextInputType.phone,
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.trim().isEmpty) {
+                                                  return 'Mobile number is required';
+                                                }
+                                                if (!RegExp(
+                                                  r'^[0-9]{10}$',
+                                                ).hasMatch(value)) {
+                                                  return 'Enter a valid 10-digit number';
+                                                }
+                                                return null;
+                                              },
                                               style: GoogleFonts.inter(
                                                 fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.green.shade600,
+                                                color: Colors.grey.shade800,
+                                                fontWeight: FontWeight.w500,
                                               ),
-                                            ),
-                                          ),
-                                        ],
-
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            "${booking.subSlots.length * 30}mins",
-                                            style: GoogleFonts.inter(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.indigo.shade600,
-                                            ),
-                                          ),
+                                              decoration: InputDecoration(
+                                                isDense: true,
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 10,
+                                                      horizontal: 12,
+                                                    ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  borderSide: BorderSide(
+                                                    color: Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          itemBuilder: (context, suggestion) {
+                                            return ListTile(
+                                              title: Text(suggestion['name']),
+                                              subtitle: Text(
+                                                suggestion['mobile'],
+                                              ),
+                                            );
+                                          },
+                                          onSelected: (suggestion) {
+                                            nameController.text =
+                                                suggestion['name'];
+                                            mobileController.text =
+                                                suggestion['mobile'];
+                                          },
                                         ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            "\$${booking.subSlots.fold(0.0, (sum, subSlot) => sum + subSlot.price).toStringAsFixed(2)}",
-                                            textAlign: TextAlign.right,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  if (!isLast)
-                                    Divider(
-                                      height: 2,
-                                      color: Colors.grey.shade400,
-                                    ), // bottom line for each row
-                                ],
-                              );
-                            }),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 10),
-                    if (isMembershipApplied) ...[
-                      Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade100,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.amber.shade500),
-                            ),
-
-                            child: Row(
-                              children: [
-                                Text(
-                                  '$membershipPlan Membership',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    color: Colors.amber.shade500,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Spacer(),
-
-                                Text(
-                                  '\$ ${memberPrice.toStringAsFixed(2)}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    color: Colors.amber.shade600,
-                                    fontWeight: FontWeight.w600,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          SizedBox(height: 10),
+
+                          const SizedBox(height: 20),
+
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Membership price updated!!',
+                                'Booking Information',
                                 style: GoogleFonts.inter(
-                                  fontSize: 12,
-                                  color: Colors.green.shade500,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Spacer(),
-                              Text(
-                                'Total',
-                                style: GoogleFonts.inter(
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   color: Colors.black,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              SizedBox(width: 8),
                               Text(
-                                '\$ ${(total + memberPrice).toStringAsFixed(2)}',
+                                'Sport : ${bookings.isNotEmpty ? 'Badminton' : ''}',
                                 style: GoogleFonts.inter(
-                                  fontSize: 19,
+                                  fontSize: 16,
                                   color: Colors.black,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ] else ...[
-                      Row(
-                        children: [
-                          Text(
-                            'Add Membership and pay ${55} and save ${25}',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Spacer(),
-                          Text(
-                            'Total',
-                            style: GoogleFonts.inter(
-                              fontSize: 15,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            '\$ ${total}',
-                            style: GoogleFonts.inter(
-                              fontSize: 19,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          const SizedBox(height: 10),
 
-                    const SizedBox(height: 20),
-
-                    // Bottom Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              controller.clearSelectedSlots();
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey.shade300,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: Text(
-                              "Cancel",
-                              style: GoogleFonts.inter(
-                                fontSize: 17,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        //const SizedBox(width: 8),
-
-                        // if (isMembershipApplied) ...[
-                        //   Expanded(
-                        //     child: ElevatedButton(
-                        //       onPressed: () {
-                        //         Navigator.pop(context);
-                        //         showAdvanceBookingDialog(context, bookings);
-                        //       },
-                        //       style: ElevatedButton.styleFrom(
-                        //         backgroundColor: Colors.black,
-                        //         foregroundColor: Colors.white,
-                        //       ),
-                        //       child: Text(
-                        //         "Advance Booking",
-                        //         style: GoogleFonts.inter(
-                        //           fontSize: 17,
-                        //           color: Colors.white,
-                        //           fontWeight: FontWeight.w600,
-                        //         ),
-                        //       ),
-                        //     ),
-                        //   ),
-                        // ] else ...[
-                        if (!isMembershipApplied) ...[
+                          // Booking Details List
                           Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                showMembershipplanDialog(context, bookings);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                foregroundColor: Colors.white,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                ), // outer border
+                                borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Text(
-                                "Enroll Membership",
-                                style: GoogleFonts.inter(
-                                  fontSize: 17,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  children: List.generate(bookings.length, (
+                                    index,
+                                  ) {
+                                    final booking = bookings[index];
+                                    final isLast = index == bookings.length - 1;
+
+                                    return Column(
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8.0,
+                                            vertical: 12,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      booking.courtName,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Colors.black,
+                                                      ),
+                                                    ),
+                                                  ),
+
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Text(
+                                                      "\$${booking.subSlots.fold(0.0, (sum, subSlot) => sum + subSlot.price).toStringAsFixed(2)}",
+                                                      textAlign:
+                                                          TextAlign.right,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade900,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              SizedBox(height: 5),
+                                              Row(
+                                                children: [
+                                                  if (booking.subSlots.any(
+                                                    (subSlot) => subSlot.isPeak,
+                                                  )) ...[
+                                                    Expanded(
+                                                      flex: 4,
+                                                      child: Text.rich(
+                                                        TextSpan(
+                                                          children: [
+                                                            TextSpan(
+                                                              text:
+                                                                  "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color:
+                                                                    Colors
+                                                                        .green
+                                                                        .shade600,
+                                                              ),
+                                                            ),
+                                                            TextSpan(
+                                                              text:
+                                                                  " (${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                color:
+                                                                    Colors
+                                                                        .orange
+                                                                        .shade700,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ] else ...[
+                                                    Expanded(
+                                                      flex: 4,
+                                                      child: Text(
+                                                        "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                        style:
+                                                            GoogleFonts.inter(
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color:
+                                                                  Colors
+                                                                      .green
+                                                                      .shade600,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ],
+
+                                                  Expanded(
+                                                    flex: 3,
+                                                    child: Text(
+                                                      "${booking.subSlots.length * 30}mins",
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color:
+                                                            Colors
+                                                                .indigo
+                                                                .shade500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (!isLast)
+                                          Divider(
+                                            height: 2,
+                                            color: Colors.grey.shade300,
+                                          ), // bottom line for each row
+                                      ],
+                                    );
+                                  }),
                                 ),
                               ),
                             ),
                           ),
-                        ],
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              if (_formKey.currentState!.validate()) {
-                                Navigator.pop(context);
-                                final double TotalAmount;
-                                controller.getUserDatabyMobile(
-                                  mobileController.text,
-                                );
-                                if (isMembershipApplied) {
-                                  TotalAmount = total + memberPrice;
-                                } else {
-                                  TotalAmount = total;
-                                }
-                                showBookingConfirmationDialog(
-                                  context,
-                                  nameController.text,
-                                  mobileController.text,
-                                  controller.selectedCourt.toString(),
-                                  TotalAmount,
-                                  selectedDateTime ?? DateTime.now(),
-                                  bookings,
-                                  membershipId,
-                                  membershipPlan,
-                                  isMembershipApplied,
-                                );
-                              } else {
-                                showCustomSnackbar(
-                                  'Error :',
-                                  'Please enter name & mobile for bookingslots',
-                                  Colors.redAccent,
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
+
+                          SizedBox(height: 10),
+                          if (isMembershipApplied) ...[
+                            Row(
+                              children: [
+                                Container(
+                                  width: MediaQuery.of(context).size.width / 3,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: backgroundColor,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: borderColor!),
+                                  ),
+
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '$membershipPlan Membership',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          color: textColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+
+                                      Text(
+                                        '\$ ${memberPrice.toStringAsFixed(2)}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          color: textColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(width: 5),
+                                IconButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      isMembershipApplied =
+                                          !isMembershipApplied; // or true/false
+                                      updateTotalPrice();
+                                    });
+                                  },
+                                  icon: Icon(
+                                    LucideIcons.trash2,
+                                    size: 18,
+                                    color: Colors.grey.shade900,
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              "Quick Booking",
-                              style: GoogleFonts.inter(
-                                fontSize: 17,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
+                          ] else ...[
+                            // Spacer(),
+                            Divider(color: Colors.grey.shade300),
+                            Row(
+                              children: [
+                                Text(
+                                  'Add Membership and pay ${55} and save ${25}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Spacer(),
+                                Text(
+                                  'Total',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  '\$ ${courtPrice.toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 19,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (isMembershipApplied) ...[
+                            //Spacer(),
+                            Divider(color: Colors.grey.shade300),
+                            Row(
+                              children: [
+                                // Text(
+                                //   'Membership price updated!!',
+                                //   style: GoogleFonts.inter(
+                                //     fontSize: 12,
+                                //     color: Colors.green.shade500,
+                                //     fontWeight: FontWeight.w500,
+                                //   ),
+                                // ),
+                                Spacer(),
+                                Text(
+                                  'Total',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 15,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  '\$ ${totalPrice.toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 19,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      controller.clearSelectedSlots();
+                                      setState(() {});
+                                      Navigator.pop(context);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey.shade300,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: Text(
+                                      "Cancel",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 17,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      if (_formKey.currentState!.validate()) {
+                                        Navigator.pop(context);
+                                        final double TotalAmount;
+                                        controller.getUserDatabyMobile(
+                                          mobileController.text,
+                                        );
+                                        if (isMembershipApplied) {
+                                          TotalAmount =
+                                              courtPrice + memberPrice;
+                                        } else {
+                                          TotalAmount = courtPrice;
+                                        }
+                                        showBookingConfirmationDialog(
+                                          context,
+                                          nameController.text,
+                                          mobileController.text,
+                                          controller.selectedCourt.toString(),
+                                          TotalAmount,
+                                          selectedDateTime ?? DateTime.now(),
+                                          bookings,
+                                          membershipId,
+                                          membershipPlan,
+                                          isMembershipApplied,
+                                        );
+                                      } else {
+                                        showCustomSnackbar(
+                                          'Error :',
+                                          'Please enter name & mobile for bookingslots',
+                                          Colors.redAccent,
+                                        );
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.green,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: Text(
+                                      "Quick Booking",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 17,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            // Bottom Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      controller.clearSelectedSlots();
+                                      Navigator.pop(context);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey.shade300,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: Text(
+                                      "Cancel",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 17,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+
+                                // if (isMembershipApplied) ...[
+                                //   Expanded(
+                                //     child: ElevatedButton(
+                                //       onPressed: () {
+                                //         Navigator.pop(context);
+                                //         showAdvanceBookingDialog(context, bookings);
+                                //       },
+                                //       style: ElevatedButton.styleFrom(
+                                //         backgroundColor: Colors.black,
+                                //         foregroundColor: Colors.white,
+                                //       ),
+                                //       child: Text(
+                                //         "Advance Booking",
+                                //         style: GoogleFonts.inter(
+                                //           fontSize: 17,
+                                //           color: Colors.white,
+                                //           fontWeight: FontWeight.w600,
+                                //         ),
+                                //       ),
+                                //     ),
+                                //   ),
+                                // ]
+                                //else ...[
+                                if (!isMembershipApplied) ...[
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                        // openMembershipDrawer(context);
+                                        openMembershipDrawer(context, bookings);
+                                        //showMembershipplanDialog(context, bookings);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.black,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: Text(
+                                        "Enroll Membership",
+                                        style: GoogleFonts.inter(
+                                          fontSize: 17,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(width: 8),
+                              ],
+                            ),
+
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (_formKey.currentState!.validate()) {
+                                    Navigator.pop(context);
+                                    controller.getUserDatabyMobile(
+                                      mobileController.text,
+                                    );
+                                    // if (isMembershipApplied) {
+                                    //   TotalAmount = courtPrice + memberPrice;
+                                    // } else {
+                                    //   TotalAmount = courtPrice;
+                                    // }
+                                    showBookingConfirmationDialog(
+                                      context,
+                                      nameController.text,
+                                      mobileController.text,
+                                      controller.selectedCourt.toString(),
+                                      totalPrice,
+                                      selectedDateTime ?? DateTime.now(),
+                                      bookings,
+                                      membershipId,
+                                      membershipPlan,
+                                      isMembershipApplied,
+                                    );
+                                  } else {
+                                    showCustomSnackbar(
+                                      'Error :',
+                                      'Please enter name & mobile for bookingslots',
+                                      Colors.redAccent,
+                                    );
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: Text(
+                                  "Quick Booking",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 17,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          ],
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -1680,6 +1954,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         );
       },
     );
+    return;
   }
 
   // QuickBooking Plan Dialog
@@ -2076,7 +2351,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     }
   }
 
-  // Helper function to combine DateTime and a HH:mm time string
   DateTime parseDateTime(DateTime date, String time) {
     final parts = time.split(':');
     final hour = int.parse(parts[0]);
@@ -2085,297 +2359,279 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   }
 
   //Membership Plan Dialog
-  Future<void> showMembershipplanDialog(
+
+  Future<void> openMembershipDrawer(
     BuildContext context,
     List<BookingInfo> bookings,
   ) async {
-    final result = await showDialog<Map<String, dynamic>>(
+    final plans = controller.membershipPlans;
+    String? selectedPlan = plans.first['name'];
+    selectedMembershipId = plans.first['id'];
+    await showGeneralDialog(
       context: context,
-      builder: (context) {
-        return FutureBuilder<List<Map<String, dynamic>>>(
-          future: controller.fetchMembershipPlans(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            }
-
-            if (snapshot.hasError) {
-              return AlertDialog(
-                title: Text("Error"),
-                content: Text(snapshot.error.toString()),
-              );
-            }
-
-            final plans = snapshot.data!;
-            String? selectedPlan;
-            double selectedPrice = 0;
-            List<String> selectedHighlights = [];
-            bool isInitialized = false;
-
-            return StatefulBuilder(
-              builder: (context, setState) {
-                if (!isInitialized && plans.isNotEmpty) {
-                  selectedPlan = plans.first["name"];
-                  selectedPrice =
-                      double.tryParse(plans.first["price"].toString()) ?? 0;
-                  selectedHighlights =
-                      (plans.first["highlights"] as String)
-                          .replaceAll('[', '')
-                          .replaceAll(']', '')
-                          .split(',')
-                          .map((e) => e.trim())
-                          .toList();
-                  isInitialized = true;
-                  selectedMembershipId = plans.first['id'].toString();
-                }
-                return Dialog(
-                  backgroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width / 2,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Membership Plan",
-                              style: GoogleFonts.inter(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.black,
-                              ),
+      barrierDismissible: false,
+      barrierLabel: 'Membership Plan',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(anim1),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.5, // Right half of screen
+              child: Material(
+                color: Colors.white,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Membership Plan',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Choose desired membership plan for the customer",
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                color: Colors.grey.shade500,
-                              ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Choose desired membership plan for the customer',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.grey.shade500,
                             ),
-                            const SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children:
-                                  plans.map((plan) {
-                                    final isSelected =
-                                        selectedPlan == plan["name"];
+                          ),
+                          const Divider(height: 24),
+                          Text(
+                            'Plans',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Colors.black,
+                            ),
+                          ),
 
-                                    return GestureDetector(
-                                      onTap: () {
-                                        setState(() {
-                                          selectedMembershipId =
-                                              plan['id'].toString();
-                                          selectedPlan =
-                                              plan['name'].toString();
-                                          selectedPrice =
-                                              double.tryParse(
-                                                plan["price"].toString(),
-                                              ) ??
-                                              0;
-                                          final dynamic highlightsRaw =
-                                              plan["highlights"]
-                                                  .replaceAll('[', '')
-                                                  .replaceAll(']', '')
-                                                  .split(',')
-                                                  .map((e) => e.trim())
-                                                  .toList();
-                                          if (highlightsRaw is List) {
-                                            selectedHighlights =
-                                                List<String>.from(
-                                                  highlightsRaw,
-                                                );
-                                          } else if (highlightsRaw is String) {
-                                            selectedHighlights = [
-                                              highlightsRaw,
-                                            ]; // fallback
-                                          } else {
-                                            selectedHighlights = [];
-                                          }
-                                        });
-                                      },
-                                      child: Container(
-                                        width: 180,
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(
-                                            color:
-                                                isSelected
-                                                    ? Colors.indigo.shade500
-                                                    : Colors.grey.shade300,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          color: Colors.white,
+                          const SizedBox(height: 12),
+                          ...plans.map((plan) {
+                            bool isSelected = plan['name'] == selectedPlan;
+                            Color borderColor;
+                            Color backgroundColor;
+                            Color textColor;
+
+                            if (plan['name'].toString().toLowerCase().contains(
+                              'gold',
+                            )) {
+                              borderColor = Colors.amber.shade500;
+                              backgroundColor = Colors.amber.shade50;
+                              textColor = Colors.amber.shade500;
+                            } else if (plan['name']
+                                .toString()
+                                .toLowerCase()
+                                .contains('platinum')) {
+                              borderColor = Colors.indigo.shade500;
+                              backgroundColor = Colors.indigo.shade50;
+                              textColor = Colors.indigo.shade500;
+                            } else {
+                              borderColor = Colors.grey.shade300;
+                              backgroundColor = Colors.grey.shade100;
+                              textColor = Colors.black;
+                            }
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  selectedPlan = plan['name'].toString();
+                                  selectedMembershipId = plan['id'].toString();
+                                  _selectedPrice =
+                                      double.tryParse(
+                                        plan['price'].toString(),
+                                      ) ??
+                                      0;
+                                });
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color:
+                                        isSelected
+                                            ? borderColor!
+                                            : Colors.grey.shade300,
+                                    width: 1.5,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  color:
+                                      isSelected
+                                          ? backgroundColor
+                                          : Colors.white,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          LucideIcons.crown,
+                                          color: textColor,
+                                          size: 30,
                                         ),
-                                        child: Column(
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          " ${plan['name']} Membership",
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w700,
+                                            color: textColor,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        Text(
+                                          '\$${plan['price']}',
+                                          style: GoogleFonts.inter(
+                                            color: textColor,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          plan['billing_cycle'],
+                                          style: GoogleFonts.inter(
+                                            color: textColor,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      plan['description'],
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    ...List<Widget>.from(
+                                      (plan['highlights'] as List).map((
+                                        highlight,
+                                      ) {
+                                        return Row(
                                           children: [
-                                            Image.asset(
-                                              plan["badge_icon_url"],
-                                              height: 100,
-                                              width: 100,
-                                              fit: BoxFit.contain,
+                                            Icon(
+                                              LucideIcons.dot,
+                                              size: 20,
+                                              color: Colors.black,
                                             ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              "${plan["name"]} Plan",
-                                              style: GoogleFonts.inter(
-                                                color:
-                                                    isSelected
-                                                        ? Colors.indigo.shade500
-                                                        : Colors.black,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            Text(
-                                              "\$ ${plan["price"]!.toString()}",
-                                              style: GoogleFonts.inter(
-                                                color:
-                                                    isSelected
-                                                        ? Colors.indigo.shade500
-                                                        : Colors.black,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 16,
-                                              ),
-                                            ),
-                                            Text(
-                                              plan["billing_cycle"],
-                                              style: GoogleFonts.inter(
-                                                color:
-                                                    isSelected
-                                                        ? Colors.indigo.shade500
-                                                        : Colors.black,
-                                                fontWeight: FontWeight.w400,
-                                                fontSize: 16,
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                highlight,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.black,
+                                                ),
                                               ),
                                             ),
                                           ],
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Highlights
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                "Highlights",
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black,
+                                        );
+                                      }),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            ...selectedHighlights.map((highlight) {
-                              return Row(
-                                children: [
-                                  Icon(
-                                    Icons.check,
-                                    size: 18,
-                                    color: Colors.green,
+                            );
+                          }),
+                          Spacer(),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey.shade300,
+                                    foregroundColor: Colors.white,
                                   ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      highlight,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w400,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }).toList(),
-
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.grey.shade300,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: Text(
-                                      "Cancel",
-                                      style: GoogleFonts.inter(
-                                        fontSize: 17,
-                                        color: Colors.black,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                  child: Text(
+                                    "Cancel",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 17,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pop(context);
-                                      WidgetsBinding.instance.addPostFrameCallback((
-                                        _,
-                                      ) {
-                                        if (selectedPlan != null) {
-                                          String planName = selectedPlan!;
-                                          double price = selectedPrice;
-                                          bool isApplied = true;
-
-                                          // Now you can pass these values to your booking dialog or controller
-                                          print(
-                                            "Selected: $planName | Price: $price | Applied: $isApplied | membershipID: $selectedMembershipId",
-                                          );
-                                          showBookingDialog(
-                                            context,
-                                            planName,
-                                            price,
-                                            isApplied,
-                                            selectedMembershipId!,
-                                            bookings,
-                                          );
-                                        }
-                                      });
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.indigo,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    child: Text(
-                                      "Confirm",
-                                      style: GoogleFonts.inter(
-                                        fontSize: 17,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    WidgetsBinding.instance.addPostFrameCallback((
+                                      _,
+                                    ) {
+                                      if (selectedPlan != null) {
+                                        String planName = selectedPlan!;
+                                        double price = _selectedPrice;
+                                        bool isApplied = true;
+                                        // ✅ Set membership values before opening booking drawer
+                                        setState(() {
+                                          membershipPrice = price;
+                                          isMembershipApplied = isApplied;
+                                          updateTotalPrice(); // ✅ update total based on court + membership
+                                        });
+                                        // Now you can pass these values to your booking dialog or controller
+                                        print(
+                                          "Selected: $planName | Price: $price | Applied: $isApplied | membershipID: $selectedMembershipId",
+                                        );
+                                        openBookingRightDrawer(
+                                          context,
+                                          planName,
+                                          price,
+                                          isApplied,
+                                          selectedMembershipId!,
+                                          bookings,
+                                        );
+                                      }
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.indigo,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: Text(
+                                    "Confirm",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 17,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                );
-              },
-            );
-          },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
         );
       },
     );
