@@ -19,14 +19,8 @@ class PrinterScreen extends StatefulWidget {
 }
 
 class _PrinterScreenState extends State<PrinterScreen> {
-  final PrinterController controller = Get.put(PrinterController());
-  final _formKey = GlobalKey<FormState>();
-  final _ipController = TextEditingController();
-  final _portController = TextEditingController();
+  final PrinterController printerController = Get.put(PrinterController());
 
-  // final List<Map<String, String>> printers = [
-  //   {'name': 'EPSON TM-T88VI 102', 'ip': '192.168.1.200', 'port': '6738'},
-  // ];
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,7 +60,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.indigo.shade500,
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      printerController.updateSupabasePrinters();
+                    },
                     child: Text(
                       'Update',
                       style: GoogleFonts.inter(
@@ -106,7 +102,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                           ElevatedButton.icon(
                             onPressed: () {
                               openRightDrawer(context);
-                              controller.scanForPrinters();
+                              printerController.scanForPrinters();
                             },
                             icon: Icon(
                               LucideIcons.fingerprint,
@@ -210,40 +206,28 @@ class _PrinterScreenState extends State<PrinterScreen> {
                               const Divider(),
                               // Printer Rows
                               SizedBox(
-                                height:
-                                    MediaQuery.of(context).size.height * 0.4,
+                                height: MediaQuery.of(context).size.height * 0.4,
                                 child: Column(
                                   children: [
                                     Expanded(
-                                      child: ListView.builder(
-                                        itemCount:
-                                            controller.pairedPrinters.length,
+                                      child: Obx(() => ListView.builder(
+                                        itemCount: printerController.pairedPrinters.length,
                                         itemBuilder: (context, index) {
-                                          final printer =
-                                              controller.pairedPrinters[index];
+                                          final printer = printerController.pairedPrinters[index];
                                           return Obx(() {
                                             return GestureDetector(
                                               key: ValueKey(printer['name']),
                                               onTap: () {
-                                                controller.selectPrinter({
+                                                printerController.selectPrinter({
                                                   'name': printer['name'],
                                                   'ip': printer['ip'],
                                                   'port': printer['port'],
                                                 });
                                               },
                                               child: Container(
-                                                color:
-                                                    controller
-                                                                .selectedPrinter
-                                                                .value ==
-                                                            printer
-                                                        ? Colors.indigo.shade50
-                                                        : Colors.transparent,
+                                                color: printerController.selectedPrinter.value == printer ? Colors.indigo.shade50 : Colors.transparent,
                                                 child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 5,
-                                                      ),
+                                                  padding: const EdgeInsets.symmetric( vertical: 5,),
                                                   child: Row(
                                                     children: [
                                                       Expanded(
@@ -252,14 +236,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                           child: Text(
                                                             printer['name'],
                                                             style: GoogleFonts.inter(
-                                                              color:
-                                                                  Colors
-                                                                      .grey
-                                                                      .shade900,
+                                                              color: Colors.grey.shade900,
                                                               fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w400,
+                                                              fontWeight: FontWeight.w400,
                                                             ),
                                                           ),
                                                         ),
@@ -267,41 +246,21 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                       Expanded(
                                                         flex: 1,
                                                         child: Obx(
-                                                          () =>
-                                                              printer['isEditing']
-                                                                      .value
+                                                          () => printer['isEditing'].value
                                                                   ? Center(
                                                                     child: SizedBox(
-                                                                      width:
-                                                                          MediaQuery.of(
-                                                                            context,
-                                                                          ).size.width *
-                                                                          0.09,
+                                                                      width: MediaQuery.of(context,).size.width * 0.09,
                                                                       child: TextFormField(
-                                                                        initialValue:
-                                                                            printer['ip'],
-                                                                        onChanged:
-                                                                            (
-                                                                              val,
-                                                                            ) =>
-                                                                                printer['ip'] =
-                                                                                    val,
+                                                                        initialValue: printer['ip'],
+                                                                        onChanged:(val,) => printer['ip'] = val,
                                                                         decoration: InputDecoration(
                                                                           border: OutlineInputBorder(
-                                                                            borderRadius: BorderRadius.circular(
-                                                                              8,
-                                                                            ),
+                                                                            borderRadius: BorderRadius.circular(8,),
                                                                             borderSide: BorderSide(
-                                                                              color:
-                                                                                  Colors.grey.shade300,
+                                                                              color:Colors.grey.shade300,
                                                                             ),
                                                                           ),
-                                                                          contentPadding: EdgeInsets.symmetric(
-                                                                            horizontal:
-                                                                                8,
-                                                                            vertical:
-                                                                                3,
-                                                                          ),
+                                                                          contentPadding: EdgeInsets.symmetric( horizontal: 8, vertical: 3,),
                                                                         ),
                                                                       ),
                                                                     ),
@@ -310,12 +269,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                     child: Text(
                                                                       printer['ip'],
                                                                       style: GoogleFonts.inter(
-                                                                        color:
-                                                                            Colors.grey.shade900,
-                                                                        fontSize:
-                                                                            16,
-                                                                        fontWeight:
-                                                                            FontWeight.w400,
+                                                                        color: Colors.grey.shade900,
+                                                                        fontSize: 16,
+                                                                        fontWeight: FontWeight.w400,
                                                                       ),
                                                                     ),
                                                                   ),
@@ -325,39 +281,23 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                         flex: 1,
                                                         child: Obx(
                                                           () =>
-                                                              printer['isEditing']
-                                                                      .value
+                                                              printer['isEditing'].value
                                                                   ? Center(
                                                                     child: SizedBox(
-                                                                      width:
-                                                                          MediaQuery.of(
-                                                                            context,
-                                                                          ).size.width *
-                                                                          0.09,
+                                                                      width: MediaQuery.of(context,).size.width * 0.09,
                                                                       child: TextFormField(
-                                                                        initialValue:
-                                                                            printer['port'],
-                                                                        onChanged:
-                                                                            (
-                                                                              val,
-                                                                            ) =>
-                                                                                printer['port'] =
-                                                                                    val,
+                                                                        initialValue: printer['port'],
+                                                                        onChanged: (val,) => printer['port'] = val,
                                                                         decoration: InputDecoration(
                                                                           border: OutlineInputBorder(
-                                                                            borderRadius: BorderRadius.circular(
-                                                                              8,
-                                                                            ),
+                                                                            borderRadius: BorderRadius.circular(8,),
                                                                             borderSide: BorderSide(
-                                                                              color:
-                                                                                  Colors.grey.shade300,
+                                                                              color: Colors.grey.shade300,
                                                                             ),
                                                                           ),
                                                                           contentPadding: EdgeInsets.symmetric(
-                                                                            horizontal:
-                                                                                8,
-                                                                            vertical:
-                                                                                3,
+                                                                            horizontal: 8,
+                                                                            vertical: 3,
                                                                           ),
                                                                         ),
                                                                       ),
@@ -366,13 +306,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                   : Center(
                                                                     child: Text(
                                                                       printer['port'],
-                                                                      style: GoogleFonts.inter(
-                                                                        color:
-                                                                            Colors.grey.shade900,
-                                                                        fontSize:
-                                                                            16,
-                                                                        fontWeight:
-                                                                            FontWeight.w400,
+                                                                      style: GoogleFonts.inter(color: Colors.grey.shade900,
+                                                                        fontSize: 16,
+                                                                        fontWeight: FontWeight.w400,
                                                                       ),
                                                                     ),
                                                                   ),
@@ -381,85 +317,46 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                       Expanded(
                                                         flex: 1,
                                                         child: Row(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .center,
+                                                          mainAxisAlignment: MainAxisAlignment.center,
                                                           children: [
                                                             IconButton(
                                                               icon: Icon(
-                                                                printer['isEditing']
-                                                                        .value
-                                                                    ? LucideIcons
-                                                                        .save
-                                                                    : LucideIcons
-                                                                        .pencil,
+                                                                printer['isEditing'].value ? LucideIcons.save : LucideIcons.pencil,
                                                                 size: 20,
-                                                                color:
-                                                                    Colors
-                                                                        .black87,
+                                                                color: Colors.black87,
                                                               ),
                                                               onPressed: () {
-                                                                if (printer['isEditing']
-                                                                    .value) {
-                                                                  controller.savePrinter(
+                                                                if (printer['isEditing'].value) {
+                                                                  printerController.savePrinter(
                                                                     index,
                                                                     printer['ip'],
                                                                     printer['port'],
                                                                   );
                                                                 } else {
-                                                                  controller
-                                                                      .toggleEdit(
-                                                                        index,
-                                                                      );
+                                                                  printerController.toggleEdit(index,);
                                                                 }
                                                               },
                                                               style: IconButton.styleFrom(
-                                                                backgroundColor:
-                                                                    Colors
-                                                                        .grey
-                                                                        .shade200,
+                                                                backgroundColor: Colors.grey.shade200,
                                                                 shape: RoundedRectangleBorder(
                                                                   side: BorderSide(
-                                                                    color:
-                                                                        Colors
-                                                                            .grey
-                                                                            .shade200,
+                                                                    color: Colors.grey.shade200,
                                                                   ),
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        6,
-                                                                      ),
+                                                                  borderRadius: BorderRadius.circular(6,),
                                                                 ),
                                                               ),
                                                             ),
-                                                            const SizedBox(
-                                                              width: 8,
-                                                            ),
+                                                            const SizedBox(width: 8,),
                                                             IconButton(
-                                                              icon: Icon(
-                                                                LucideIcons
-                                                                    .trash2,
-                                                                size: 20,
-                                                                color:
-                                                                    Colors
-                                                                        .white,
-                                                              ),
+                                                              icon: Icon(LucideIcons.trash2,size: 20,color:Colors.white,),
                                                               onPressed: () {
-                                                                controller
-                                                                    .deletePrinter(
-                                                                      index,
-                                                                    );
+                                                                print(index);
+                                                                printerController.deletePrinter(index,);
                                                               },
                                                               style: IconButton.styleFrom(
-                                                                backgroundColor:
-                                                                    Colors
-                                                                        .red
-                                                                        .shade600,
+                                                                backgroundColor: Colors.red.shade600,
                                                                 shape: RoundedRectangleBorder(
-                                                                  borderRadius:
-                                                                      BorderRadius.circular(
-                                                                        6,
-                                                                      ),
+                                                                  borderRadius: BorderRadius.circular(6,),
                                                                 ),
                                                               ),
                                                             ),
@@ -473,17 +370,15 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                             );
                                           });
                                         },
-                                      ),
+                                      )),
                                     ),
-
                                     const Divider(),
                                   ],
                                 ),
                               ),
 
                               Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '0 of 5 row(s) selected.',
@@ -564,7 +459,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                     ),
                     ElevatedButton.icon(
                       onPressed: () {
-                        // Trigger printer test
+                        printerController.testPrintOnAllPrinters();
                       },
                       icon: Icon(LucideIcons.printer, size: 18),
                       label: Text(
@@ -576,10 +471,8 @@ class _PrinterScreenState extends State<PrinterScreen> {
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        foregroundColor:
-                            Colors.indigo.shade500, // Text/Icon color
-                        backgroundColor:
-                            Colors.indigo.shade50, // Light purple fill
+                        foregroundColor: Colors.indigo.shade500, // Text/Icon color
+                        backgroundColor: Colors.indigo.shade50, // Light purple fill
                         side: BorderSide(
                           color: Colors.indigo.shade500,
                         ), // Border
@@ -648,43 +541,40 @@ class _PrinterScreenState extends State<PrinterScreen> {
                       ),
                       Divider(color: Colors.grey.shade300),
                       const SizedBox(height: 16),
-                      if (controller.isScanning.value)
+                      if (printerController.isScanning.value)
                         Center(child: CircularProgressIndicator())
                       else
                         Expanded(
-                          child: ListView.builder(
-                            itemCount: controller.availablePrinters.length,
-                            itemBuilder: (context, index) {
-                              final printer =
-                                  controller.availablePrinters[index];
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                leading: Icon(
-                                  LucideIcons.printer,
-                                  color: Colors.grey.shade900,
-                                ),
-                                title: Text(
-                                  '${printer['name']} (${printer['ip']})',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w500,
+                          child: Obx(() {
+                            final selectedIp = printerController.selectedPrinter.value?['ip'];
+                            return ListView.builder(
+                              itemCount: printerController.availablePrinters.length,
+                              itemBuilder: (context, index) {
+                                final printer = printerController.availablePrinters[index];
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(
+                                    LucideIcons.printer,
+                                    color: Colors.grey.shade900,
                                   ),
-                                ),
-                                selected:
-                                    controller.selectedPrinter.value == printer,
-                                selectedTileColor: Colors.indigo.shade50,
-                                onTap: () {
-                                  setState(() {
-                                    controller.selectPrinter(printer);
-                                  });
-                                },
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              );
-                            },
-                          ),
+                                  title: Text(
+                                    '${printer['name']} (${printer['ip']})',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 16,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  selected: selectedIp == printer['ip'],
+                                  selectedTileColor: Colors.indigo.shade50,
+                                  onTap: () => printerController.selectPrinter(printer),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                );
+                              },
+                            );
+                          }),
                         ),
                       Spacer(),
                       Divider(color: Colors.grey.shade300),
@@ -694,13 +584,12 @@ class _PrinterScreenState extends State<PrinterScreen> {
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
-                                controller.selectedPrinter.value = null;
+                                printerController.selectedPrinter.value = null;
                                 Navigator.pop(context);
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 foregroundColor: Colors.grey.shade200,
-
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -718,11 +607,10 @@ class _PrinterScreenState extends State<PrinterScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: controller.confirmPairSelectedPrinter,
+                              onPressed: () => printerController.confirmPairSelectedPrinter(context),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.grey.shade700,
                                 foregroundColor: Colors.white,
-
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),

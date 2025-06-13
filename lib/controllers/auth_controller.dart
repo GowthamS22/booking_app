@@ -129,6 +129,7 @@ class AuthController extends GetxController {
           await preferences.setString('userName', userName.toString());
           await preferences.setString('staffID', staffID.toString());
           await preferences.setString('emailID', emailID.toString());
+          await preferences.setString('centerSlug', 's22');
 
           // // 4️⃣ Check for openCloseCash with status == true
           final openCloseResponse =
