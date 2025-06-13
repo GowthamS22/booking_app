@@ -100,16 +100,25 @@ class AuthController extends GetxController {
 
   Future<void> pinLogin({required String memberPin}) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-
+    String? centerSlug                  = 's22'; //preferences.getString('centerSlug');
     try {
-      final userResponse =
-          await supabase
-              .schema('s22_prod_schema')
-              .from('users')
-              .select('*')
-              .eq('pin', memberPin)
-              .single();
-      print(userResponse);
+
+      final userResponse = await supabase
+                            .schema('${centerSlug}_prod_schema')
+                            .from('users')
+                            .select('*')
+                            .eq('pin', memberPin)
+                            .single();
+
+      final storeResponse = await supabase
+                              .schema('${centerSlug}_prod_schema')
+                              .from('store_details')
+                              .select('*')
+                              .eq('shortcode', centerSlug.toString())
+                              .single();
+
+      await preferences.setString('storeDetails', storeResponse.toString());
+
       if (userResponse != null) {
         emailID.value = userResponse['email'];
         final String password = userResponse['password'];
@@ -132,8 +141,7 @@ class AuthController extends GetxController {
           await preferences.setString('centerSlug', 's22');
 
           // // 4️⃣ Check for openCloseCash with status == true
-          final openCloseResponse =
-              await supabase
+          final openCloseResponse = await supabase
                   .schema('s22_prod_schema')
                   .from('open_close_cash')
                   .select('*')

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:booking_app/config/palette.dart';
+import 'package:booking_app/models/booking_model.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:network_info_plus/network_info_plus.dart';
@@ -340,6 +341,99 @@ print(response);
 
     final alignedText = '$leftText${' ' * spaceWidth}$rightText';
     printer.text(alignedText);
+  }
+
+  Future<void> printBookingReceipt({
+    required List<BookingSlot>? bookingSlotItems,
+    required String printerIp,
+    required int printerPort,
+    required String printerName,
+  }) async {
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? data            = prefs.getString('storeDetails');
+
+    try {
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(PaperSize.mm80, profile);
+      final PosPrintResult res = await printer.connect(printerIp, port: printerPort);
+      if (res == PosPrintResult.success) {
+
+        final orderDate = DateFormat('dd/MM/yyyy hh:mm:ss a').format(DateTime.now());
+
+        printer.setStyles(PosStyles(align: PosAlign.center, bold: true));
+        //printer.text('Tax Invoice / Receipt \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        // printer.setStyles(PosStyles(align: PosAlign.center));
+        // printer.text('${data['name']} \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        // printer.text('${data['address']}', styles: PosStyles(align: PosAlign.center));
+        // printer.text('PH: ${data['mobile']}', styles: PosStyles(align: PosAlign.center));
+        // printer.text('WEBSITE: ${data['restaurant']['website']}', styles: PosStyles(align: PosAlign.center));
+        // printer.text('ABN: ${data['abn']}', styles: PosStyles(align: PosAlign.center));
+        // printer.text('Booking Date: $orderDate \n', styles: PosStyles(align: PosAlign.center));
+        // printer.text('Booking ID: #${data['token_number']}', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        // printer.text('--------------------------------------------');
+        //
+        // // Header for table
+        // printer.setStyles(PosStyles(align: PosAlign.left, bold: true));
+        // printer.text('Item                    Qty    Price   Total');
+        // printer.setStyles(PosStyles(align: PosAlign.left));
+        // printer.text('--------------------------------------------');
+        //
+        // // Print each item in table format
+        // for (var item in data['cart']['cart']) {
+        //   final itemName      = item['name'].padRight(20);
+        //   final itemQuantity  = item['quantity'].toString().padLeft(4);
+        //   final itemPrice     = ('\$${item['price'].toStringAsFixed(2)}').padLeft(7);
+        //   final itemTotal     = ('\$${item['appliedPrice'].toStringAsFixed(2)}').padLeft(8);
+        //
+        //   printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+        //
+        //   if (item['options'] != null) {
+        //     for (var option in item['options']) {
+        //       final optionText  = ' - ${option['name']}';
+        //       final optionPrice = option['price'].toStringAsFixed(2);
+        //       //printer.text('$optionText $optionPrice');
+        //       _printAlignedText(printer, optionText, '\$${optionPrice}');
+        //     }
+        //   }
+        //
+        //   if (item['discount'] != null && item['discount'] > 0) {
+        //     final itemDiscount = (item['price'] + (item['options']?.fold(0.0, (prev, opt) => prev + opt['price']) ?? 0.0) - item['appliedPrice']).toStringAsFixed(2);
+        //     //printer.text(' - Discount ${item['discount']}% $itemDiscount');
+        //     _printAlignedText(printer, ' - Discount ${item['discount']}%', '\$${itemDiscount}');
+        //   }
+        // }
+        //
+        // printer.text('--------------------------------------------');
+        //
+        // if (data['bill']['discount'] > 0) {
+        //   _printAlignedText(printer, 'Discount:', '\$${data['bill']['discount'].toStringAsFixed(2)}');
+        // }
+        // _printAlignedText(printer, 'Sub-Total:', '\$${data['bill']['price'].toStringAsFixed(2)}');
+        // _printAlignedText(printer, 'GST Incl.:', '\$${data['bill']['taxes'].toStringAsFixed(2)}');
+        // if (data['bill']['surcharge'] > 0) {
+        //   _printAlignedText(printer, 'Surcharge:', '\$${data['bill']['surcharge'].toStringAsFixed(2)}');
+        // }
+        // _printAlignedText(printer, 'Payment Method:', '${data['bill']['tab_value']}');
+        // _printAlignedText(printer, 'Total Amount:', '\$${data['bill']['bill_amount'].toStringAsFixed(2)}');
+        // _printAlignedText(printer, 'Paid Amount:', '\$${data['bill']['paid_amount'].toStringAsFixed(2)}');
+        // _printAlignedText(printer, 'Balance Amount:', '\$${data['bill']['balance_amount'].abs().toStringAsFixed(2)}');
+
+        printer.text('--------------------------------------------');
+        printer.text('THANK YOU! HAVE A NICE DAY!', styles: PosStyles(align: PosAlign.center));
+        printer.cut();
+        // if(data['bill']['tab_value']=='CASH') {
+        //   printer.drawer(pin: PosDrawer.pin2);
+        // }
+        printer.disconnect();
+
+      } else {
+        print('Failed to connect to the printer');
+      }
+    } catch (e) {
+      print('Error during printing: $e');
+    }
+
   }
 
 }
