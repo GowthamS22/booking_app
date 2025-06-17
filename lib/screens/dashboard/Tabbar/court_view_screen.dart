@@ -150,17 +150,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   bool isSlotInPast(String slot) {
     final now = DateTime.now();
     final slotTime = parseTime(slot);
-    if (selectedDateTime == null ||
-        (selectedDateTime!.year == now.year &&
-            selectedDateTime!.month == now.month &&
-            selectedDateTime!.day == now.day)) {
-      if (slotTime.hour < now.hour) {
-        return true;
-      } else if (slotTime.hour == now.hour && slotTime.minute < now.minute) {
-        return true;
-      }
+    if (selectedDateTime != null &&
+        selectedDateTime!.isBefore(DateTime(now.year, now.month, now.day))) {
+      return true;
+    }
+    if (selectedDateTime != null &&
+        selectedDateTime!.year == now.year &&
+        selectedDateTime!.month == now.month &&
+        selectedDateTime!.day == now.day) {
+      return slotTime.isBefore(now);
     }
     return false;
+  }
+
+  bool isSameDate(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   @override
@@ -183,7 +187,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (isDate == true && selectedDateTime != null)
+                    if (isDate == true &&
+                        selectedDateTime != null &&
+                        !isSameDate(selectedDateTime!, DateTime.now()))
                       Text(
                         " - ${DateFormat('MMM d, yyyy').format(selectedDateTime!)}",
                         style: GoogleFonts.inter(
@@ -763,6 +769,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                                         return GestureDetector(
                                           onTap: () {
+                                            print("hi");
                                             final bookingSlot = controller
                                                 .bookedSlots
                                                 .firstWhereOrNull(

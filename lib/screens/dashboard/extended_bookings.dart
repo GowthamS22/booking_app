@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
+import 'package:collection/collection.dart';
 
 import '../../models/booking_model.dart';
 
@@ -35,6 +36,66 @@ Widget bookingDetailRow(IconData icon, String label, String value) {
       ),
     ],
   );
+}
+
+String formatRemainingTime(DateTime endTime) {
+  final now = DateTime.now();
+  if (endTime.isBefore(now)) return 'Expired';
+
+  final duration = endTime.difference(now);
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+  return '${duration.inMinutes}:${seconds}';
+}
+
+// Helper function to parse time string into DateTime (replicated from court_view_screen.dart)
+DateTime _parseTimeForExtension(String slot, DateTime selectedDate) {
+  try {
+    final parts = slot.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    return DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      hour,
+      minute,
+      0,
+      0,
+      0,
+    );
+  } catch (e) {
+    print('Error parsing time for extension: $e');
+    return DateTime.now(); // Fallback
+  }
+}
+
+// Helper function to check if a slot is in the past (replicated from court_view_screen.dart)
+bool _isSlotInPastForExtension(String slot, DateTime selectedBookingDate) {
+  final now = DateTime.now();
+  final slotTime = _parseTimeForExtension(slot, selectedBookingDate);
+
+  // Check if the slot's date is before today
+  if (slotTime.year < now.year ||
+      (slotTime.year == now.year && slotTime.month < now.month) ||
+      (slotTime.year == now.year &&
+          slotTime.month == now.month &&
+          slotTime.day < now.day)) {
+    return true; // Slot is on a previous day
+  }
+
+  // If it's today, check time
+  if (slotTime.year == now.year &&
+      slotTime.month == now.month &&
+      slotTime.day == now.day) {
+    if (slotTime.hour < now.hour) {
+      return true;
+    } else if (slotTime.hour == now.hour && slotTime.minute < now.minute) {
+      return true;
+    }
+  }
+  return false;
 }
 
 Future<void> openExtendedbookingRightDrawer(
@@ -114,7 +175,7 @@ Future<void> openExtendedbookingRightDrawer(
                                   TextSpan(
                                     text:
                                         booking.endTime != null
-                                            ? timeFormat.format(
+                                            ? formatRemainingTime(
                                               booking.endTime!,
                                             )
                                             : 'N/A',
@@ -222,10 +283,9 @@ Future<void> openExtendedbookingRightDrawer(
                                       bookingDetailRow(
                                         LucideIcons.clock,
                                         "Time",
-                                        booking.startTime != null
-                                            ? timeFormat.format(
-                                              booking.startTime!,
-                                            )
+                                        booking.startTime != null &&
+                                                booking.endTime != null
+                                            ? '${timeFormat.format(booking.startTime!)} - ${timeFormat.format(booking.endTime!)}'
                                             : 'N/A',
                                       ),
                                       const SizedBox(height: 12),
@@ -251,7 +311,7 @@ Future<void> openExtendedbookingRightDrawer(
                                         "Duration",
                                         booking.startTime != null &&
                                                 booking.endTime != null
-                                            ? '${timeFormat.format(booking.startTime!)} - ${timeFormat.format(booking.endTime!)}'
+                                            ? '${booking.endTime!.difference(booking.startTime!).inMinutes} min'
                                             : 'N/A',
                                       ),
                                       const SizedBox(height: 12),
@@ -267,7 +327,65 @@ Future<void> openExtendedbookingRightDrawer(
                               const SizedBox(height: 10),
                               TextButton(
                                 onPressed: () {
-                                  showCourtUnavailableDialog(context);
+                                  final endTime = booking.endTime;
+                                  if (endTime == null) {
+                                    showCourtUnavailableDialog(context);
+                                    return;
+                                  }
+                                  final nextCalculatedStartTime = endTime.add(
+                                    const Duration(minutes: 30),
+                                  );
+                                  final nextPotentialSlotStr = DateFormat(
+                                    'HH:mm',
+                                  ).format(nextCalculatedStartTime);
+
+                                  final nextPotentialSlotDateTime =
+                                      _parseTimeForExtension(
+                                        nextPotentialSlotStr,
+                                        booking.date!,
+                                      );
+                                  bool isNextSlotValidAndFuture =
+                                      controller.timeSlots.contains(
+                                        nextPotentialSlotStr,
+                                      ) &&
+                                      !_isSlotInPastForExtension(
+                                        nextPotentialSlotStr,
+                                        booking.date!,
+                                      );
+
+                                  if (!isNextSlotValidAndFuture) {
+                                    showCourtUnavailableDialog(context);
+                                    return;
+                                  }
+
+                                  // Now check if this specific next potential slot is already booked
+                                  final isNextSlotBooked = controller
+                                      .bookedSlots
+                                      .any(
+                                        (b) =>
+                                            b.court == booking.court &&
+                                            b.startTime != null &&
+                                            // Compare the start time of booked slots with the the full DateTime of the next potential slot
+                                            b.startTime!.year ==
+                                                nextPotentialSlotDateTime
+                                                    .year &&
+                                            b.startTime!.month ==
+                                                nextPotentialSlotDateTime
+                                                    .month &&
+                                            b.startTime!.day ==
+                                                nextPotentialSlotDateTime.day &&
+                                            b.startTime!.hour ==
+                                                nextPotentialSlotDateTime
+                                                    .hour &&
+                                            b.startTime!.minute ==
+                                                nextPotentialSlotDateTime
+                                                    .minute,
+                                      );
+                                  if (isNextSlotBooked) {
+                                    showCourtUnavailableDialog(context);
+                                  } else {
+                                    showCourtAvailableDialog(context);
+                                  }
                                 },
                                 style: TextButton.styleFrom(
                                   backgroundColor: const Color(0xFFF4F3FF),
@@ -464,8 +582,9 @@ void showCancelBookingDialog(BuildContext context) {
             Text(
               'Are you sure?',
               style: GoogleFonts.inter(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
+                color: Colors.black,
               ),
             ),
             const SizedBox(height: 12),
@@ -475,8 +594,9 @@ void showCancelBookingDialog(BuildContext context) {
               'customer will not be charged.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 15,
-                color: Colors.grey.shade700,
+                fontSize: 14,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 24),
@@ -487,17 +607,19 @@ void showCancelBookingDialog(BuildContext context) {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
+                      backgroundColor: Colors.grey.shade50,
                       side: BorderSide(color: Colors.grey.shade400),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
                       'Cancel',
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade500,
                       ),
                     ),
                   ),
@@ -510,12 +632,12 @@ void showCancelBookingDialog(BuildContext context) {
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
+                      backgroundColor: Colors.red.shade500,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
                       'Yes',
@@ -552,6 +674,7 @@ void showCourtUnavailableDialog(BuildContext context) {
               style: GoogleFonts.inter(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
+                color: Colors.black,
               ),
             ),
             const SizedBox(height: 12),
@@ -561,8 +684,9 @@ void showCourtUnavailableDialog(BuildContext context) {
               'or move the \n customer to another available court.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 15,
-                color: Colors.grey.shade700,
+                fontSize: 14,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(height: 24),
@@ -574,15 +698,20 @@ void showCourtUnavailableDialog(BuildContext context) {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.black,
-                      side: BorderSide(color: Colors.grey.shade400),
+                      backgroundColor: Colors.grey.shade50,
+                      side: BorderSide(color: Colors.grey.shade200),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
                       'Cancel',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                        color: Colors.grey.shade500,
+                      ),
                     ),
                   ),
                 ),
@@ -597,37 +726,48 @@ void showCourtUnavailableDialog(BuildContext context) {
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.red.shade50,
                       foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red),
+                      side: BorderSide(color: Colors.red.shade500),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
                       'End Session',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                        color: Colors.red.shade500,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      showAvailableCourtsPopup(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        showCourtAvailableDialog(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade500,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(
-                      'View Available Court',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                      child: Text(
+                        'View Available Court',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -640,7 +780,7 @@ void showCourtUnavailableDialog(BuildContext context) {
   );
 }
 
-void showAvailableCourtsPopup(BuildContext context) {
+void showCourtAvailableDialog(BuildContext context) {
   int selectedTimeIndex = 1;
   int selectedCourtIndex = 1;
   int selectedSlotIndex = 1;
@@ -658,200 +798,268 @@ void showAvailableCourtsPopup(BuildContext context) {
     barrierDismissible: false,
     builder: (_) {
       return Dialog(
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        // insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: StatefulBuilder(
-          builder: (context, setState) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Available Courts",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Select any available court to contine the game",
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Select Time
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Select Time",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 600, // Set your desired dialog max width
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Available Courts",
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: List.generate(times.length, (index) {
-                      final isSelected = selectedTimeIndex == index;
-                      return GestureDetector(
-                        onTap: () => setState(() => selectedTimeIndex = index),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected ? Color(0xFF6B5AED) : Colors.white,
-                            border: Border.all(
-                              color: Color(0xFF6B5AED),
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            times[index],
-                            style: TextStyle(
-                              color:
-                                  isSelected ? Colors.white : Color(0xFF6B5AED),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Select Court
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Select Court",
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    const SizedBox(height: 3),
+                    Text(
+                      "Select any available court to contine the game",
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: List.generate(courts.length, (index) {
-                      final isSelected = selectedCourtIndex == index;
-                      return GestureDetector(
-                        onTap: () => setState(() => selectedCourtIndex = index),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected
-                                    ? Colors.grey.shade700
-                                    : Colors.white,
-                            border: Border.all(color: Colors.grey.shade500),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            courts[index],
-                            style: TextStyle(
-                              color: isSelected ? Colors.white : Colors.black87,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
+                    const SizedBox(height: 12),
 
-                  const SizedBox(height: 20),
-
-                  // Select Slot
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Select Slot",
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: List.generate(slots.length, (index) {
-                      final isSelected = selectedSlotIndex == index;
-                      return GestureDetector(
-                        onTap: () => setState(() => selectedSlotIndex = index),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                isSelected ? Color(0xFF6B5AED) : Colors.white,
-                            border: Border.all(
-                              color: Color(0xFF6B5AED),
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            slots[index],
-                            style: TextStyle(
-                              color:
-                                  isSelected ? Colors.white : Color(0xFF6B5AED),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            "Cancel",
-                            style: TextStyle(color: Colors.black),
-                          ),
+                    // Select Time
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Select Time",
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.black,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context); // Confirm logic here
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                    ),
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 20,
+                        runSpacing: 20,
+                        children: List.generate(times.length, (index) {
+                          final isSelected = selectedTimeIndex == index;
+                          return GestureDetector(
+                            onTap:
+                                () => setState(() => selectedTimeIndex = index),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 30,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelected
+                                        ? Colors.indigo.shade500
+                                        : Colors.indigo.shade50,
+                                border: Border.all(
+                                  color: Colors.indigo.shade200,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                times[index],
+                                style: GoogleFonts.inter(
+                                  color:
+                                      isSelected
+                                          ? Colors.white
+                                          : Colors.indigo.shade500,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Text("Confirm"),
+                          );
+                        }),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Select Court
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Select Court",
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          color: Colors.black,
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
+                    ),
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 20,
+                        runSpacing: 20,
+                        children: List.generate(courts.length, (index) {
+                          final isSelected = selectedCourtIndex == index;
+                          return GestureDetector(
+                            onTap:
+                                () =>
+                                    setState(() => selectedCourtIndex = index),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 30,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelected
+                                        ? Colors.grey.shade500
+                                        : Colors.grey.shade50,
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                courts[index],
+                                style: GoogleFonts.inter(
+                                  color:
+                                      isSelected
+                                          ? Colors.white
+                                          : Colors.grey.shade500,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // Select Slot
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "Select Slot",
+                        style: GoogleFonts.inter(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: List.generate(slots.length, (index) {
+                          final isSelected = selectedSlotIndex == index;
+                          return GestureDetector(
+                            onTap:
+                                () => setState(() => selectedSlotIndex = index),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    isSelected
+                                        ? Colors.indigo.shade500
+                                        : Colors.indigo.shade50,
+                                border: Border.all(
+                                  color: Colors.indigo.shade200,
+                                  width: 1,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                slots[index],
+                                style: GoogleFonts.inter(
+                                  color:
+                                      isSelected
+                                          ? Colors.white
+                                          : Colors.indigo.shade500,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Buttons
+                    Row(
+                      children: [
+                        // Cancel Button
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.grey.shade200,
+                              foregroundColor: Colors.black,
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context); // Confirm logic here
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade500,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(
+                              "Confirm",
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       );
     },

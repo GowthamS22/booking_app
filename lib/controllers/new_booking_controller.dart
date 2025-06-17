@@ -27,6 +27,7 @@ class NewBookingController extends GetxController {
   RxBool checkout = false.obs;
   RxBool paymentProcess = false.obs;
   RxBool onlinePayment = false.obs;
+  RxBool hasShownSpecialHoursError = false.obs; // Add this flag
 
   RxBool courtChangeBtn = false.obs;
   RxBool cancelBookingbtn = false.obs;
@@ -514,6 +515,13 @@ class NewBookingController extends GetxController {
         return;
       }
 
+      // If we already have time slots, don't fetch again
+      if (timeSlots.isNotEmpty) {
+        isLoading.value = false;
+        update();
+        return;
+      }
+
       final today = DateFormat('EEE').format(selectedDate);
 
       // Fetch sport details to check 'enabled' status
@@ -548,6 +556,7 @@ class NewBookingController extends GetxController {
 
             timeSlots.value = generateTimeSlots(startTime, endTime);
             _serviceStreamController.add(serviceList);
+            hasShownSpecialHoursError.value = false;
           } catch (e) {
             showCustomSnackbar('Time parse error', '$e', Colors.red);
           }
@@ -588,11 +597,14 @@ class NewBookingController extends GetxController {
             );
           }
         } else {
-          showCustomSnackbar(
-            'Error',
-            'No special hours found for today for the selected service',
-            Colors.red,
-          );
+          // Only show the error if we don't have any time slots yet
+          if (timeSlots.isEmpty) {
+            showCustomSnackbar(
+              'Error',
+              'No special hours found for today for the selected service',
+              Colors.red,
+            );
+          }
         }
       }
     } catch (e) {
@@ -766,20 +778,29 @@ class NewBookingController extends GetxController {
             'peak_hour_status': hour['peak_hour_status'] ?? false,
           });
         }
+        hasShownSpecialHoursError.value =
+            false; // Reset flag when we get special hours
         update();
       } else {
-        showCustomSnackbar(
-          'No Special Hours',
-          'No special hours found for the selected service.',
-          Colors.orange,
-        );
+        // Only show error if we haven't shown it before
+        if (!hasShownSpecialHoursError.value) {
+          showCustomSnackbar(
+            'No Special Hours',
+            'No special hours found for the selected service.',
+            Colors.orange,
+          );
+          hasShownSpecialHoursError.value = true;
+        }
       }
     } else {
-      showCustomSnackbar(
-        'Error :',
-        'selectedServiceId is empty',
-        Colors.redAccent,
-      );
+      if (!hasShownSpecialHoursError.value) {
+        showCustomSnackbar(
+          'Error :',
+          'selectedServiceId is empty',
+          Colors.redAccent,
+        );
+        hasShownSpecialHoursError.value = true;
+      }
     }
   }
 
