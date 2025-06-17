@@ -125,6 +125,8 @@ class NewBookingController extends GetxController {
   void clearSelectedSlots() {
     selectedCourtSlots.clear();
     selectedCourt.value = null;
+    cartItems.clear(); // Clear cart items as well
+    update();
   }
 
   // Method to check if two slots are adjacent
@@ -283,17 +285,15 @@ class NewBookingController extends GetxController {
         });
       }
 
-      // Sort availableSports by platform_index to check index 0 first
+      // Sort availableSports alphabetically by name
       availableSports.sort((a, b) {
-        final indexA = int.tryParse(a['platform_index'] ?? '0') ?? 0;
-        final indexB = int.tryParse(b['platform_index'] ?? '0') ?? 0;
-        return indexA.compareTo(indexB);
+        final nameA = (a['name'] ?? '').toLowerCase();
+        final nameB = (b['name'] ?? '').toLowerCase();
+        return nameA.compareTo(nameB);
       });
 
       if (availableSports.isNotEmpty) {
         serviceList.clear();
-
-        // Add only truly available sports to the serviceList for the dropdown
         serviceList.addAll(
           availableSports
               .where((sport) => sport['is_available'] == true)
@@ -301,20 +301,16 @@ class NewBookingController extends GetxController {
         );
 
         if (serviceList.isNotEmpty) {
-          // Check if any available sports were added after filtering
-          // Set default to first available sport from the *filtered* serviceList
           final firstAvailableSport = serviceList.firstWhere(
-            (sport) =>
-                sport['is_available'] == true, // Redundant but safe check
+            (sport) => sport['is_available'] == true,
             orElse: () => null,
           );
 
           if (firstAvailableSport != null) {
             selectedService.value = firstAvailableSport['name'];
             selectedServiceId.value = firstAvailableSport['id'];
-            fetchCourtList(); // Call fetchCourtList only after selectedServiceId is set
+            fetchCourtList();
           } else {
-            // Fallback for an unlikely scenario where serviceList is not empty but no available sport is found
             showCustomSnackbar(
               'No Sports Available',
               'No sports are scheduled for today.',
@@ -425,62 +421,28 @@ class NewBookingController extends GetxController {
         final slotEnd = addMinutesToTimeOfDay(current, 30);
 
         bool isPeak = isSportEnabled; // Initial peak status from sports table
-        double slotPrice =
-            isSportEnabled
-                ? sportPeakFee
-                : sportRegularFee; // Initial price from sports table
-
-        print(
-          '--- Slot: ${slotStart.hour.toString().padLeft(2, '0')}:${slotStart.minute.toString().padLeft(2, '0')} - ${slotEnd.hour.toString().padLeft(2, '0')}:${slotEnd.minute.toString().padLeft(2, '0')} ---',
-        );
-        print('  Initial isPeak (from sport enabled status): $isPeak');
-        print('  Initial Price: $slotPrice');
-
-        // Check if the current slot falls into any special_hours period for today
-        bool specialHourOverride =
-            false; // Flag to indicate if special hours logic was applied
+        double slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
+        bool specialHourOverride = false;
         for (var sh in dailySpecialHours) {
           final specialStart = parseTimeString(sh['from_time']);
           final specialEnd = parseTimeString(sh['to_time']);
 
-          print(
-            '  Checking special hour range: ${specialStart.hour.toString().padLeft(2, '0')}:${specialStart.minute.toString().padLeft(2, '0')} - ${specialEnd.hour.toString().padLeft(2, '0')}:${specialEnd.minute.toString().padLeft(2, '0')} (DB status: ${sh['peak_hour_status']})',
-          );
-
           if (isTimeInRange(slotStart, specialStart, specialEnd)) {
-            bool specialHourDbStatus =
-                sh['peak_hour_status'] ?? false; // Get actual status from DB
-
-            // Apply the user's requested inversion for special_hours:
-            // If DB status is FALSE, set isPeak to TRUE
-            // If DB status is TRUE, set isPeak to FALSE
+            bool specialHourDbStatus = sh['peak_hour_status'] ?? false;
             if (!specialHourDbStatus) {
               isPeak = true;
               slotPrice = sportPeakFee;
-              print(
-                '    MATCH! Special hour DB status FALSE -> Setting isPeak = TRUE, price = $slotPrice',
-              );
             } else {
               isPeak = false;
               slotPrice = sportRegularFee;
-              print(
-                '    MATCH! Special hour DB status TRUE -> Setting isPeak = FALSE, price = $slotPrice',
-              );
             }
-            specialHourOverride =
-                true; // Mark that special hours applied an override
-            break; // Found a matching special hour, no need to check further
+            specialHourOverride = true;
+            break;
           }
         }
-
-        // If no special hours applied an override, then use the initial sport's peak status
         if (!specialHourOverride) {
-          isPeak =
-              isSportEnabled; // Revert to sports table default if no special hour override
+          isPeak = isSportEnabled;
           slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
-          print(
-            '  No special hour override. Final isPeak (reverted to sport default) = $isPeak, price = $slotPrice',
-          );
         } else {
           print(
             '  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice',
@@ -500,8 +462,6 @@ class NewBookingController extends GetxController {
 
         current = slotEnd;
       }
-
-      print('slots: $slots');
     } catch (e) {
       print('Error fetching time slots: $e');
     } finally {
@@ -587,14 +547,11 @@ class NewBookingController extends GetxController {
                     : parseTimeString(sportResponse['platform_to_time']).hour;
 
             timeSlots.value = generateTimeSlots(startTime, endTime);
-            print("Time slots: $timeSlots");
             _serviceStreamController.add(serviceList);
           } catch (e) {
-            print('Error parsing time from sports table: $e');
             showCustomSnackbar('Time parse error', '$e', Colors.red);
           }
         } else {
-          print('Missing platform time data for enabled sport');
           showCustomSnackbar('Error', 'Missing platform time data', Colors.red);
         }
       } else {
@@ -618,14 +575,12 @@ class NewBookingController extends GetxController {
                       : parseTimeString(todayHours['to_time']).hour;
 
               timeSlots.value = generateTimeSlots(startTime, endTime);
-              print("Time slots: $timeSlots");
               _serviceStreamController.add(serviceList);
             } catch (e) {
               print('Error parsing time from special hours: $e');
               showCustomSnackbar('Time parse error', '$e', Colors.red);
             }
           } else {
-            print('Missing time data for special hours for $today');
             showCustomSnackbar(
               'Error',
               'Missing special hours time data',
@@ -718,13 +673,10 @@ class NewBookingController extends GetxController {
           final Map<String, String> platformIdMap =
               {}; // To store platform_status IDs
           for (var ps in currentSportPlatformStatuses) {
-            // Use the numeric platform_id (converted to string) as the key
             platformStatusMap[ps['platform_id'].toString()] =
                 ps['status'] ?? false;
-            platformIdMap[ps['platform_id'].toString()] =
-                ps['id']; // Store the ID from platform_status
+            platformIdMap[ps['platform_id'].toString()] = ps['id'];
           }
-
           for (int i = 1; i <= numberOfPlatforms; i++) {
             String generatedCourtName;
             if (platformIndexType == 'alphabetical') {
@@ -754,7 +706,6 @@ class NewBookingController extends GetxController {
           }
         }
         courtList.value = generatedCourts;
-
         await fetchSpecialHours();
         await fetchBookedSlots();
       } else {
@@ -845,22 +796,35 @@ class NewBookingController extends GetxController {
           .schema('s22_prod_schema')
           .from('booking_slots')
           .select('''
-          id,
-          booking_id,
-          service_id,
-          court_id,
-          start_time,
-          end_time,
-          price,
-          status,
-          bookings (
-            customer_id,
-            customers (
-              user_id,
-              first_name
-            )
-          )
-        ''')
+      id,
+      booking_id,
+      service_id,
+      court_id,
+      start_time,
+      end_time,
+      price,
+      status,
+      bookings (
+        customer_id,
+        booking_no,
+        total,
+        payment_status,
+        customers (
+          user_id,
+          first_name,
+          mobile,
+          membershipplan_id
+        )
+      ),
+      platform_status!court_id (
+        platform_id,
+        sport_id,
+        sports (
+          platform_name,
+          sport_name
+        )
+      )
+    ''')
           .eq('service_id', selectedServiceId)
           .eq('status', 'Booked')
           .gte('start_time', startOfDay.toIso8601String())
@@ -874,25 +838,71 @@ class NewBookingController extends GetxController {
       for (final booked in data) {
         final booking = booked['bookings'] ?? {};
         final customer = booking['customers'] ?? {};
+        final courtInfo = booked['platform_status'] ?? {};
+        final sportsInfo = courtInfo['sports'] ?? {};
 
         bookedSlots.add(
           BookingSlot(
-            id: booked['id'],
-            userId: customer['user_id'],
-            name: customer['first_name'],
-            mobile: null, // mobile not joined in this query, include if needed
-            date: DateTime.parse(booked['start_time']),
-            serviceId: booked['service_id'],
-            courtId: booked['court_id'],
-            startTime: DateTime.parse(booked['start_time']),
-            endTime: DateTime.parse(booked['end_time']),
-            price: (booked['price'] as num).toDouble(),
-            status: booked['status'],
+            id: booked['id'] as String?,
+            bookingId: booked['booking_id'] as String?,
+            subBookingId: booked['sub_booking_id'] as String?,
+            userId: customer['user_id'] as String?,
+            name: customer['first_name'] as String?,
+            mobile: customer['mobile'] as String?,
+            date:
+                booked['start_time'] != null
+                    ? DateTime.tryParse(booked['start_time'])
+                    : null,
+            serviceId: booked['service_id'] as String?,
+            courtId: booked['court_id'] as String?,
+            startTime:
+                booked['start_time'] != null
+                    ? DateTime.tryParse(booked['start_time'])
+                    : null,
+            endTime:
+                booked['end_time'] != null
+                    ? DateTime.tryParse(booked['end_time'])
+                    : null,
+            price:
+                booked['price'] is num
+                    ? (booked['price'] as num).toDouble()
+                    : null,
+            slotType: booking['slot_type'] as String?,
+            repeatDays: booking['repeat_days'] as String?,
+            repeatEnd:
+                booking['repeat_end'] != null
+                    ? DateTime.tryParse(booking['repeat_end'])
+                    : null,
+            repeatId: booking['repeat_id'] as String?,
+            repeatGroupId: booking['repeat_group_id'] as String?,
+            paymentStatus: booking['payment_status'] as String?,
+            status: booked['status'] as String?,
+            createdBy: booked['created_by'] as String?,
+            updatedBy: booked['updated_by'] as String?,
+            createdAt:
+                booked['created_at'] != null
+                    ? DateTime.tryParse(booked['created_at'])
+                    : null,
+            updatedAt:
+                booked['updated_at'] != null
+                    ? DateTime.tryParse(booked['updated_at'])
+                    : null,
+            membershipPlanId: customer['membershipplan_id'] as String?,
+            bookingNo: booking['booking_no'] as String?,
+            total:
+                booking['total'] is num
+                    ? (booking['total'] as num).toDouble()
+                    : null,
+            service: sportsInfo['sport_name'] as String?,
+            //court: sportsInfo['platform_name'] as String?,
+            court:
+                '${booked['platform_status']['sports']['platform_name']} ${booked['platform_status']['platform_id'].toString().padLeft(2, '0')}',
+            platformIndex: courtInfo['platform_id'] as String?,
           ),
         );
       }
 
-      print("bookedSlots : $bookedSlots");
+      print("bookedSlots : ${bookedSlots.first}");
       update();
     }
   }
@@ -928,6 +938,7 @@ class NewBookingController extends GetxController {
         startTime: startTime,
         endTime: endTime,
         price: finalizedPrice,
+        membershipPlanId: null,
       ),
     );
     update();
@@ -2051,6 +2062,7 @@ class NewBookingController extends GetxController {
           updatedAt: DateTime.parse(subDoc['updatedAt']),
           createdBy: subDoc['createdBy'],
           updatedBy: subDoc['updatedBy'],
+          membershipPlanId: subDoc['membershipplan_id'],
         );
         bookingSlots.add(bookingSlot);
         cartItems.add(bookingSlot);
@@ -2379,6 +2391,7 @@ class NewBookingController extends GetxController {
               price: (slot['price'] as num).toDouble(),
               status: slot['status'],
               subBookingId: slot['sub_booking_id'],
+              membershipPlanId: slot['membershipplan_id'],
             );
           }).toList();
 

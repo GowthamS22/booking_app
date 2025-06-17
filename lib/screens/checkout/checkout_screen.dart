@@ -86,13 +86,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
     }
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  }
-
-  @override
-  void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
   }
 
   @override
@@ -621,14 +614,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ? null
                                 : () async {
                                   if (totalPaid > 0) {
-                                    if (double.parse(balanceAmountController.text,) <= 0) {
+                                    if (double.parse(
+                                          balanceAmountController.text,
+                                        ) <=
+                                        0) {
                                       setState(() {
-                                        checkoutController.checkoutPayBtn.value = true;
+                                        checkoutController
+                                            .checkoutPayBtn
+                                            .value = true;
                                       });
 
                                       try {
                                         if (selectedMethod == 'EFTPOS') {
-                                          await checkoutController.processTyroPayment(
+                                          await checkoutController
+                                              .processTyroPayment(
                                                 amount: totalPaid,
                                                 reference: controller.bookingId,
                                                 description: 'Booking payment',
@@ -638,67 +637,150 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         // Continue with existing payment processing
                                         if (widget.type == 'Membership') {
                                           await checkoutController.makeMembershipPayment(
-                                            userId: customerController.selectedPlan[0]['userId'],
-                                            userMembershipId: customerController.selectedPlan[0]['userMembershipId'],
+                                            userId:
+                                                customerController
+                                                    .selectedPlan[0]['userId'],
+                                            userMembershipId:
+                                                customerController
+                                                    .selectedPlan[0]['userMembershipId'],
                                             paymentType: selectedMethod,
                                             promoCode: promoCodeController.text,
                                             notes: notesController.text,
-                                            total: double.parse(customerController.selectedPlan[0]['price'].toString(),),
+                                            total: double.parse(
+                                              customerController
+                                                  .selectedPlan[0]['price']
+                                                  .toString(),
+                                            ),
                                             paid: totalPaid,
-                                            balance: double.parse(balanceAmountController.text,),
+                                            balance: double.parse(
+                                              balanceAmountController.text,
+                                            ),
                                             //membershipId: widget.membershipID,
                                           );
-                                        } else if (widget.type == 'ExistingBooking') {
+                                        } else if (widget.type ==
+                                            'ExistingBooking') {
                                           populateCartWithSubSlots(
                                             widget.bookings,
                                           );
-                                          await checkoutController.makeBookingPayment(
-                                                bookingSlots: defaultController.actionBookingSlots.where((slot) => slot.paymentStatus != "Paid",) .toList(),
+                                          await checkoutController
+                                              .makeBookingPayment(
+                                                bookingSlots:
+                                                    defaultController
+                                                        .actionBookingSlots
+                                                        .where(
+                                                          (slot) =>
+                                                              slot.paymentStatus !=
+                                                              "Paid",
+                                                        )
+                                                        .toList(),
                                                 paymentType: selectedMethod,
-                                                promoCode:promoCodeController.text,
+                                                promoCode:
+                                                    promoCodeController.text,
                                                 notes: notesController.text,
                                                 paid: totalPaid,
-                                                balance: double.parse(balanceAmountController.text,),
+                                                balance: double.parse(
+                                                  balanceAmountController.text,
+                                                ),
                                               );
                                         } else if (widget.type == 'New') {
-                                          if (controller.userData.value.id != null) {
-                                            populateCartWithSubSlots(widget.bookings,);
-                                            await checkoutController.processFinalCheckout(
-                                                  userId: controller.userData.value.id,
-                                                  name: controller.nameController.text,
-                                                  email: controller.userData.value.email,
-                                                  mobile: controller.userData.value.mobile,
+                                          if (controller.userData.value.id !=
+                                              null) {
+                                            populateCartWithSubSlots(
+                                              widget.bookings,
+                                            );
+                                            await checkoutController
+                                                .processFinalCheckout(
+                                                  userId:
+                                                      controller
+                                                          .userData
+                                                          .value
+                                                          .id,
+                                                  name:
+                                                      controller
+                                                          .nameController
+                                                          .text,
+                                                  email:
+                                                      controller
+                                                          .userData
+                                                          .value
+                                                          .email,
+                                                  mobile:
+                                                      controller
+                                                          .userData
+                                                          .value
+                                                          .mobile,
                                                   paymentType: selectedMethod,
-                                                  promoCode: promoCodeController.text,
+                                                  promoCode:
+                                                      promoCodeController.text,
                                                   notes: notesController.text,
                                                   paid: totalPaid,
-                                                  balance: double.parse(balanceAmountController.text,),
-                                                  bookingId: controller.bookingId,
-                                                  isMembershipApplied: widget.isMembershipApplied,
-                                                  membershipId: widget.membershipID,
+                                                  balance: double.parse(
+                                                    balanceAmountController
+                                                        .text,
+                                                  ),
+                                                  bookingId:
+                                                      controller.bookingId,
+                                                  isMembershipApplied:
+                                                      widget
+                                                          .isMembershipApplied,
+                                                  membershipId:
+                                                      widget.membershipID,
                                                 );
                                           } else {
-                                            await checkoutController.registerUser(
+                                            await checkoutController
+                                                .registerUser(
                                                   mobile: widget.mobileno,
-                                                  firstName: widget.customerName,
-                                                  membershipId: widget.membershipID,
-                                                ).then((value) {
+                                                  firstName:
+                                                      widget.customerName,
+                                                  membershipId:
+                                                      widget.membershipID,
+                                                )
+                                                .then((value) {
                                                   populateCartWithSubSlots(
                                                     widget.bookings,
                                                   );
-                                                  checkoutController.processFinalCheckout(
-                                                        userId: checkoutController.userData.value.id,
-                                                        name: controller.nameController.text,
-                                                        email: controller.userData.value.email,
-                                                        mobile: controller.userData.value.mobile,
-                                                        paymentType: selectedMethod,
-                                                        promoCode: promoCodeController.text,
-                                                        notes: notesController.text,
+                                                  checkoutController
+                                                      .processFinalCheckout(
+                                                        userId:
+                                                            checkoutController
+                                                                .userData
+                                                                .value
+                                                                .id,
+                                                        name:
+                                                            controller
+                                                                .nameController
+                                                                .text,
+                                                        email:
+                                                            controller
+                                                                .userData
+                                                                .value
+                                                                .email,
+                                                        mobile:
+                                                            controller
+                                                                .userData
+                                                                .value
+                                                                .mobile,
+                                                        paymentType:
+                                                            selectedMethod,
+                                                        promoCode:
+                                                            promoCodeController
+                                                                .text,
+                                                        notes:
+                                                            notesController
+                                                                .text,
                                                         paid: totalPaid,
-                                                        balance: double.parse(balanceAmountController.text,),
-                                                        bookingId: controller.bookingId,
-                                                        isMembershipApplied: widget.isMembershipApplied,
-                                                        membershipId: widget.membershipID,
+                                                        balance: double.parse(
+                                                          balanceAmountController
+                                                              .text,
+                                                        ),
+                                                        bookingId:
+                                                            controller
+                                                                .bookingId,
+                                                        isMembershipApplied:
+                                                            widget
+                                                                .isMembershipApplied,
+                                                        membershipId:
+                                                            widget.membershipID,
                                                       );
                                                 });
                                           }
@@ -708,8 +790,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             promoCode: promoCodeController.text,
                                             notes: notesController.text,
                                             paid: totalPaid,
-                                            balance: double.parse(balanceAmountController.text,),
-                                            products: shoppingController.productsCartModal,
+                                            balance: double.parse(
+                                              balanceAmountController.text,
+                                            ),
+                                            products:
+                                                shoppingController
+                                                    .productsCartModal,
                                           );
                                         }
                                       } catch (e) {
@@ -720,7 +806,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         );
                                       } finally {
                                         setState(() {
-                                          checkoutController.checkoutPayBtn.value = false;
+                                          checkoutController
+                                              .checkoutPayBtn
+                                              .value = false;
                                         });
                                       }
                                     } else {

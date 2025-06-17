@@ -38,14 +38,16 @@ class OrderController extends GetxController {
             payment_status,
             customers (
               first_name,
-              last_name
+              last_name,
+              mobile
             )
           ),
           platform_status!court_id (
         platform_id,
         sport_id,
         sports (
-          platform_name
+          platform_name,
+          sport_name
         )
       )
         ''');
@@ -87,7 +89,7 @@ class OrderController extends GetxController {
         bookings.value = [];
         return;
       }
-
+      print(data);
       bookings.value = data.map((e) => BookingModel.fromJson(e)).toList();
     } catch (e) {
       print('❌ Error: $e');

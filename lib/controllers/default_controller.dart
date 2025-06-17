@@ -362,6 +362,7 @@ class DefaultController extends GetxController
             'peak_fee': service['peak_fee'],
           });
         }
+
         // Add the service list to the stream
         //_serviceStreamController.add(serviceList);
         setDefaultSerivce();

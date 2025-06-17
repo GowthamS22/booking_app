@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 import 'package:booking_app/controllers/order_controller.dart';
 import 'package:booking_app/models/booking_model.dart';
 
+import '../../../config/constants.dart';
+
 class ActiveTabScreen extends StatefulWidget {
   const ActiveTabScreen({super.key});
 
@@ -16,7 +18,13 @@ class ActiveTabScreen extends StatefulWidget {
 class _ActiveTabScreenState extends State<ActiveTabScreen> {
   final OrderController bookingController = Get.put(OrderController());
   bool isGridView = false;
-
+  String selectedFilter = 'All';
+  final List<String> filterOptions = [
+    'All',
+    'Yesterday',
+    'Today',
+    'Previous Day',
+  ];
   List<bool> selectedRows = [];
   bool selectAll = false;
 
@@ -69,7 +77,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                       ),
                     ),
                     Text(
-                      "Currently ongoing bookings",
+                      "Ongoing bookings in real-time",
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: Colors.grey.shade500,
@@ -79,35 +87,6 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   ],
                 ),
                 Spacer(),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.chevron_left, size: 22),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Today',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          color: Colors.grey.shade900,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(Icons.chevron_right, size: 22),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 80),
                 Expanded(
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
@@ -122,19 +101,89 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 08,
+                          vertical: 6,
                         ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade500,
+                            width: 1.5,
+                          ),
                         ),
                         isDense: true,
                       ),
                     ),
                   ),
                 ),
+                const SizedBox(width: 20),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width / 8,
+                  child: DropdownButtonFormField<String>(
+                    value: selectedFilter,
+                    items:
+                        filterOptions.map((String item) {
+                          return DropdownMenuItem<String>(
+                            value: item,
+                            // enabled: !isDisabled,
+                            child: Text(
+                              item,
+                              style: GoogleFonts.inter(
+                                fontSize: 15 * ffem,
+                                color: Colors.black,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                    onChanged: (value) async {},
+                    onSaved: (value) {},
+                    decoration: InputDecoration(
+                      hintText: 'All',
+                      hintStyle: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade500,
+                          width: 1.5,
+                        ),
+                      ),
+                      isDense: true,
+                    ),
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: Colors.grey.shade900,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+
                 const SizedBox(width: 10),
                 Container(
                   height: 44,
@@ -247,305 +296,441 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                         );
                       },
                     )
-                    : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                          ), // Outer border
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        width: MediaQuery.of(context).size.width / 1.1,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: DataTable(
-                            columnSpacing: 30,
-                            dataRowHeight: 60,
-                            headingRowHeight: 50,
-                            // headingRowColor: WidgetStateProperty.all(
-                            //   Colors.blue.shade50,
-                            // ),
-                            dataRowColor: WidgetStateProperty.resolveWith(
-                              (states) => Colors.grey.shade50,
-                            ),
-                            showCheckboxColumn: false,
-                            columns: [
-                              DataColumn(
-                                label: Checkbox(
-                                  value: selectAll,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectAll = value ?? false;
-                                      selectedRows = List.generate(
-                                        bookings.length,
-                                        (_) => selectAll,
-                                      );
-                                    });
-                                  },
-                                ),
+                    : Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Custom Header Row
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 16,
                               ),
-                              DataColumn(
-                                label: Text(
-                                  'Booking ID',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
+                              decoration: BoxDecoration(
+                                color: Colors.black,
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              DataColumn(
-                                label: Text(
-                                  'Customer',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      'Date & Time',
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade900,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Customer & Mobile',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Sport & Court',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Date & Time',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Remaining',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'Amount (\$)',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Center(
+                                      child: Text(
+                                        '',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: SizedBox(
+                                height:
+                                    MediaQuery.of(context).size.height - 200,
 
-                              DataColumn(
-                                label: Text(
-                                  'Game & Court',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Remaining',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Amount',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(label: Text('')),
-                            ],
-                            rows:
-                                bookings.isEmpty
-                                    ? []
-                                    : List.generate(bookings.length, (index) {
-                                      final b = bookings[index];
-                                      final remaining =
-                                          b.endTime!
-                                              .difference(DateTime.now())
-                                              .inMinutes;
-                                      final isEndingSoon = remaining <= 15;
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            Checkbox(
-                                              value:
-                                                  index < selectedRows.length
-                                                      ? selectedRows[index]
-                                                      : false,
-
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  selectedRows[index] =
-                                                      value ?? false;
-                                                  selectAll = selectedRows
-                                                      .every(
-                                                        (isChecked) =>
-                                                            isChecked,
-                                                      );
-                                                });
-                                              },
-                                            ),
+                                child: ListView.builder(
+                                  padding: const EdgeInsets.only(bottom: 50),
+                                  shrinkWrap: true,
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  itemCount: bookings.length,
+                                  itemBuilder: (context, index) {
+                                    final booking = bookings[index];
+                                    final b = bookings[index];
+                                    final remaining =
+                                        b.endTime!
+                                            .difference(DateTime.now())
+                                            .inMinutes;
+                                    final isEndingSoon = remaining <= 15;
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8,
+                                            horizontal: 10,
                                           ),
-                                          DataCell(
-                                            Tooltip(
-                                              message: b.bookingNo,
-                                              child: Text(
-                                                b.bookingNo!.toString(),
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w400,
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              // Customer & Mobile
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.center,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Row(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .center,
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Text(
+                                                          booking.customerName!,
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                                color:
+                                                                    Colors
+                                                                        .grey
+                                                                        .shade900,
+                                                              ),
+                                                        ),
+                                                        const SizedBox(
+                                                          width: 4,
+                                                        ),
+
+                                                        const Icon(
+                                                          Icons.repeat,
+                                                          size: 16,
+                                                          color: Colors.purple,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      booking.customerMobile!,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade500,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              b.customerName.toString(),
-                                              style: GoogleFonts.inter(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w400,
+
+                                              // Sport & Court
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      booking.sportname!,
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade900,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '${booking.courtName}${booking.platformId}',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade500,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Center(
+
+                                              // Date & Time
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.center,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      DateFormat(
+                                                        'dd MMM, yyyy',
+                                                      ).format(DateTime.now()),
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade900,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      '${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade500,
+                                                      ),
+                                                    ),
+                                                    // Text(
+                                                    //   '${DateFormat('hh:mm a').format(booking.extraStart)} - ${DateFormat('hh:mm a').format(booking.extraEnd)}',
+                                                    //   style: GoogleFonts.inter(fontSize: 12, color: Colors.blue),
+                                                    // ),
+                                                  ],
+                                                ),
+                                              ),
+
+                                              // Remaining Time
+                                              Expanded(
+                                                child: Align(
+                                                  alignment: Alignment.center,
+                                                  child: Chip(
+                                                    label: Text(
+                                                      '${remaining > 0 ? remaining : 0} mins',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            remaining <= 0
+                                                                ? Colors
+                                                                    .red
+                                                                    .shade500
+                                                                : remaining <=
+                                                                    15
+                                                                ? Colors
+                                                                    .orange
+                                                                    .shade500
+                                                                : Colors
+                                                                    .green
+                                                                    .shade500,
+                                                      ),
+                                                    ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ), // Adjust the radius as needed
+                                                      side: BorderSide(
+                                                        color:
+                                                            remaining <= 0
+                                                                ? Colors
+                                                                    .red
+                                                                    .shade500
+                                                                : remaining <=
+                                                                    15
+                                                                ? Colors
+                                                                    .orange
+                                                                    .shade500
+                                                                : Colors
+                                                                    .green
+                                                                    .shade500,
+                                                      ),
+                                                    ),
+                                                    backgroundColor:
+                                                        remaining <= 0
+                                                            ? Colors.red.shade50
+                                                            : remaining <= 15
+                                                            ? Colors
+                                                                .orange
+                                                                .shade50
+                                                            : Colors
+                                                                .green
+                                                                .shade50,
+                                                    labelStyle:
+                                                        GoogleFonts.inter(
+                                                          color:
+                                                              remaining <= 0
+                                                                  ? Colors
+                                                                      .red
+                                                                      .shade500
+                                                                  : remaining <=
+                                                                      15
+                                                                  ? Colors
+                                                                      .orange
+                                                                      .shade500
+                                                                  : Colors
+                                                                      .green
+                                                                      .shade500,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
                                                   child: Text(
-                                                    DateFormat(
-                                                      'dd MMM, yyyy',
-                                                    ).format(b.startTime!),
+                                                    "\$ ${b.grandTotal!.toStringAsFixed(2)}",
                                                     style: GoogleFonts.inter(
                                                       fontSize: 16,
                                                       fontWeight:
-                                                          FontWeight.w400,
+                                                          FontWeight.w500,
+                                                      color:
+                                                          Colors.grey.shade900,
                                                     ),
                                                   ),
                                                 ),
-                                                Text(
-                                                  '${DateFormat('hh:mm a').format(b.startTime!)} - ${DateFormat('hh:mm a').format(b.endTime!)}',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  b.serviceName ?? '',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  b.courtName ?? '',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Chip(
-                                              label: Text(
-                                                '${remaining > 0 ? remaining : 0} mins',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
                                               ),
-                                              side: BorderSide(
-                                                color:
-                                                    isEndingSoon
-                                                        ? Colors.red
-                                                        : Colors.blue,
-                                              ),
-                                              backgroundColor:
-                                                  isEndingSoon
-                                                      ? Colors.red.shade100
-                                                      : Colors.blue.shade100,
-                                              labelStyle: TextStyle(
-                                                color:
-                                                    isEndingSoon
-                                                        ? Colors.red
-                                                        : Colors.blue,
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              "\$ ${b.grandTotal!.toStringAsFixed(2)}",
-                                              style: GoogleFonts.inter(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w400,
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                if (b.paymentStatus != 'Paid') {
-                                                  //CheckoutScreen(type: 'New');
-                                                }
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                disabledMouseCursor:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? SystemMouseCursors
-                                                            .forbidden
-                                                        : SystemMouseCursors
-                                                            .click,
-                                                backgroundColor:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? Colors.green.shade50
-                                                        : Colors.blue.shade50,
-                                                foregroundColor:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? Colors.green
-                                                        : Colors.blue,
-                                              ),
-                                              child:
-                                                  b.paymentStatus != 'Paid'
-                                                      ? Text(
-                                                        "Pay",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
+                                              //Pay Button
+                                              Expanded(
+                                                child: Align(
+                                                  alignment: Alignment.center,
+                                                  child: Chip(
+                                                    label:
+                                                        b.paymentStatus !=
+                                                                'Paid'
+                                                            ? Text(
+                                                              "Pay",
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500,
+                                                              ),
+                                                            )
+                                                            : Text(
+                                                              "Paid",
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
                                                             ),
-                                                      )
-                                                      : Text(
-                                                        "Paid",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            20,
+                                                          ), // Adjust the radius as needed
+                                                      side: BorderSide(
+                                                        color:
+                                                            Colors
+                                                                .green
+                                                                .shade500,
                                                       ),
-                                            ),
+                                                    ),
+                                                    backgroundColor:
+                                                        b.paymentStatus !=
+                                                                'Paid'
+                                                            ? Colors
+                                                                .green
+                                                                .shade50
+                                                            : Colors
+                                                                .green
+                                                                .shade500,
+                                                    labelStyle:
+                                                        GoogleFonts.inter(
+                                                          color:
+                                                              b.paymentStatus ==
+                                                                      'Paid'
+                                                                  ? Colors.white
+                                                                  : Colors
+                                                                      .green
+                                                                      .shade500,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                      );
-                                    }).toList(),
-                          ),
+                                        ),
+
+                                        // Divider between rows
+                                        const Divider(height: 1),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );

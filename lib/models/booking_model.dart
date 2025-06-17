@@ -53,28 +53,33 @@ class BookingModel {
   final String? bookingNo;
   final double? grandTotal;
   final String? customerName;
+  final String? customerMobile;
   final String? courtName;
-  final String? serviceName;
   final DateTime? startTime;
   final DateTime? endTime;
   final String? paymentStatus;
+  final String? sportname;
+  final String? platformId;
 
   BookingModel({
     this.bookingNo,
     this.grandTotal,
     this.customerName,
+    this.customerMobile,
     this.courtName,
-    this.serviceName,
     this.startTime,
     this.endTime,
     this.paymentStatus,
+    this.sportname,
+    this.platformId,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
     final booking = json['bookings'] as Map<String, dynamic>?;
-
     final customer = booking?['customers'] as Map<String, dynamic>?;
-
+    final platformStatus = json['platform_status'] as Map<String, dynamic>?;
+    final sports = platformStatus?['sports'] as Map<String, dynamic>?;
+    final platformId = platformStatus?['platform_id']?.toString() ?? '';
     return BookingModel(
       bookingNo: booking?['booking_no'] as String?,
       grandTotal: (booking?['grand_total'] as num?)?.toDouble(),
@@ -83,9 +88,8 @@ class BookingModel {
               ? '${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}'
                   .trim()
               : null,
-      courtName: (json['courts'] as Map<String, dynamic>?)?['name'] as String?,
-      serviceName:
-          (json['services'] as Map<String, dynamic>?)?['name'] as String?,
+      customerMobile: customer?['mobile'] as String?,
+      courtName: sports?['platform_name'] as String?,
       startTime:
           json['start_time'] != null
               ? DateTime.tryParse(json['start_time'])
@@ -93,8 +97,8 @@ class BookingModel {
       endTime:
           json['end_time'] != null ? DateTime.tryParse(json['end_time']) : null,
       paymentStatus: booking?['payment_status'] as String?,
-      // startTime: json['start_time'] as String?,
-      // endTime: json['end_time'] as String?,
+      sportname: sports?['sport_name'] as String,
+      platformId: platformId,
     );
   }
 }
@@ -163,6 +167,10 @@ class BookingSlot {
   String? updatedBy;
   DateTime? createdAt;
   DateTime? updatedAt; // End date
+  String? membershipPlanId;
+  String? bookingNo;
+  double? total;
+  String? platformIndex;
 
   BookingSlot({
     this.id,
@@ -190,6 +198,10 @@ class BookingSlot {
     this.updatedBy,
     this.createdAt,
     this.updatedAt,
+    this.membershipPlanId,
+    this.bookingNo,
+    this.total,
+    this.platformIndex,
   });
 }
 

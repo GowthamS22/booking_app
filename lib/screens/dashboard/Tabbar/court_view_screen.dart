@@ -12,6 +12,8 @@ import '../../../controllers/new_booking_controller.dart';
 import '../../../models/booking_model.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 
+import '../extended_bookings.dart';
+
 class CourtViewScreen extends StatefulWidget {
   const CourtViewScreen({super.key});
 
@@ -44,6 +46,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   var courtPrice = 0.0;
   double membershipPrice = 0.0;
   double totalPrice = 0.0;
+  List<String> selectedSlots = []; // Add this line
 
   @override
   void initState() {
@@ -758,24 +761,78 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           }
                                         }
 
-                                        return Container(
-                                          width: span * 80.0,
-                                          height: 58,
-                                          // color: Colors.red.shade50,
-                                          alignment: Alignment.center,
-                                          margin: EdgeInsets.zero,
-                                          decoration: BoxDecoration(
-                                            color: Colors.red.shade50,
-                                            border: Border.all(
-                                              color: Colors.grey.shade200,
+                                        return GestureDetector(
+                                          onTap: () {
+                                            final bookingSlot = controller
+                                                .bookedSlots
+                                                .firstWhereOrNull(
+                                                  (b) =>
+                                                      b.court == courtName &&
+                                                      b.startTime != null &&
+                                                      b.startTime!.hour ==
+                                                          parseTime(
+                                                            controller
+                                                                .timeSlots[index],
+                                                          ).hour &&
+                                                      b.startTime!.minute ==
+                                                          parseTime(
+                                                            controller
+                                                                .timeSlots[index],
+                                                          ).minute,
+                                                );
+                                            print("bookingSlot: $bookingSlot");
+                                            if (bookingSlot != null) {
+                                              final isCurrentUser =
+                                                  bookingSlot.name ==
+                                                  currentUser;
+                                              final hasMembership =
+                                                  (bookingSlot.membershipPlanId ??
+                                                          '')
+                                                      .isNotEmpty;
+
+                                              if (isCurrentUser &&
+                                                  hasMembership) {
+                                                openExtendedbookingRightDrawer(
+                                                  context,
+                                                  bookingSlot,
+                                                  controller: controller,
+                                                  updateTotalPrice:
+                                                      () => totalPrice,
+                                                  onMembershipApplied:
+                                                      (price, isApplied) {},
+                                                );
+                                              } else {
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(
+                                                      'Only your own bookings with membership can be extended.',
+                                                    ),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          child: Container(
+                                            width: span * 80.0,
+                                            height: 58,
+                                            alignment: Alignment.center,
+                                            margin: EdgeInsets.zero,
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              border: Border.all(
+                                                color: Colors.grey.shade200,
+                                              ),
                                             ),
-                                          ),
-                                          child: Text(
-                                            currentUser,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.w500,
-                                              color: Colors.red.shade500,
+                                            child: Text(
+                                              currentUser,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.red.shade500,
+                                              ),
                                             ),
                                           ),
                                         );
@@ -895,6 +952,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     );
   }
 
+  BookingModel? getBookingModelForUser(
+    String userName,
+    List<BookingModel> bookings,
+  ) {
+    return bookings.firstWhereOrNull((b) => b.customerName == userName);
+  }
+
   DateTime parseTime(String slot) {
     try {
       final parts = slot.split(':');
@@ -964,6 +1028,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       pickedDate.day,
     );
 
+    // Clear all selections before updating date
+    controller.clearSelectedSlots();
+    selectedSlots.clear();
+
     setState(() {
       selectedDateTime = combined;
       controller.selectedDate = combined; // Update controller's selected date
@@ -992,9 +1060,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         // Then fetch booked slots and slot info
         await Future.wait([controller.fetchBookedSlots(), fetchSlotInfo()]);
       }
-    } catch (error) {
-      print('Error refreshing data after date change: $error');
-      // Show error to user if needed
+    } catch (e) {
+      print('Error fetching data: $e');
     }
   }
 
@@ -1753,6 +1820,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                     child: Text(
                                       "Cancel",
@@ -1803,6 +1873,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
                                       foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                     child: Text(
                                       "Quick Booking",
@@ -1830,6 +1903,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
                                     child: Text(
                                       "Cancel",
@@ -1878,6 +1954,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.black,
                                         foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
                                       ),
                                       child: Text(
                                         "Enroll Membership",
@@ -1931,6 +2012,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green,
                                   foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                                 child: Text(
                                   "Quick Booking",
@@ -2240,6 +2324,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.black,
                               side: BorderSide(color: Colors.grey.shade400),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             child: Text(
                               "Pay Later",
@@ -2278,6 +2365,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                               foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             child: Text(
                               "Pay Now",
@@ -2564,6 +2654,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.grey.shade300,
                                     foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
                                   child: Text(
                                     "Cancel",
@@ -2611,6 +2704,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.indigo,
                                     foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
                                   child: Text(
                                     "Confirm",

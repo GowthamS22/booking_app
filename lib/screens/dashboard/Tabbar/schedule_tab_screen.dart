@@ -6,6 +6,9 @@ import 'package:get/get.dart';
 import 'package:booking_app/controllers/order_controller.dart';
 import 'package:booking_app/models/booking_model.dart';
 
+import '../../../config/constants.dart';
+import '../../../widgets/daychip.dart';
+
 class ScheduledTabScreen extends StatefulWidget {
   const ScheduledTabScreen({super.key});
 
@@ -16,7 +19,14 @@ class ScheduledTabScreen extends StatefulWidget {
 class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
   final OrderController bookingController = Get.put(OrderController());
   bool isGridView = false;
-
+  String selectedFilter = 'All';
+  final List<String> filterOptions = [
+    'All',
+    'Yesterday',
+    'Today',
+    'Previous Day',
+  ];
+  List<String> days = ['Mon', 'Wed', 'Sun'];
   List<bool> selectedRows = [];
   bool selectAll = false;
 
@@ -69,10 +79,10 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                       ),
                     ),
                     Text(
-                      "Bookings planned within the next 7 days",
+                      "Recurring or pre-scheduled bookings set for future dates",
                       style: GoogleFonts.inter(
-                        fontSize: 16,
-                        color: Colors.grey.shade500,
+                        fontSize: 14,
+                        color: Colors.grey.shade400,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -80,34 +90,6 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                 ),
                 Spacer(),
 
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.chevron_left, size: 22),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Today',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          color: Colors.grey.shade900,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(Icons.chevron_right, size: 22),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 80),
                 Expanded(
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
@@ -122,16 +104,85 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 08,
+                          vertical: 6,
                         ),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: Colors.grey.shade500,
+                            width: 1.5,
+                          ),
                         ),
                         isDense: true,
                       ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 20),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width / 8,
+                  child: DropdownButtonFormField<String>(
+                    value: selectedFilter,
+                    items:
+                        filterOptions.map((String item) {
+                          return DropdownMenuItem<String>(
+                            value: item,
+                            // enabled: !isDisabled,
+                            child: Text(
+                              item,
+                              style: GoogleFonts.inter(
+                                fontSize: 15 * ffem,
+                                color: Colors.black,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                    onChanged: (value) async {},
+                    onSaved: (value) {},
+                    decoration: InputDecoration(
+                      hintText: 'All',
+                      hintStyle: GoogleFonts.inter(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey.shade500,
+                          width: 1.5,
+                        ),
+                      ),
+                      isDense: true,
+                    ),
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: Colors.grey.shade900,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -147,61 +198,6 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                   child: const Icon(LucideIcons.filter, size: 20),
                 ),
                 const SizedBox(width: 10),
-                Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            isGridView = true;
-                          });
-                        },
-                        child: Container(
-                          width: 44,
-                          alignment: Alignment.center,
-                          child: Icon(
-                            LucideIcons.layoutGrid,
-                            size: 20,
-                            color:
-                                isGridView
-                                    ? Colors.indigo.shade500
-                                    : Colors.grey.shade900,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            isGridView = false;
-                          });
-                        },
-                        child: Container(
-                          width: 44,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            border: Border(
-                              left: BorderSide(color: Colors.grey.shade300),
-                            ),
-                          ),
-                          child: Icon(
-                            LucideIcons.layoutList,
-                            size: 20,
-                            color:
-                                !isGridView
-                                    ? Colors.indigo.shade500
-                                    : Colors.grey.shade900,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
 
@@ -223,413 +219,251 @@ class _ScheduledTabScreenState extends State<ScheduledTabScreen> {
                   return const Center(child: Text("No bookings available."));
                 }
 
-                return isGridView
-                    ? GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1.1,
-                          ),
-                      itemCount: bookings.length,
-                      itemBuilder: (context, index) {
-                        final b = bookings[index];
-                        return GestureDetector(
-                          // onTap:
-                          //     () => showDialog(
-                          //       context: context,
-                          //       builder:
-                          //           (_) => BookingDetailsDialog(booking: b),
-                          //     ),
-                          child: bookingsCard(booking: b),
-                        );
-                      },
-                    )
-                    : SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Container(
+                return SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      // Custom Header Row
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 16,
+                        ),
                         decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                          ), // Outer border
+                          color: Colors.black,
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        width: MediaQuery.of(context).size.width / 1.1,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.vertical,
-                          child: DataTable(
-                            columnSpacing: 30,
-                            dataRowHeight: 60,
-                            headingRowHeight: 50,
-                            // headingRowColor: WidgetStateProperty.all(
-                            //   Colors.blue.shade50,
-                            // ),
-                            dataRowColor: WidgetStateProperty.resolveWith(
-                              (states) => Colors.grey.shade50,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Cust.Name & Mobile',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
                             ),
-                            showCheckboxColumn: false,
-                            columns: [
-                              DataColumn(
-                                label: Checkbox(
-                                  value: selectAll,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectAll = value ?? false;
-                                      selectedRows = List.generate(
-                                        bookings.length,
-                                        (_) => selectAll,
-                                      );
-                                    });
-                                  },
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Booking ID',
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Sport & Court',
                                   style: GoogleFonts.inter(
+                                    color: Colors.white,
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                              DataColumn(
-                                label: Text(
-                                  'Customer',
+                            ),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Timing',
                                   style: GoogleFonts.inter(
+                                    color: Colors.white,
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                              DataColumn(
-                                label: Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      'Date & Time',
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade900,
-                                      ),
+                            ),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Repeating Days',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'Next Booking',
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height - 200,
+
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            itemCount: bookings.length,
+                            itemBuilder: (context, index) {
+                              final booking = bookings[index];
+                              final b = bookings[index];
+                              final remaining =
+                                  b.endTime!
+                                      .difference(DateTime.now())
+                                      .inMinutes;
+                              final isEndingSoon = remaining <= 15;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 10,
                                     ),
-                                  ),
-                                ),
-                              ),
-
-                              DataColumn(
-                                label: Text(
-                                  'Game & Court',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Remaining',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Amount',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade900,
-                                  ),
-                                ),
-                              ),
-                              DataColumn(label: Text('')),
-                            ],
-                            rows:
-                                bookings.isEmpty
-                                    ? []
-                                    : List.generate(bookings.length, (index) {
-                                      final b = bookings[index];
-                                      final remaining =
-                                          b.endTime!
-                                              .difference(DateTime.now())
-                                              .inMinutes;
-                                      final isEndingSoon = remaining <= 15;
-                                      return DataRow(
-                                        cells: [
-                                          DataCell(
-                                            Checkbox(
-                                              value:
-                                                  index < selectedRows.length
-                                                      ? selectedRows[index]
-                                                      : false,
-
-                                              onChanged: (value) {
-                                                setState(() {
-                                                  selectedRows[index] =
-                                                      value ?? false;
-                                                  selectAll = selectedRows
-                                                      .every(
-                                                        (isChecked) =>
-                                                            isChecked,
-                                                      );
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Tooltip(
-                                              message: b.bookingNo,
-                                              child: Text(
-                                                b.bookingNo!.toString(),
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w400,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Text(
-                                              b.customerName.toString(),
-                                              style: GoogleFonts.inter(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w400,
-                                              ),
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Center(
-                                                  child: Text(
-                                                    DateFormat(
-                                                      'dd MMM, yyyy',
-                                                    ).format(b.startTime!),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        // Customer & Mobile
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    booking.customerName!,
                                                     style: GoogleFonts.inter(
                                                       fontSize: 16,
                                                       fontWeight:
-                                                          FontWeight.w400,
+                                                          FontWeight.w500,
+                                                      color:
+                                                          Colors.grey.shade900,
                                                     ),
                                                   ),
-                                                ),
-                                                Text(
-                                                  '${DateFormat('hh:mm a').format(b.startTime!)} - ${DateFormat('hh:mm a').format(b.endTime!)}',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
+                                                  const SizedBox(width: 4),
+
+                                                  const Icon(
+                                                    Icons.repeat,
+                                                    size: 16,
+                                                    color: Colors.purple,
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                Text(
-                                                  b.serviceName ?? '',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                                Text(
-                                                  b.courtName ?? '',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          DataCell(
-                                            Chip(
-                                              label: Text(
-                                                '${remaining > 0 ? remaining : 0} mins',
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                booking.customerMobile!,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade500,
                                                 ),
                                               ),
-                                              side: BorderSide(
-                                                color:
-                                                    isEndingSoon
-                                                        ? Colors.red
-                                                        : Colors.blue,
-                                              ),
-                                              backgroundColor:
-                                                  isEndingSoon
-                                                      ? Colors.red.shade100
-                                                      : Colors.blue.shade100,
-                                              labelStyle: TextStyle(
-                                                color:
-                                                    isEndingSoon
-                                                        ? Colors.red
-                                                        : Colors.blue,
-                                              ),
-                                            ),
+                                            ],
                                           ),
-                                          DataCell(
-                                            Text(
-                                              "\$ ${b.grandTotal!.toStringAsFixed(2)}",
+                                        ),
+
+                                        // Sport & Court
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                booking.sportname!,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade900,
+                                                ),
+                                              ),
+                                              Text(
+                                                '${booking.courtName}${booking.platformId}',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Date & Time
+                                        Expanded(
+                                          child: Center(
+                                            child: Text(
+                                              '${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
                                               style: GoogleFonts.inter(
                                                 fontSize: 16,
-                                                fontWeight: FontWeight.w400,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey.shade500,
                                               ),
                                             ),
                                           ),
-                                          DataCell(
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                if (b.paymentStatus != 'Paid') {
-                                                  // CheckoutScreen(type: 'New');
-                                                }
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                disabledMouseCursor:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? SystemMouseCursors
-                                                            .forbidden
-                                                        : SystemMouseCursors
-                                                            .click,
-                                                backgroundColor:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? Colors.green.shade50
-                                                        : Colors.blue.shade50,
-                                                foregroundColor:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? Colors.green
-                                                        : Colors.blue,
+                                        ),
+
+                                        // Remaining Time
+                                        Expanded(
+                                          child: Align(
+                                            alignment: Alignment.center,
+                                            child: DayChips(selectedDays: days),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Center(
+                                            child: Text(
+                                              'Tomorrow',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.grey.shade900,
                                               ),
-                                              child:
-                                                  b.paymentStatus != 'Paid'
-                                                      ? Text(
-                                                        "Pay",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
-                                                      )
-                                                      : Text(
-                                                        "Paid",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
-                                                      ),
                                             ),
                                           ),
-                                        ],
-                                      );
-                                    }).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Divider between rows
+                                  const Divider(height: 1),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),
-                    );
+                    ],
+                  ),
+                );
               }),
             ),
           ],
         );
       },
-    );
-  }
-
-  Color getProgressColor(int duration) {
-    if (duration <= 30) return Colors.pinkAccent.shade400;
-    if (duration <= 59) return Colors.orange.shade400;
-    return Colors.red.shade400;
-  }
-
-  Widget bookingsCard({required BookingModel booking}) {
-    final duration = booking.endTime!.difference(booking.startTime!).inMinutes;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.15,
-                width: MediaQuery.of(context).size.width * 0.10,
-                child: CircularProgressIndicator(
-                  value: duration / 60, // adjust denominator as needed
-                  color: getProgressColor(duration),
-                  // value: 0.5, // Default progress
-                  // color: Colors.blue.shade400,
-                  strokeWidth: 10,
-                  backgroundColor: Colors.grey.shade200,
-                ),
-              ),
-              SizedBox(height: 10),
-              Text(
-                "${duration.toString().padLeft(2, '0')}:00\nmins",
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            booking.customerName ?? '',
-            style: GoogleFonts.inter(
-              fontSize: 17,
-              color: Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            booking.courtName ?? '',
-            style: GoogleFonts.inter(fontSize: 15, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${booking.startTime!.hour}:${booking.startTime!.minute.toString().padLeft(2, '0')} - ${booking.endTime!.hour}:${booking.endTime!.minute.toString().padLeft(2, '0')}',
-            style: GoogleFonts.inter(fontSize: 15, color: Colors.grey),
-          ),
-        ],
-      ),
     );
   }
 }

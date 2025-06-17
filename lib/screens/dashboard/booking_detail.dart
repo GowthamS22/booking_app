@@ -31,11 +31,13 @@
 //       backgroundColor: Colors.white,
 //       insetPadding: const EdgeInsets.all(20),
 //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//       child: Container(
+//       child: 
+//       Container(
 //         padding: const EdgeInsets.all(20),
 //         width: 400,
 //         child: SingleChildScrollView(
-//           child: Column(
+//           child:
+//            Column(
 //             mainAxisSize: MainAxisSize.min,
 //             crossAxisAlignment: CrossAxisAlignment.start,
 //             children: [
@@ -366,6 +368,7 @@
 //               ),
 //             ],
 //           ),
+       
 //         ),
 //       ),
 //     );
