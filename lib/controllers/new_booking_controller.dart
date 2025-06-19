@@ -169,8 +169,22 @@ class NewBookingController extends GetxController {
     final response = await supabase
         .schema('s22_prod_schema')
         .from('customers')
-        .select('mobile, first_name');
-    // Step 2: Generate a unique booking ID
+        .select('''
+        mobile, 
+        first_name, 
+        membershipplan_id,
+        created_at,
+        membershipplan (
+          name,
+          price,
+          billing_cycle,
+          peak_price,
+          non_peak_price,
+          validity
+        )
+      ''');
+
+    // Generate booking ID
     final existingBookings = await supabase
         .schema('s22_prod_schema')
         .from('bookings')
@@ -181,7 +195,24 @@ class NewBookingController extends GetxController {
     if (response != null) {
       userList.clear();
       for (var user in response) {
-        userList.add({'name': user['first_name'], 'mobile': user['mobile']});
+        final plan = user['membershipplan'];
+        DateTime? startDate = DateTime.tryParse(user['created_at']);
+        DateTime? endDate;
+        if (startDate != null && plan != null && plan['validity'] != null) {
+          endDate = startDate.add(Duration(days: plan['validity']));
+        }
+
+        userList.add({
+          'name': user['first_name'] ?? '',
+          'mobile': user['mobile'] ?? '',
+          'membership_plan': plan?['name'] ?? '',
+          'price': plan?['price']?.toString() ?? '',
+          'billing_cycle': plan?['billing_cycle'] ?? '',
+          'peak_price': plan?['peak_price']?.toString() ?? '',
+          'non_peak_price': plan?['non_peak_price']?.toString() ?? '',
+          'validity_start': startDate?.toIso8601String() ?? '',
+          'validity_end': endDate?.toIso8601String() ?? '',
+        });
       }
     }
 
@@ -373,7 +404,7 @@ class NewBookingController extends GetxController {
                 'peak_hour_status, platform_from_time, platform_to_time, regular_fee, peak_fee',
               )
               .eq('id', serviceId)
-              .single();
+              .maybeSingle();
 
       if (sportResponse == null) {
         print('Sport details not found for serviceId: $serviceId');
@@ -531,7 +562,7 @@ class NewBookingController extends GetxController {
               .from('sports')
               .select('peak_hour_status, platform_from_time, platform_to_time')
               .eq('id', selectedServiceId.value)
-              .single();
+              .maybeSingle();
 
       if (sportResponse == null) {
         showCustomSnackbar('Error', 'Sport details not found', Colors.red);
@@ -668,6 +699,16 @@ class NewBookingController extends GetxController {
           .order('platform_index', ascending: true);
 
       if (response is List) {
+        if (response.isEmpty) {
+          print(
+            'No sports found for selectedServiceId: ${selectedServiceId.value}',
+          );
+          courtList.clear();
+          isLoading.value = false;
+          update();
+          return;
+        }
+
         List<Map<String, dynamic>> generatedCourts = [];
         final Uuid uuid = Uuid();
 
@@ -917,13 +958,18 @@ class NewBookingController extends GetxController {
             service: sportsInfo['sport_name'] as String?,
             //court: sportsInfo['platform_name'] as String?,
             court:
-                '${booked['platform_status']['sports']['platform_name']} ${booked['platform_status']['platform_id'].toString().padLeft(2, '0')}',
-            platformIndex: courtInfo['platform_id'] as String?,
+                courtInfo['sports'] != null && courtInfo['platform_id'] != null
+                    ? '${courtInfo['sports']['platform_name']} ${courtInfo['platform_id'].toString().padLeft(2, '0')}'
+                    : 'Unknown Court',
+            platformIndex: courtInfo['platform_id']?.toString(),
           ),
         );
       }
 
-      print("bookedSlots : ${bookedSlots.first}");
+      print("bookedSlots count: ${bookedSlots.length}");
+      if (bookedSlots.isNotEmpty) {
+        print("First bookedSlot: ${bookedSlots.first}");
+      }
       update();
     }
   }
@@ -2002,10 +2048,14 @@ class NewBookingController extends GetxController {
 
     // Retrieve booking data from Supabase
     final bookingResponse =
-        await supabase.from('bookings').select().eq('id', bookingId).single();
+        await supabase
+            .from('bookings')
+            .select()
+            .eq('id', bookingId)
+            .maybeSingle();
 
-    if (bookingResponse.isEmpty) {
-      print('Error fetching booking: $bookingResponse');
+    if (bookingResponse == null) {
+      print('Error fetching booking: Booking not found for ID: $bookingId');
       isLoading.value = false;
       update();
       return;
@@ -2143,13 +2193,14 @@ class NewBookingController extends GetxController {
               .from('sports')
               .select('sport_name')
               .eq('id', serviceId)
-              .single();
+              .maybeSingle();
 
       if (response != null && response['sport_name'] != null) {
         serviceName = response['sport_name'];
         prefs.setString('service_$serviceId', serviceName!);
       } else {
-        throw Exception('Service not found in Supabase');
+        print('Service not found for ID: $serviceId');
+        return 'Unknown Service';
       }
     }
 
@@ -2169,13 +2220,14 @@ class NewBookingController extends GetxController {
               .from('sports')
               .select('platform_name')
               .eq('id', courtId)
-              .single();
+              .maybeSingle();
 
       if (response != null && response['platform_name'] != null) {
         courtName = response['platform_name'];
         prefs.setString('court_$courtId', courtName!);
       } else {
-        throw Exception('Court not found in Supabase');
+        print('Court not found for ID: $courtId');
+        return 'Unknown Court';
       }
     }
 

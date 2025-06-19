@@ -343,7 +343,7 @@ class DefaultController extends GetxController
           .schema('s22_prod_schema')
           .from('sports')
           .select(
-            'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,enabled',
+            'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,peak_hour_status',
           )
           .eq('status', true)
           .order('platform_index', ascending: true);
@@ -355,7 +355,7 @@ class DefaultController extends GetxController
             'id': service['id'],
             'name': service['sport_name'],
             'icon': '', // Assuming 'icon' is not present in sports table.
-            'enabled': service['enabled'],
+            'peak_hour_status': service['peak_hour_status'],
             'platform_from_time': service['platform_from_time'],
             'platform_to_time': service['platform_to_time'],
             'regular_fee': service['regular_fee'],
