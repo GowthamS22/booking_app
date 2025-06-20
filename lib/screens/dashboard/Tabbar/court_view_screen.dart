@@ -362,6 +362,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       membershipApplied,
                       selectedMembershipId ?? '',
                       bookings,
+                      onCancel: () {
+                        setState(
+                          () {},
+                        ); // This will rebuild the parent and hide the buttons
+                      },
                     );
                   },
                   child: Text(
@@ -1107,8 +1112,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     double memberPrice,
     bool isMembershipApplied,
     String membershipId,
-    List<BookingInfo> bookings,
-  ) async {
+    List<BookingInfo> bookings, {
+    VoidCallback? onCancel,
+  }) async {
     // courtPrice = bookings.fold(
     //   0.0,
     //   (sum, b) =>
@@ -1131,6 +1137,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       backgroundColor = Colors.indigo.shade50;
       textColor = Colors.indigo.shade700;
     }
+
     if (!mounted) return;
     await showGeneralDialog(
       context: context,
@@ -1159,14 +1166,23 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         0.0,
                         (sum, b) =>
                             sum +
-                            b.subSlots.fold(
-                              0.0,
-                              (subSum, subSlot) =>
-                                  subSum +
-                                  (subSlot.price is num
-                                      ? subSlot.price.toDouble()
-                                      : 0.0),
-                            ),
+                            b.subSlots.fold(0.0, (subSum, subSlot) {
+                              double price;
+                              if (hasMembership &&
+                                  memberPeakPrice != null &&
+                                  memberNonPeakPrice != null) {
+                                price =
+                                    subSlot.isPeak
+                                        ? memberPeakPrice!
+                                        : memberNonPeakPrice!;
+                              } else {
+                                price =
+                                    (subSlot.price is num)
+                                        ? subSlot.price.toDouble()
+                                        : 0.0;
+                              }
+                              return subSum + price;
+                            }),
                       );
                     });
                     totalPrice =
@@ -1598,7 +1614,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   Expanded(
                                                     flex: 2,
                                                     child: Text(
-                                                      "\$${booking.subSlots.fold(0.0, (sum, subSlot) => sum + subSlot.price).toStringAsFixed(2)}",
+                                                      "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
+                                                        if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+                                                          return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
+                                                        } else {
+                                                          return sum + subSlot.price;
+                                                        }
+                                                      }).toStringAsFixed(2)}",
                                                       textAlign:
                                                           TextAlign.right,
                                                       style: GoogleFonts.inter(
@@ -1790,14 +1812,54 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                 ),
                                 SizedBox(width: 8),
-                                Text(
-                                  '\$ ${courtPrice.toStringAsFixed(2)}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 19,
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w600,
+                                if (hasMembership &&
+                                    memberPeakPrice != null &&
+                                    memberNonPeakPrice != null) ...[
+                                  Text(
+                                    'Total',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Member Price',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    '\$ ${courtPrice.toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 19,
+                                      color: Colors.green,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Text(
+                                    'Total',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 15,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    '\$ ${courtPrice.toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 19,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ],
@@ -1841,10 +1903,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   child: ElevatedButton(
                                     onPressed: () {
                                       controller.clearSelectedSlots();
-                                      setState(() {});
-                                      Navigator.pop(context);
                                       nameController.clear();
                                       mobileController.clear();
+                                      hasMembership = false;
+                                      isMembershipApplied = false;
+                                      membershipPrice = 0.0;
+                                      selectedMembershipId = null;
+                                      setState(() {});
+                                      Navigator.pop(context);
+                                      if (onCancel != null) onCancel();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
@@ -1890,6 +1957,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           membershipId,
                                           membershipPlan,
                                           isMembershipApplied,
+                                          memberPrice,
                                         );
                                       } else {
                                         showCustomSnackbar(
@@ -1927,10 +1995,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   child: ElevatedButton(
                                     onPressed: () {
                                       controller.clearSelectedSlots();
-                                      setState(() {});
-                                      Navigator.pop(context);
                                       nameController.clear();
                                       mobileController.clear();
+                                      hasMembership = false;
+                                      isMembershipApplied = false;
+                                      membershipPrice = 0.0;
+                                      selectedMembershipId = null;
+                                      setState(() {});
+                                      Navigator.pop(context);
+                                      if (onCancel != null) onCancel();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
@@ -2025,6 +2098,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       membershipId,
                                       membershipPlan,
                                       isMembershipApplied,
+                                      memberPrice,
                                     );
                                   } else {
                                     showCustomSnackbar(
@@ -2078,6 +2152,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     String? selectedMembershipId,
     String? selectedMembershipPlan,
     bool isMembershipApplied,
+    double membershipPrice,
   ) async {
     await showDialog(
       context: parentContext,
@@ -2391,6 +2466,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   membershipID: selectedMembershipId!,
                                   membershipName: selectedMembershipPlan,
                                   isMembershipApplied: isMembershipApplied,
+                                  membershipPrice: memberPrice,
                                 ),
                               );
                             },
@@ -2727,6 +2803,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           isApplied,
                                           selectedMembershipId!,
                                           bookings,
+                                          onCancel: () {
+                                            setState(
+                                              () {},
+                                            ); // This will rebuild the parent and hide the buttons
+                                          },
                                         );
                                       }
                                     });

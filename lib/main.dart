@@ -13,6 +13,7 @@ import 'app/getx_binding.dart';
 import 'components/nonetwork_widget.dart';
 import 'controllers/auth_controller.dart';
 import 'firebase_options.dart';
+import 'screens/checkout/checkoutScreen.dart';
 import 'screens/screens.dart';
 import 'config/routes.dart';
 
@@ -113,7 +114,19 @@ class _MyAppState extends State<MyApp> {
               PointerDeviceKind.unknown,
             },
           ),
-          //home: CheckoutScreen(billAmount: 10,customerName: 'Jamuna', type: '', mobileno: '', selectedDateTime: DateTime.now(), bookings: [], membershipID: '', membershipName: '', isMembershipApplied: null,),
+          //home: PaymentScreen(),
+          // home: CheckoutScreen(
+          //   billAmount: 10,
+          //   customerName: 'Jamuna',
+          //   type: '',
+          //   mobileno: '',
+          //   selectedDateTime: DateTime.now(),
+          //   bookings: [],
+          //   membershipID: '',
+          //   membershipName: '',
+          //   isMembershipApplied: null,
+          //   membershipPrice: 0,
+          // ),
           home: isConnected ? Root() : NetworkScreen(),
         );
       },
