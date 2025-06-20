@@ -173,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   Spacer(),
                   Text(
-                    DateFormat('MMM d, yyyy').format(DateTime.now()),
+                    DateFormat('MMM d, yyyy EEEE').format(DateTime.now()),
                     style: GoogleFonts.inter(
                       color: Colors.black,
                       fontSize: 16,

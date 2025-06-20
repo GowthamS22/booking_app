@@ -212,6 +212,7 @@ class NewBookingController extends GetxController {
           'non_peak_price': plan?['non_peak_price']?.toString() ?? '',
           'validity_start': startDate?.toIso8601String() ?? '',
           'validity_end': endDate?.toIso8601String() ?? '',
+          'membershipplan_id': user['membershipplan_id'] ?? '',
         });
       }
     }

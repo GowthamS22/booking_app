@@ -215,32 +215,32 @@ class _SidebarMenuState extends State<SidebarMenu> {
               ),
             ),
           ),
-          SidebarXItem(
-            onTap: () {
-              defaultController.changeTabIndex(5);
-            },
-            iconWidget: Center(
-              child: Container(
-                width: 35,
-                height: 35,
-                decoration: BoxDecoration(
-                  color:
-                      controller.selectedIndex == 5
-                          ? Colors.indigo.shade50
-                          : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  LucideIcons.bell, // or Icons.notifications_none_rounded
-                  color:
-                      controller.selectedIndex == 5
-                          ? Colors.indigo.shade900
-                          : Colors.grey,
-                  size: 22,
-                ),
-              ),
-            ),
-          ),
+          // SidebarXItem(
+          //   onTap: () {
+          //     defaultController.changeTabIndex(5);
+          //   },
+          //   iconWidget: Center(
+          //     child: Container(
+          //       width: 35,
+          //       height: 35,
+          //       decoration: BoxDecoration(
+          //         color:
+          //             controller.selectedIndex == 5
+          //                 ? Colors.indigo.shade50
+          //                 : Colors.transparent,
+          //         borderRadius: BorderRadius.circular(8),
+          //       ),
+          //       child: Icon(
+          //         LucideIcons.bell, // or Icons.notifications_none_rounded
+          //         color:
+          //             controller.selectedIndex == 5
+          //                 ? Colors.indigo.shade900
+          //                 : Colors.grey,
+          //         size: 22,
+          //       ),
+          //     ),
+          //   ),
+          // ),
         ],
 
         footerBuilder:

@@ -113,6 +113,7 @@ class _MyAppState extends State<MyApp> {
               PointerDeviceKind.unknown,
             },
           ),
+          //home: CheckoutScreen(billAmount: 10,customerName: 'Jamuna', type: '', mobileno: '', selectedDateTime: DateTime.now(), bookings: [], membershipID: '', membershipName: '', isMembershipApplied: null,),
           home: isConnected ? Root() : NetworkScreen(),
         );
       },

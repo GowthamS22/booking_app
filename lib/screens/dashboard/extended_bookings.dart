@@ -426,7 +426,7 @@ Future<void> openExtendedbookingRightDrawer(
 
                     /// Booking Details
                     Text(
-                      "Booking Details",
+                      "Booking Details : ${booking.id}",
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: Colors.black,
