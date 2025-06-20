@@ -1,868 +1,836 @@
-import 'package:booking_app/controllers/shopping_controller.dart';
+import 'dart:convert';
+import 'dart:math';
+import 'package:booking_app/controllers/PosOrderController.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
-import 'package:booking_app/screens/shopping/products.dart';
+import 'package:booking_app/stores/order_store.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:booking_app/config/palette.dart';
+import 'package:booking_app/models/category.dart';
+import 'package:booking_app/models/products.dart';
+import 'package:provider/provider.dart';
 import 'package:get/get.dart';
-import 'package:flutter/services.dart';
-
-import '../../app/getx_binding.dart';
-import '../../config/constants.dart';
-import '../../config/google-fonts.dart';
-import '../../config/palette.dart';
-import '../../widgets/shimmer/shimmer_table_loading.dart';
 
 class ShoppingScreen extends StatefulWidget {
-  const ShoppingScreen({Key? key}) : super(key: key);
+  const ShoppingScreen({super.key});
 
   @override
   State<ShoppingScreen> createState() => _ShoppingScreenState();
 }
 
 class _ShoppingScreenState extends State<ShoppingScreen> {
+  // SharedPreferences keys
+  static const String _prefsCartKey = 'shopping_cart';
+  static const String _prefsOrderNotesKey = 'order_notes';
+  static const String _prefsOrderIdKey = 'order_id';
+
+  List<Category> categories = [];
+  List<Products> products = [];
+  Category? selectedCategory;
+  List<CartItem> cart = [];
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool isLoading = true;
+  String _orderNotes = '';
+  String _tempOrderId = '';
+  DateTime selectedDateTime = DateTime.now();
+
   @override
   void initState() {
     super.initState();
-    print('Shopping Scrren : ${shoppingController.categoryList.length}');
-    shoppingController.categoryList.length;
+    _clearPrefsData();
+    _clearExistingOrderData();
+    _loadData().then((_) async {
+      await _loadOrderIdFromPrefs();
+      await _loadOrderNotesFromPrefs();
+      await _loadCartFromPrefs();
+      setState(() => isLoading = false);
+    });
+    _searchController.addListener(_onSearchChanged);
   }
 
   @override
-  Widget build(BuildContext context) {
-    TextEditingController searchController = TextEditingController();
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
 
-    return GetBuilder<ShoppingController>(
-      builder: (controller) {
-        //shoppingController.tabController.index = 0;
-        return Scaffold(
-          backgroundColor: Palette.white,
-          body: Container(
-            padding: EdgeInsets.all(20),
-            child: SingleChildScrollView(
-              child: Column(
-                children: [buildBody(controller, searchController)],
-              ),
-            ),
-          ),
+  void _clearExistingOrderData() {
+    final orderController = Get.find<PosOrderController>();
+    orderController.clearOrder();
+  }
+
+  void _generateTempOrderId() {
+    final random = Random();
+    setState(() {
+      _tempOrderId = 'TMP${random.nextInt(900) + 100}';
+      _saveOrderIdToPrefs();
+    });
+  }
+
+  // SharedPreferences save/load methods
+  Future<void> _saveCartToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartJson = jsonEncode(cart.map((item) => item.toJson()).toList());
+    await prefs.setString(_prefsCartKey, cartJson);
+  }
+
+  Future<void> _loadCartFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cartJson = prefs.getString(_prefsCartKey);
+    if (cartJson != null) {
+      final List<dynamic> cartData = jsonDecode(cartJson);
+      setState(() {
+        cart = cartData.map((json) => CartItem.fromJson(json)).toList();
+      });
+    }
+  }
+
+  Future<void> _saveOrderNotesToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsOrderNotesKey, _orderNotes);
+  }
+
+  Future<void> _loadOrderNotesFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _orderNotes = prefs.getString(_prefsOrderNotesKey) ?? '';
+    });
+  }
+
+  Future<void> _saveOrderIdToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsOrderIdKey, _tempOrderId);
+  }
+
+  Future<void> _loadOrderIdFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getString(_prefsOrderIdKey);
+    if (savedId == null) {
+      _generateTempOrderId();
+    } else {
+      setState(() {
+        _tempOrderId = savedId;
+      });
+    }
+  }
+
+  Future<void> _clearPrefsData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefsCartKey);
+    await prefs.remove(_prefsOrderNotesKey);
+    await prefs.remove(_prefsOrderIdKey);
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Load categories
+      final categoriesJson = prefs.getString('categories');
+      if (categoriesJson != null) {
+        final List<dynamic> categoryData = jsonDecode(categoriesJson);
+        categories = categoryData.map((json) => Category.fromJson(json)).toList();
+      }
+
+      // Load products
+      final productsJson = prefs.getString('products');
+      if (productsJson != null) {
+        final List<dynamic> productData = jsonDecode(productsJson);
+        products = productData.map((json) => Products.fromJson(json)).toList();
+      }
+
+      // Set default selected category
+      if (categories.isNotEmpty) {
+        selectedCategory = categories.firstWhere(
+              (cat) => cat.name == "Shuttlecock",
+          orElse: () => categories.first,
         );
-      },
+      }
+
+    } catch (e) {
+      print('Error loading data: $e');
+      // Consider showing an error message to the user
+    }
+  }
+
+  void _onSearchChanged() {
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+
+  List<Products> get filteredProducts {
+    // First filter by category
+    List<Products> filtered = selectedCategory == null
+        ? products
+        : products.where((p) => p.categoryId == selectedCategory!.id).toList();
+
+    // Then filter by search query
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((p) =>
+      p.name.toLowerCase().contains(_searchQuery) ||
+          p.description.toLowerCase().contains(_searchQuery)
+      ).toList();
+    }
+
+    return filtered;
+  }
+
+  void addToCart(Products product) {
+    final index = cart.indexWhere((e) => e.product.id == product.id);
+    setState(() {
+      if (index != -1) {
+        cart[index].quantity++;
+      } else {
+        cart.add(CartItem(product: product));
+      }
+      _saveCartToPrefs();
+    });
+  }
+
+  void incrementQty(CartItem item) {
+    setState(() {
+      item.quantity++;
+      _saveCartToPrefs();
+    });
+  }
+
+  void decrementQty(CartItem item) {
+    setState(() {
+      if (item.quantity > 1) {
+        item.quantity--;
+      } else {
+        cart.remove(item);
+      }
+      _saveCartToPrefs();
+    });
+  }
+
+  double get total => cart.fold(0, (sum, item) => sum + double.parse(item.product.price) * item.quantity);
+
+  Future<void> _showOrderNotesDialog(BuildContext context) async {
+    final TextEditingController notesController =
+    TextEditingController(text: _orderNotes);
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: Colors.white,
+        title: const Text('Order Notes'),
+        content: TextField(
+          controller: notesController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Special instructions for the entire order...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _orderNotes = notesController.text;
+                _saveOrderNotesToPrefs();
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
-  buildBody(
-    ShoppingController controller,
-    TextEditingController searchController,
-  ) {
-    String dropdownValue = shoppingController.list.first;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          margin: EdgeInsets.fromLTRB(0 * fem, 0 * fem, 0 * fem, 21 * fem),
-          width: double.infinity,
-          height: 44 * fem,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  void _showMergeDialog(BuildContext context) {
+    if (cart.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add items to cart before merging!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.5,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  // width: MediaQuery.of(context).size.width / 2,
-                  margin: EdgeInsets.fromLTRB(
-                    0 * fem,
-                    0 * fem,
-                    175.4 * fem,
-                    0 * fem,
-                  ),
-                  height: double.infinity,
-                  child: Obx(() {
-                    final categories = controller.categoryList;
-
-                    if (categories.isEmpty) {
-                      return Center(child: Text("No categories available."));
-                    }
-                    return TabBar(
-                      controller: controller.tabController,
-                      isScrollable: true,
-                      labelColor: Palette.tabBarSelectedColor,
-                      unselectedLabelColor: Palette.tabBarUnselectedColor,
-                      unselectedLabelStyle: SafeGoogleFont(
-                        'Roboto',
-                        fontSize: 16 * ffem,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1725 * ffem / fem,
-                        color: Color(0xff2c83f1),
-                      ),
-                      labelStyle: SafeGoogleFont(
-                        'Roboto',
-                        fontSize: 16 * ffem,
-                        fontWeight: FontWeight.w600,
-                        height: 1.1725 * ffem / fem,
-                        color: Color(0xff2c83f1),
-                      ),
-                      tabs: List.generate(
-                        controller.categoryList.length,
-                        (index) => Tab(
-                          height: 70,
-                          child: Text('${controller.categoryList[index].name}'),
-                        ),
-                      ),
-                    );
-                  }),
+                const Text(
+                  'Merge Order',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                // SizedBox(width: 100,),
-                Container(
-                  // datefilternkq (137:817)
-                  margin: EdgeInsets.fromLTRB(
-                    0 * fem,
-                    0.46 * fem,
-                    0 * fem,
-                    0.46 * fem,
-                  ),
-                  height: double.infinity,
+                const SizedBox(height: 4),
+                const Text(
+                  'Merge purchase order with booking',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+
+                // Search Bar
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        // frame454vs3 (137:818)
-                        margin: EdgeInsets.fromLTRB(
-                          0 * fem,
-                          1.54 * fem,
-                          22.76 * fem,
-                          1.54 * fem,
-                        ),
-                        padding: EdgeInsets.fromLTRB(
-                          8.13 * fem,
-                          10.25 * fem,
-                          8.13 * fem,
-                          10.25 * fem,
-                        ),
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Color(0xffdfe7f4),
-                          borderRadius: BorderRadius.circular(
-                            4.0638589859 * fem,
+                    children: categories.map((cat) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          backgroundColor: Colors.white,
+                          label: Text(cat.name),
+                          selected: cat == selectedCategory,
+                          onSelected: (_) => setState(() => selectedCategory = cat),
+                          selectedColor: Palette.newColorbg,
+                          labelStyle: TextStyle(
+                            color: cat == selectedCategory ? Palette.newColor : Colors.black,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Container(
-                              // height: 20,
-                              width: 180,
-                              // color: Colors.red,
-                              // searchczm (137:819)
-                              margin: EdgeInsets.fromLTRB(
-                                0 * fem,
-                                1 * fem,
-                                70 * fem,
-                                0 * fem,
-                              ),
-                              // child: Text(
-                              //   'Search',
-                              //   style: SafeGoogleFont (
-                              //     'Roboto',
-                              //     fontSize: 14.6298923492*ffem,
-                              //     fontWeight: FontWeight.w400,
-                              //     height: 1.1725*ffem/fem,
-                              //     color: Color(0xff637185),
-                              //   ),
-                              // ),
-                              child: TextField(
-                                controller: searchController,
-                                onChanged: (value) {
-                                  // controller.searchCategory(value);
-                                },
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.only(top: 10),
-                                  isDense: true,
-                                  hintText: "Search",
-                                  hintStyle: TextStyle(
-                                    fontSize: 14.6298923492 * ffem,
-                                  ),
-                                  // suffixIcon: Icon(Icons.search_outlined, color: Palette.mediumGrey,size: 40,),
-                                ),
-                              ),
-                            ),
-                            Container(
-                              // mysteryLA5 (137:820)
-                              width: 19.51 * fem,
-                              height: 19.51 * fem,
-                              // color: Colors.green,
-                              child: Image.asset(
-                                'assets/images/icons/mystery-aVo.png',
-                                width: 19.51 * fem,
-                                height: 19.51 * fem,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      DropdownButton<String>(
-                        // value: dropdownValue,
-                        // hint:,
-                        icon: Container(
-                          // frame482fTF (137:823)
-                          width: 43.08 * fem,
-                          height: 43.08 * fem,
-                          child: Image.asset(
-                            'assets/images/icons/frame-482.png',
-                            width: 43.08 * fem,
-                            height: 43.08 * fem,
-                          ),
-                        ),
-                        elevation: 16,
-                        style: const TextStyle(color: Palette.primaryColor),
-                        underline: SizedBox.shrink(),
-                        onChanged: (String? value) {
-                          // This is called when the user selects an item.
-                          setState(() {
-                            dropdownValue = value!;
-
-                            switch (value) {
-                              case 'H to L':
-                                controller.productsList.sort(
-                                  (a, b) => b.price!.compareTo(a.price!),
-                                );
-                              case 'L to H':
-                                controller.productsList.sort(
-                                  (a, b) => a.price!.compareTo(b.price!),
-                                );
-                              case 'A to Z':
-                                controller.productsList.sort(
-                                  (a, b) => a.name!.compareTo(b.name!),
-                                );
-                              case 'Z to A':
-                                controller.productsList.sort(
-                                  (a, b) => b.name!.compareTo(a.name!),
-                                );
-                            }
-                          });
-                        },
-                        items:
-                            shoppingController.list
-                                .map<DropdownMenuItem<String>>((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                })
-                                .toList(),
-                      ),
-                    ],
+                      );
+                    }).toList(),
                   ),
                 ),
-                // Container(
-                //   color: Palette.fieldBg,
-                //   height: 70,
-                //   child: Padding(
-                //     padding: const EdgeInsets.all(15.0),
-                //     child: TextField(
-                //       controller: searchController,
-                //       onChanged: (value) {
-                //         //controller.searchCategory(value);
-                //       },
-                //       decoration: const InputDecoration(
-                //         border: InputBorder.none,
-                //         contentPadding: EdgeInsets.all(10),
-                //         isDense: true,
-                //         hintText: "Search",
-                //         hintStyle: TextStyle(fontSize: 25),
-                //         // suffixIcon: Icon(Icons.search_outlined, color: Palette.mediumGrey,size: 40,),
-                //       ),
-                //     ),
-                //   ),
-                // )
+                const SizedBox(height: 15),
+
+                Row(
+                  spacing: 10,
+                  children: [
+                    // Current Booking Card
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.green),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Current Booking',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text('Abraham John'),
+                          Text('Badminton - Court 07'),
+                          Text('10:00 AM - 11:30 AM'),
+                        ],
+                      ),
+                    ),
+                    // Upcoming Booking Card
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.orange),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Upcoming Booking',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text('Abraham John'),
+                          Text('Badminton - Court 07'),
+                          Text('11:30 AM - 12:30 PM'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 15),
+
+                // Buttons Row
+                Row(
+                  spacing: 8,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Palette.white,
+                          minimumSize: const Size(150, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontSize: 16),),
+                      ),
+                    ),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Handle Pay Now action
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          minimumSize: const Size(150, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Pay Now', style: TextStyle(color: Colors.white, fontSize: 16),),
+                      ),
+                    ),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Handle Merge Order logic here
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Palette.newColor,
+                          minimumSize: const Size(150, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: const Text('Merge Order', style: TextStyle(fontSize: 16, color: Colors.white),),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
         ),
-        SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              flex: 6,
-              child: Container(
-                // width: 200,
-                // color: Colors.red,
-                height: Get.height / 1.59,
-                child:
-                    controller.tabController == null ||
-                            controller.categoryList.isEmpty
-                        ? const SizedBox()
-                        : Obx(() {
-                          if (controller.productsList.isNotEmpty) {
-                            return TabBarView(
-                              controller: controller.tabController,
-                              children: List.generate(
-                                controller.categoryList.length,
-                                (index) => ProductScreen(),
-                              ),
-                            );
-                          } else if (controller.showNoItemsFound.value ==
-                              true) {
-                            return Center(child: Text('No Products Available'));
-                          } else {
-                            return ShimmerTableLoading(
-                              columnCount: 2,
-                              rowCount: 4,
-                            );
-                          }
-                        }),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Container(
-                // cartviewEjb (318:8031)
-                padding: EdgeInsets.fromLTRB(
-                  0 * fem,
-                  0 * fem,
-                  0 * fem,
-                  10 * fem,
-                ),
-                width: 197 * fem,
-                height: Get.height / 1.45,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Color(0xffd1d7e2)),
-                  borderRadius: BorderRadius.circular(8 * fem),
-                ),
-                child: SingleChildScrollView(
+      ),
+    );
+  }
+
+  void _checkout() {
+    if (cart.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add items to cart before checkout!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Update order data before navigation
+    final orderController = Get.find<PosOrderController>();
+    orderController.updateOrder(_tempOrderId, cart, _orderNotes, total);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => CheckoutScreen(
+          type: 'Product',
+          customerName: 'System Customer',
+          mobileno: '+61 0000 000 000',
+          selectedDateTime: DateTime.now(),
+          billAmount: 0,
+          bookings: [],
+          membershipID: '',
+          membershipName: '',
+          isMembershipApplied: false
+      )),
+    ).then((_) {
+      // After returning from checkout
+      _loadCartFromPrefs();
+      _generateTempOrderId();
+      setState(() {
+        cart.clear();
+        _orderNotes = '';
+      });
+      _saveCartToPrefs();
+      _saveOrderNotesToPrefs();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      body: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(20),
+          child: Row(
+            spacing: 15,
+            children: [
+              // Left Side - Product Area
+              Expanded(
+                flex: 3,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white,
+                  ),
+                  padding: const EdgeInsets.all(5),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        // toptitleXCu (318:8029)
-                        padding: EdgeInsets.fromLTRB(
-                          10 * fem,
-                          10 * fem,
-                          9 * fem,
-                          10 * fem,
-                        ),
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Color(0xffc0d1e8)),
-                        ),
+                      // Categories
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.all(8),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 150,
-                              // orderno667485pho (318:7974)
-                              margin: EdgeInsets.fromLTRB(
-                                0 * fem,
-                                0 * fem,
-                                30 * fem,
-                                0 * fem,
-                              ),
-                              child: Text(
-                                'Order No. #${controller.uuid.value.toString()}',
-                                overflow: TextOverflow.ellipsis,
-                                style: SafeGoogleFont(
-                                  'Roboto',
-                                  fontSize: 12 * ffem,
-                                  fontWeight: FontWeight.w500,
-                                  height: 2 * ffem / fem,
-                                  letterSpacing: 0.3740000129 * fem,
-                                  color: Color(0xff000000),
-                                ),
+                          children: categories.map((cat) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              backgroundColor: Colors.white,
+                              label: Text(cat.name),
+                              selected: cat == selectedCategory,
+                              onSelected: (_) => setState(() => selectedCategory = cat),
+                              selectedColor: Palette.newColorbg,
+                              labelStyle: TextStyle(
+                                color: cat == selectedCategory ? Palette.newColor : Colors.black,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            // Text(
-                            //   // johncole6fK (318:7975)
-                            //   'John Cole',
-                            //   style: SafeGoogleFont(
-                            //     'Roboto',
-                            //     fontSize: 11 * ffem,
-                            //     fontWeight: FontWeight.w500,
-                            //     height: 2 * ffem / fem,
-                            //     letterSpacing: 0.3740000129 * fem,
-                            //     color: Color(0xff000000),
-                            //   ),
-                            // ),
-                          ],
+                          )).toList(),
                         ),
                       ),
-                      Container(
-                        // productsecQR7 (318:8127)
-                        // color: Colors.red,
-                        width: double.infinity,
-                        height: 318.96 * fem,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Obx(() {
-                              return shoppingController
-                                      .productsCartModal
-                                      .isNotEmpty
-                                  ? Expanded(
-                                    child: ListView.separated(
-                                      separatorBuilder:
-                                          (BuildContext context, int index) =>
-                                              SizedBox(height: 5),
-                                      itemCount:
-                                          shoppingController
-                                              .productsCartModal
-                                              .length,
-                                      itemBuilder: (
-                                        BuildContext context,
-                                        int index,
-                                      ) {
-                                        return Container(
-                                          // ordercontanierL3s (318:7992)
-                                          padding: EdgeInsets.fromLTRB(
-                                            10 * fem,
-                                            0 * fem,
-                                            9 * fem,
-                                            10 * fem,
-                                          ),
-                                          width: double.infinity,
-                                          decoration: BoxDecoration(
-                                            border: Border.all(
-                                              color: Color(0xffc4cdd8),
-                                            ),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.center,
-                                            children: [
-                                              Container(
-                                                // prodpriceRb7 (318:8093)
-                                                margin: EdgeInsets.fromLTRB(
-                                                  0 * fem,
-                                                  0 * fem,
-                                                  0 * fem,
-                                                  8 * fem,
-                                                ),
-                                                width: double.infinity,
-                                                child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    Container(
-                                                      width: 100 * fem,
-                                                      margin:
-                                                          EdgeInsets.fromLTRB(
-                                                            0 * fem,
-                                                            0 * fem,
-                                                            38 * fem,
-                                                            0 * fem,
-                                                          ),
-                                                      child: Text(
-                                                        '${shoppingController.productsCartModal[index].name}',
-                                                        overflow:
-                                                            TextOverflow
-                                                                .ellipsis,
-                                                        style: SafeGoogleFont(
-                                                          'Roboto',
-                                                          fontSize: 14 * ffem,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          height:
-                                                              1.7142857143 *
-                                                              ffem /
-                                                              fem,
-                                                          letterSpacing:
-                                                              0.3740000129 *
-                                                              fem,
-                                                          color: Color(
-                                                            0xff000000,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Obx(() {
-                                                      return Text(
-                                                        '\$ ${shoppingController.productsCartModal[index].salePrice! * shoppingController.productsCartModal[index].count!.value}',
-                                                        style: SafeGoogleFont(
-                                                          'Roboto',
-                                                          fontSize: 14 * ffem,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          height:
-                                                              1.7142857143 *
-                                                              ffem /
-                                                              fem,
-                                                          letterSpacing:
-                                                              0.3740000129 *
-                                                              fem,
-                                                          color: Color(
-                                                            0xff000000,
-                                                          ),
-                                                        ),
-                                                      );
-                                                    }),
-                                                  ],
-                                                ),
-                                              ),
-                                              Container(
-                                                // quantdelPAZ (318:8094)
-                                                margin: EdgeInsets.fromLTRB(
-                                                  0 * fem,
-                                                  0 * fem,
-                                                  1 * fem,
-                                                  0 * fem,
-                                                ),
-                                                width: double.infinity,
-                                                height: 36 * fem,
-                                                child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.center,
-                                                  children: [
-                                                    Container(
-                                                      // quantitygfT (318:7980)
-                                                      margin:
-                                                          EdgeInsets.fromLTRB(
-                                                            0 * fem,
-                                                            0 * fem,
-                                                            34 * fem,
-                                                            0 * fem,
-                                                          ),
-                                                      padding:
-                                                          EdgeInsets.fromLTRB(
-                                                            5 * fem,
-                                                            4 * fem,
-                                                            5 * fem,
-                                                            4 * fem,
-                                                          ),
-                                                      height: double.infinity,
-                                                      decoration: BoxDecoration(
-                                                        border: Border.all(
-                                                          color: Color(
-                                                            0xffd5d7da,
-                                                          ),
-                                                        ),
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              50 * fem,
-                                                            ),
-                                                      ),
-                                                      child: Row(
-                                                        crossAxisAlignment:
-                                                            CrossAxisAlignment
-                                                                .center,
-                                                        children: [
-                                                          InkWell(
-                                                            onTap: () {
-                                                              if (shoppingController
-                                                                      .productsCartModal[index]
-                                                                      .count!
-                                                                      .value >
-                                                                  1) {
-                                                                shoppingController
-                                                                    .productsCartModal[index]
-                                                                    .count!
-                                                                    .value--;
-                                                              }
-                                                            },
-                                                            child: Container(
-                                                              // frame681y8m (318:7981)
-                                                              width: 28 * fem,
-                                                              height:
-                                                                  double
-                                                                      .infinity,
-                                                              decoration: BoxDecoration(
-                                                                color: Color(
-                                                                  0xff2c83f1,
-                                                                ),
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      50 * fem,
-                                                                    ),
-                                                              ),
-                                                              child: Center(
-                                                                child: Text(
-                                                                  '-',
-                                                                  textAlign:
-                                                                      TextAlign
-                                                                          .center,
-                                                                  style: SafeGoogleFont(
-                                                                    'Roboto',
-                                                                    fontSize:
-                                                                        16 *
-                                                                        ffem,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    height:
-                                                                        1.125 *
-                                                                        ffem /
-                                                                        fem,
-                                                                    letterSpacing:
-                                                                        0.3740000129 *
-                                                                        fem,
-                                                                    color: Color(
-                                                                      0xffffffff,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          SizedBox(
-                                                            width: 9 * fem,
-                                                          ),
-                                                          Obx(() {
-                                                            return Text(
-                                                              shoppingController
-                                                                          .productsCartModal[index]
-                                                                          .count!
-                                                                          .value >
-                                                                      9
-                                                                  ? '${shoppingController.productsCartModal[index].count!.value}'
-                                                                  : '0${shoppingController.productsCartModal[index].count!.value}',
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                              style: SafeGoogleFont(
-                                                                'Roboto',
-                                                                fontSize:
-                                                                    12 * ffem,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                height:
-                                                                    1.5 *
-                                                                    ffem /
-                                                                    fem,
-                                                                letterSpacing:
-                                                                    0.3740000129 *
-                                                                    fem,
-                                                                color: Color(
-                                                                  0xff2c83f1,
-                                                                ),
-                                                              ),
-                                                            );
-                                                          }),
-                                                          SizedBox(
-                                                            width: 9 * fem,
-                                                          ),
-                                                          InkWell(
-                                                            onTap: () {
-                                                              shoppingController
-                                                                  .productsCartModal[index]
-                                                                  .count!
-                                                                  .value++;
-                                                            },
-                                                            child: Container(
-                                                              // frame680maR (318:7984)
-                                                              width: 29 * fem,
-                                                              height:
-                                                                  double
-                                                                      .infinity,
-                                                              decoration: BoxDecoration(
-                                                                color: Color(
-                                                                  0xff2c83f1,
-                                                                ),
-                                                                borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      40 * fem,
-                                                                    ),
-                                                              ),
-                                                              child: Center(
-                                                                child: Text(
-                                                                  '+',
-                                                                  textAlign:
-                                                                      TextAlign
-                                                                          .center,
-                                                                  style: SafeGoogleFont(
-                                                                    'Roboto',
-                                                                    fontSize:
-                                                                        16 *
-                                                                        ffem,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    height:
-                                                                        1.125 *
-                                                                        ffem /
-                                                                        fem,
-                                                                    letterSpacing:
-                                                                        0.3740000129 *
-                                                                        fem,
-                                                                    color: Color(
-                                                                      0xffffffff,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                    InkWell(
-                                                      onTap: () {
-                                                        shoppingController
-                                                            .productsCartModal
-                                                            .removeAt(index);
-                                                      },
-                                                      child: Container(
-                                                        // deletefQu (318:8081)
-                                                        width: 36 * fem,
-                                                        height: 36 * fem,
-                                                        child: Image.asset(
-                                                          'assets/images/products/delete-TgM.png',
-                                                          width: 36 * fem,
-                                                          height: 36 * fem,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  )
-                                  : Text(
-                                    'No Items Found',
-                                    style: SafeGoogleFont(
-                                      'Roboto',
-                                      fontSize: 14 * ffem,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.7142857143 * ffem / fem,
-                                      letterSpacing: 0.3740000129 * fem,
-                                      color: Color(0xff000000),
-                                    ),
-                                  );
-                            }),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        // actionbuttonZ4u (318:8200)
-                        margin: EdgeInsets.fromLTRB(
-                          0 * fem,
-                          0 * fem,
-                          0 * fem,
-                          10 * fem,
-                        ),
-                        padding: EdgeInsets.fromLTRB(
-                          10 * fem,
-                          10 * fem,
-                          9.5 * fem,
-                          10 * fem,
-                        ),
-                        width: double.infinity,
-                        decoration: BoxDecoration(color: Color(0xffe0eaf6)),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Container(
-                              // totalTRB (318:8205)
-                              margin: EdgeInsets.fromLTRB(
-                                0 * fem,
-                                0 * fem,
-                                80.5 * fem,
-                                0 * fem,
-                              ),
-                              child: Text(
-                                'Total',
-                                textAlign: TextAlign.center,
-                                style: SafeGoogleFont(
-                                  'Roboto',
-                                  fontSize: 12 * ffem,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.5 * ffem / fem,
-                                  letterSpacing: 0.3740000129 * fem,
-                                  color: Color(0xff2c83f1),
-                                ),
+                      // Search Bar
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35,),
+                            hintText: 'e.g Young Shuttlecock',
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                                width: 1.0,
                               ),
                             ),
-                            Obx(() {
-                              return Text(
-                                // KyB (318:8206)
-                                '\$${controller.totalPrice!.value}',
-                                textAlign: TextAlign.center,
-                                style: SafeGoogleFont(
-                                  'Roboto',
-                                  fontSize: 18 * ffem,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1 * ffem / fem,
-                                  letterSpacing: 0.3740000129 * fem,
-                                  color: Color(0xff2c83f1),
-                                ),
-                              );
-                            }),
-                          ],
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade300,
+                                width: 1.0,
+                              ),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: Colors.blue,
+                                width: 2.0,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      Container(
-                        // actionbuttonT3o (318:8104)
-                        margin: EdgeInsets.fromLTRB(
-                          10 * fem,
-                          0 * fem,
-                          10 * fem,
-                          0 * fem,
+                      const SizedBox(height: 8),
+                      // Product Grid
+                      Expanded(
+                        child: filteredProducts.isEmpty
+                            ? const Center(child: Text('No products found'))
+                            : GridView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: filteredProducts.length,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
+                          ),
+                          itemBuilder: (_, index) {
+                            final product = filteredProducts[index];
+                            return InkWell(
+                              onTap: () => addToCart(product),
+                              child: Card(
+                                color: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                elevation: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    Image.network(
+                                      product.imageUrl.toString(),
+                                      errorBuilder: (context, error, stackTrace) => Image.network(
+                                        'https://placehold.co/150x100/png',
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Text(
+                                        product.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      child: Text(
+                                        '\$${product.price}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        width: double.infinity,
-                        height: 36 * fem,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Right Side - Cart
+              Expanded(
+                flex: 2,
+                child: Container(
+                  decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border(left: BorderSide(color: Colors.grey.shade300)),
+                      borderRadius: BorderRadius.circular(10)
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Column(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 5),
+                        child: Text(
+                            'Order ',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                        ),
+                      ),
+                      const Divider(color: Colors.grey),
+                      // Cart Items with Swipe to Delete
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: cart.length,
+                          itemBuilder: (_, index) {
+                            final item = cart[index];
+                            return Dismissible(
+                              key: ValueKey(item.product.id),
+                              direction: DismissDirection.endToStart,
+                              background: Container(
+                                color: Colors.red,
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                child: const Icon(Icons.delete, color: Colors.white),
+                              ),
+                              onDismissed: (_) => setState(() {
+                                cart.remove(item);
+                                _saveCartToPrefs();
+                              }),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                child: Row(
+                                  spacing: 10,
+                                  children: [
+                                    // Product Name
+                                    Expanded(
+                                      child: Text(
+                                          item.product.name,
+                                          style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold
+                                          ),
+                                          overflow: TextOverflow.ellipsis
+                                      ),
+                                    ),
+                                    // Quantity with Border
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey.shade400),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            onPressed: () => decrementQty(item),
+                                            icon: const Icon(Icons.remove, size: 18),
+                                          ),
+                                          Text('${item.quantity}', style: const TextStyle(fontSize: 18)),
+                                          IconButton(
+                                            onPressed: () => incrementQty(item),
+                                            icon: const Icon(Icons.add, size: 18),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Price
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 8.0),
+                                      child: Text(
+                                        '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      // Notes + Clear All
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
                         child: Row(
-                          // crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            InkWell(
-                              onTap: () {
-                                //  Get.to(CheckoutScreen(type: 'Product'));
+                            ElevatedButton(
+                              onPressed: () => _showOrderNotesDialog(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[200],
+                                minimumSize: const Size(100, 40),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Row(
+                                spacing: 10,
+                                children: [
+                                  Icon(Icons.edit, size: 20,color: Colors.grey,),
+                                  Text('Add Notes',style: TextStyle(color: Colors.grey, fontSize: 18))
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  cart.clear();
+                                  _saveCartToPrefs();
+                                });
                               },
-                              child: Container(
-                                // productaddtocartZMj (318:8105)
-                                margin: EdgeInsets.fromLTRB(
-                                  0 * fem,
-                                  0 * fem,
-                                  13 * fem,
-                                  0 * fem,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[200],
+                                minimumSize: const Size(100, 40),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                width: 70 * fem,
-                                height: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Color(0xff2ac57b),
-                                  borderRadius: BorderRadius.circular(50 * fem),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Checkout',
-                                    textAlign: TextAlign.center,
-                                    style: SafeGoogleFont(
-                                      'Roboto',
-                                      fontSize: 12 * ffem,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.5 * ffem / fem,
-                                      letterSpacing: 0.3740000129 * fem,
-                                      color: Color(0xffffffff),
-                                    ),
+                              ),
+                              child: const Text(
+                                  'Clear All',
+                                  style: TextStyle(color: Colors.grey, fontSize: 18)
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
+                      const Divider( color: Colors.grey, thickness: 1,),
+                      // Total
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                                'Total',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                            ),
+                            Text(
+                                '\$${total.toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                                'GST Incl.',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal)
+                            ),
+                            Text(
+                                '\$${(0.1 * total).toStringAsFixed(2)}',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Buttons
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {},
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.white,
+                                  minimumSize: const Size(150, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
+                                ),
+                                child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(color: Colors.grey, fontSize: 18)
                                 ),
                               ),
                             ),
-                            Container(
-                              // productaddtocartdMb (318:8107)
-                              width: 70 * fem,
-                              height: double.infinity,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Color(0xffe81a1a)),
-                                color: Color(0xfffff2f2),
-                                borderRadius: BorderRadius.circular(50 * fem),
-                              ),
-                              child: Center(
-                                child: Text(
-                                  'Clear',
-                                  textAlign: TextAlign.center,
-                                  style: SafeGoogleFont(
-                                    'Roboto',
-                                    fontSize: 12 * ffem,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.5 * ffem / fem,
-                                    letterSpacing: 0.3740000129 * fem,
-                                    color: Color(0xffe81a1a),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: cart.isEmpty ? null : _checkout,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.newColor,
+                                  minimumSize: const Size(150, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
+                                child: const Text(
+                                    'Check Out',
+                                    style: TextStyle(color: Colors.white, fontSize: 18)
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: cart.isEmpty ? null : () => _showMergeDialog(context),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.newColorbg,
+                                  minimumSize: const Size(150, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Icon(Icons.call_merge, color: Palette.newColor, size: 35),
                               ),
                             ),
                           ],
@@ -872,10 +840,10 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }

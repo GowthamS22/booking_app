@@ -1,10 +1,15 @@
 // ignore_for_file: must_be_immutable
+import 'dart:convert';
+
+import 'package:booking_app/controllers/payment_controller.dart';
+import 'package:booking_app/models/products.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/getx_binding.dart';
 import '../../config/constants.dart';
@@ -25,7 +30,7 @@ class CheckoutScreen extends StatefulWidget {
   final String membershipID;
   final String? membershipName;
   final bool? isMembershipApplied;
-  const CheckoutScreen({
+  CheckoutScreen({
     Key? key,
     required this.type,
     required this.customerName,
@@ -48,6 +53,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   ); //Get.find();
   final DefaultController defaultController = Get.put(DefaultController());
   final CustomerController customerController = Get.put(CustomerController());
+  final PaymentController paymentController = Get.put(PaymentController());
 
   TextEditingController notesController = TextEditingController();
   TextEditingController promoCodeController = TextEditingController();
@@ -79,13 +85,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     ['7', '8', '9'],
     ['.', '0', '⌫'],
   ];
+
+  List<CartItem> cartItems = []; // Add this line
+
+
   @override
   void initState() {
+    _loadCartItems(); // Add this line
     // TODO: implement initState
     for (var booking in widget.bookings) {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
     }
     super.initState();
+  }
+
+  Future<void> _loadCartItems() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cartJson = prefs.getString('shopping_cart');
+      if (cartJson != null) {
+        final List<dynamic> cartData = jsonDecode(cartJson);
+        setState(() {
+          cartItems = cartData.map((json) => CartItem.fromJson(json)).toList();
+        });
+      }
+    } catch (e) {
+      print('Error loading cart items: $e');
+    }
+  }
+
+  Future<void> _clearCartAfterPayment() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('shopping_cart');
   }
 
   @override
@@ -97,97 +128,115 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           appBar: AppBar(
             elevation: 0,
             toolbarHeight: 80,
-            backgroundColor: Colors.white,
             titleSpacing: 0,
             automaticallyImplyLeading: false,
             //leadingWidth: MediaQuery.of(context).size.width / 2.1,
-            title: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(width: 22 * ffem),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white, // Navy blue
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.grey.shade500),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-                SizedBox(width: 18 * ffem),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Payment',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                      ),
+            title: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10)
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              margin: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  //SizedBox(width: 22 * ffem),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white, // Navy blue
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade500),
                     ),
-                    Text(
-                      'Create new booking based on selected courts',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        color: Colors.grey.shade500,
+                    child: IconButton(
+                      style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
+                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      onPressed: () => Get.back(result: true),
                     ),
-                  ],
-                ),
-                const Spacer(),
-                // Items count
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
                   ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade500),
-                    borderRadius: BorderRadius.circular(6),
-                    color: Colors.white,
-                  ),
-                  child: Row(
+                  SizedBox(width: 18 * ffem),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(LucideIcons.layoutDashboard),
-                      SizedBox(width: 5),
                       Text(
-                        'Dashboard',
+                        'Payment',
                         style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade900,
-                          fontSize: 16,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
+                      ),
+                      Text(
+                        'Create new booking based on selected courts',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.grey.shade500,
                         ),
                       ),
                     ],
                   ),
-                ),
-                SizedBox(width: 30),
-              ],
+                  const Spacer(),
+                  // Items count
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade500),
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.white,
+                    ),
+                    child: Row(
+                      spacing: 10,
+                      children: [
+                        Icon(LucideIcons.layoutDashboard),
+                        Text(
+                          'Dashboard',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade900,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  //SizedBox(width: 30),
+                ],
+              ),
             ),
           ),
-
-          backgroundColor: Palette.white,
+          //backgroundColor: Palette.white,
           body: SingleChildScrollView(
             child: Column(
               children: [
-                Divider(color: Colors.grey.shade300, thickness: 1),
+                //Divider(color: Colors.grey.shade300, thickness: 1),
                 Container(
-                  padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                  decoration: BoxDecoration(
+                      //color: Colors.white,
+                      //border: Border.all(color: Colors.grey.shade300),
+                      //borderRadius: BorderRadius.circular(10)
+                  ),
+                  //margin: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                  //padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
                         Row(
+                          spacing: 20,
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             buildCartItems(),
-                            SizedBox(width: 20),
                             buildCheckout(newBookingController, controller),
                           ],
                         ),
@@ -270,236 +319,413 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Expanded(
       flex: 2,
       child: Container(
-        height: MediaQuery.of(context).size.height * .80,
-        margin: const EdgeInsets.all(10),
+        height: MediaQuery.of(context).size.height * .88,
+        margin: const EdgeInsets.only(bottom: 10, top: 10, left: 15),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Customer Info',
-                style: GoogleFonts.inter(
-                  color: Palette.black,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 5),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Name and Badge
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            widget.customerName,
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          if (widget.isMembershipApplied == true) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.shade100,
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: Colors.amber.shade500,
-                                ),
-                              ),
-                              child: Text(
-                                widget.membershipName ?? '',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.amber.shade800,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Customer Info',
+                      style: GoogleFonts.inter(
+                        color: Palette.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.mobileno,
-                        style: GoogleFonts.inter(
-                          color: Colors.grey.shade600,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  // Date and Time
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        DateFormat(
-                          'd MMM yyyy',
-                        ).format(widget.selectedDateTime),
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        DateFormat('h:mm a').format(DateTime.now()),
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-              Divider(thickness: 1, color: Colors.grey.shade300),
-              // Court Info
-              Column(
-                children:
-                    groupedBookings.entries.map((entry) {
-                      String courtName = entry.key;
-                      List<BookingInfo> courtBookings = entry.value;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Column(
+                    ),
+                    SizedBox(height: 5),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Name and Badge
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Court Name Header
+                            Row(
+                              children: [
+                                Text(
+                                  widget.customerName,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                if (widget.isMembershipApplied == true) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: Colors.amber.shade500,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      widget.membershipName ?? '',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.amber.shade800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4),
                             Text(
-                              courtName,
+                              widget.mobileno,
                               style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 8),
-
-                            // Time Slots for this Court
-                            ...courtBookings.map((booking) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Display individual sub-slots
-                                  ...booking.subSlots.map((subSlot) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 4,
-                                        left: 8,
-                                      ), // Add some left padding for sub-slots
-                                      child: Row(
-                                        children: [
-                                          Text(
-                                            '${subSlot.startTime} - ${subSlot.endTime}',
-                                            style: GoogleFonts.inter(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 14,
-                                              color:
-                                                  Colors
-                                                      .green, // Adjust color as needed
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            subSlot.isPeak
-                                                ? '(Peak Hour)'
-                                                : '(Non-Peak Hour)',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 13,
-                                              color:
-                                                  subSlot.isPeak
-                                                      ? Colors.orange.shade700
-                                                      : Colors
-                                                          .grey
-                                                          .shade600, // Adjust color as needed
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const Spacer(),
-                                          Text(
-                                            '\$${subSlot.price.toStringAsFixed(2)}',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                ],
-                              );
-                            }).toList(),
                           ],
                         ),
-                      );
-                    }).toList(),
+                        // Date and Time
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              DateFormat(
+                                'd MMM yyyy',
+                              ).format(widget.selectedDateTime),
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              DateFormat('h:mm a').format(DateTime.now()),
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+                    Divider(thickness: 1, color: Colors.grey.shade300),
+
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        spacing: 35,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Item',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          Text(
+                            'Qty.',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+
+                          Text(
+                            'Price',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Divider(thickness: 1, color: Colors.grey.shade300),
+
+                    // Court Info
+                    Column(
+                      children:
+                      groupedBookings.entries.map((entry) {
+                        String courtName = entry.key;
+                        List<BookingInfo> courtBookings = entry.value;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Court Name Header
+                              Text(
+                                courtName,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+
+                              // Time Slots for this Court
+                              ...courtBookings.map((booking) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Display individual sub-slots
+                                    ...booking.subSlots.map((subSlot) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 4,
+                                          left: 8,
+                                        ), // Add some left padding for sub-slots
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              '${subSlot.startTime} - ${subSlot.endTime}',
+                                              style: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                                color:
+                                                Colors
+                                                    .green, // Adjust color as needed
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              subSlot.isPeak
+                                                  ? '(Peak Hour)'
+                                                  : '(Non-Peak Hour)',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                color:
+                                                subSlot.isPeak
+                                                    ? Colors.orange.shade700
+                                                    : Colors
+                                                    .grey
+                                                    .shade600, // Adjust color as needed
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              '\$${subSlot.price.toStringAsFixed(2)}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ],
+                                );
+                              }).toList(),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    // Display cart items if they exist
+                    if (cartItems.isNotEmpty) ...[
+
+                      ...cartItems.map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(
+                            spacing: 30,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.product.name,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    // if (item.product.description != null && item.product.description!.isNotEmpty)
+                                    //   Text(
+                                    //     item.product.description!,
+                                    //     style: GoogleFonts.inter(
+                                    //       fontSize: 12,
+                                    //       color: Colors.grey.shade600,
+                                    //     ),
+                                    //     maxLines: 1,
+                                    //     overflow: TextOverflow.ellipsis,
+                                    //   ),
+                                  ],
+                                ),
+                              ),
+
+                              Text(
+                                'x${item.quantity}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+
+                              Text(
+                                '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+
+                      // const SizedBox(height: 16),
+                      // Divider(thickness: 1, color: Colors.grey.shade300),
+                    ],
+
+                    // // Cart Items
+                    // ...[
+                    //   ['Yung Corck', '12', '25.00'],
+                    //   ['Energy Drink', '12', '25.00'],
+                    //   ['Protein Bar', '24', '45.00'],
+                    //   ['Vegan Snack Mix', '12', '30.00'],
+                    //   ['Herbal Tea', '20', '20.00'],
+                    //   ['Electrolyte Powder', '10', '15.00'],
+                    //   ['Organic Nut Butter', '8', '40.00'],
+                    //   ['Chia Seed Pudding', '12', '18.00'],
+                    // ].map((item) {
+                    //   return Padding(
+                    //     padding: const EdgeInsets.symmetric(vertical: 4),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    //       children: [
+                    //         Text(item[0], style: GoogleFonts.inter(fontSize: 14)),
+                    //         Row(
+                    //           children: [
+                    //             Text(
+                    //               'x${item[1]}',
+                    //               style: GoogleFonts.inter(
+                    //                 fontSize: 14,
+                    //                 fontWeight: FontWeight.w600,
+                    //               ),
+                    //             ),
+                    //             const SizedBox(width: 12),
+                    //             Text(
+                    //               '\$${item[2]}',
+                    //               style: GoogleFonts.inter(
+                    //                 fontSize: 14,
+                    //                 fontWeight: FontWeight.w500,
+                    //               ),
+                    //             ),
+                    //           ],
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   );
+                    // }).toList(),
+
+                  ],
+                ),
               ),
-
-              const SizedBox(height: 16),
-
-              // // Cart Items
-              // ...[
-              //   ['Yung Corck', '12', '25.00'],
-              //   ['Energy Drink', '12', '25.00'],
-              //   ['Protein Bar', '24', '45.00'],
-              //   ['Vegan Snack Mix', '12', '30.00'],
-              //   ['Herbal Tea', '20', '20.00'],
-              //   ['Electrolyte Powder', '10', '15.00'],
-              //   ['Organic Nut Butter', '8', '40.00'],
-              //   ['Chia Seed Pudding', '12', '18.00'],
-              // ].map((item) {
-              //   return Padding(
-              //     padding: const EdgeInsets.symmetric(vertical: 4),
-              //     child: Row(
-              //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              //       children: [
-              //         Text(item[0], style: GoogleFonts.inter(fontSize: 14)),
-              //         Row(
-              //           children: [
-              //             Text(
-              //               'x${item[1]}',
-              //               style: GoogleFonts.inter(
-              //                 fontSize: 14,
-              //                 fontWeight: FontWeight.w600,
-              //               ),
-              //             ),
-              //             const SizedBox(width: 12),
-              //             Text(
-              //               '\$${item[2]}',
-              //               style: GoogleFonts.inter(
-              //                 fontSize: 14,
-              //                 fontWeight: FontWeight.w500,
-              //               ),
-              //             ),
-              //           ],
-              //         ),
-              //       ],
-              //     ),
-              //   );
-              // }).toList(),
-            ],
-          ),
+            ),
+            // Totals section that will stick to the bottom
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Divider(color: Colors.grey.shade300),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '\$${widget.billAmount.toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'GST Incl',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '\$${(widget.billAmount * 0.1).toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Grand Total',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      '\$${(widget.billAmount).toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -520,356 +746,375 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .toStringAsFixed(2);
     }
     return Expanded(
-      flex: 2,
-      child: ListView(
-        scrollDirection: Axis.vertical,
-        shrinkWrap: true,
-        physics: NeverScrollableScrollPhysics(),
-        children: [
-          Column(
-            children: [
-              _buildAmountSummary(checkoutController),
-
-              SizedBox(height: 30),
-              Container(
-                width: MediaQuery.of(context).size.width / 10.0,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade500),
-                  borderRadius: BorderRadius.circular(6),
-                  color: Colors.white,
-                ),
-                child: Row(
-                  children: [
-                    Icon(LucideIcons.edit3),
-
-                    SizedBox(width: 20),
-                    Text(
-                      'Notes',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade900,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-              SizedBox(
-                width: MediaQuery.of(context).size.width / 2.2,
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Payment Methods
-                    _buildPaymentOptions(),
-                    if (selectedMethod == 'CASH') ...[
-                      SizedBox(height: 10),
-                      _buildCashButtons(),
-                    ],
-                  ],
-                ),
-              ),
-              SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Handle "Pay Now"
-                        newBookingController
-                            .clearSelectedSlots(); // Clear selected slots
-                        Navigator.pop(
-                          context,
-                        ); // Navigate back to the previous screen (CourtViewScreen/Dashboard)
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          side: BorderSide(color: Colors.grey.shade300),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ),
+      flex: 3,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: ListView(
+          scrollDirection: Axis.vertical,
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          children: [
+            Column(
+              children: [
+                _buildAmountSummary(checkoutController),
+                SizedBox(height: 30),
+                Container(
+                  width: MediaQuery.of(context).size.width / 10.0,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade500),
+                    borderRadius: BorderRadius.circular(6),
+                    color: Colors.white,
                   ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Obx(() {
-                      final isProcessing =
-                          checkoutController.isProcessingPayment.value;
-                      return ElevatedButton(
-                        onPressed:
-                            isProcessing
-                                ? null
-                                : () async {
-                                  if (totalPaid > 0) {
-                                    if (double.parse(
-                                          balanceAmountController.text,
-                                        ) <=
-                                        0) {
-                                      setState(() {
-                                        checkoutController
-                                            .checkoutPayBtn
-                                            .value = true;
-                                      });
+                  child: Row(
+                    children: [
+                      Icon(LucideIcons.edit3),
 
-                                      try {
-                                        if (selectedMethod == 'EFTPOS') {
-                                          await checkoutController
-                                              .processTyroPayment(
-                                                amount: totalPaid,
-                                                reference: controller.bookingId,
-                                                description: 'Booking payment',
-                                              );
-                                        }
+                      SizedBox(width: 20),
+                      Text(
+                        'Notes',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+                SizedBox(
+                  width: MediaQuery.of(context).size.width / 2.2,
 
-                                        // Continue with existing payment processing
-                                        if (widget.type == 'Membership') {
-                                          await checkoutController.makeMembershipPayment(
-                                            userId:
-                                                customerController
-                                                    .selectedPlan[0]['userId'],
-                                            userMembershipId:
-                                                customerController
-                                                    .selectedPlan[0]['userMembershipId'],
-                                            paymentType: selectedMethod,
-                                            promoCode: promoCodeController.text,
-                                            notes: notesController.text,
-                                            total: double.parse(
-                                              customerController
-                                                  .selectedPlan[0]['price']
-                                                  .toString(),
-                                            ),
-                                            paid: totalPaid,
-                                            balance: double.parse(
-                                              balanceAmountController.text,
-                                            ),
-                                            //membershipId: widget.membershipID,
-                                          );
-                                        } else if (widget.type ==
-                                            'ExistingBooking') {
-                                          populateCartWithSubSlots(
-                                            widget.bookings,
-                                          );
-                                          await checkoutController
-                                              .makeBookingPayment(
-                                                bookingSlots:
-                                                    defaultController
-                                                        .actionBookingSlots
-                                                        .where(
-                                                          (slot) =>
-                                                              slot.paymentStatus !=
-                                                              "Paid",
-                                                        )
-                                                        .toList(),
-                                                paymentType: selectedMethod,
-                                                promoCode:
-                                                    promoCodeController.text,
-                                                notes: notesController.text,
-                                                paid: totalPaid,
-                                                balance: double.parse(
-                                                  balanceAmountController.text,
-                                                ),
-                                              );
-                                        } else if (widget.type == 'New') {
-                                          if (controller.userData.value.id !=
-                                              null) {
-                                            populateCartWithSubSlots(
-                                              widget.bookings,
-                                            );
-                                            await checkoutController
-                                                .processFinalCheckout(
-                                                  userId:
-                                                      controller
-                                                          .userData
-                                                          .value
-                                                          .id,
-                                                  name:
-                                                      controller
-                                                          .nameController
-                                                          .text,
-                                                  email:
-                                                      controller
-                                                          .userData
-                                                          .value
-                                                          .email,
-                                                  mobile:
-                                                      controller
-                                                          .userData
-                                                          .value
-                                                          .mobile,
-                                                  paymentType: selectedMethod,
-                                                  promoCode:
-                                                      promoCodeController.text,
-                                                  notes: notesController.text,
-                                                  paid: totalPaid,
-                                                  balance: double.parse(
-                                                    balanceAmountController
-                                                        .text,
-                                                  ),
-                                                  bookingId:
-                                                      controller.bookingId,
-                                                  isMembershipApplied:
-                                                      widget
-                                                          .isMembershipApplied,
-                                                  membershipId:
-                                                      widget.membershipID,
-                                                );
-                                          } else {
-                                            await checkoutController
-                                                .registerUser(
-                                                  mobile: widget.mobileno,
-                                                  firstName:
-                                                      widget.customerName,
-                                                  membershipId:
-                                                      widget.membershipID,
-                                                )
-                                                .then((value) {
-                                                  populateCartWithSubSlots(
-                                                    widget.bookings,
-                                                  );
-                                                  checkoutController
-                                                      .processFinalCheckout(
-                                                        userId:
-                                                            checkoutController
-                                                                .userData
-                                                                .value
-                                                                .id,
-                                                        name:
-                                                            controller
-                                                                .nameController
-                                                                .text,
-                                                        email:
-                                                            controller
-                                                                .userData
-                                                                .value
-                                                                .email,
-                                                        mobile:
-                                                            controller
-                                                                .userData
-                                                                .value
-                                                                .mobile,
-                                                        paymentType:
-                                                            selectedMethod,
-                                                        promoCode:
-                                                            promoCodeController
-                                                                .text,
-                                                        notes:
-                                                            notesController
-                                                                .text,
-                                                        paid: totalPaid,
-                                                        balance: double.parse(
-                                                          balanceAmountController
-                                                              .text,
-                                                        ),
-                                                        bookingId:
-                                                            controller
-                                                                .bookingId,
-                                                        isMembershipApplied:
-                                                            widget
-                                                                .isMembershipApplied,
-                                                        membershipId:
-                                                            widget.membershipID,
-                                                      );
-                                                });
-                                          }
-                                        } else if (widget.type == 'Product') {
-                                          checkoutController.productsPayment(
-                                            paymentType: selectedMethod,
-                                            promoCode: promoCodeController.text,
-                                            notes: notesController.text,
-                                            paid: totalPaid,
-                                            balance: double.parse(
-                                              balanceAmountController.text,
-                                            ),
-                                            products:
-                                                shoppingController
-                                                    .productsCartModal,
-                                          );
-                                        }
-                                      } catch (e) {
-                                        showCustomSnackbar(
-                                          'Error',
-                                          e.toString(),
-                                          Colors.red,
-                                        );
-                                      } finally {
-                                        setState(() {
-                                          checkoutController
-                                              .checkoutPayBtn
-                                              .value = false;
-                                        });
-                                      }
-                                    } else {
-                                      showCustomSnackbar(
-                                        'Warning',
-                                        'Invalid Amount',
-                                        Colors.orange,
-                                      );
-                                    }
-                                  } else {
-                                    showCustomSnackbar(
-                                      'Warning',
-                                      'Please enter the Paid Amount',
-                                      Colors.orange,
-                                    );
-                                  }
-                                },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Payment Methods
+                      _buildPaymentOptions(),
+                      if (selectedMethod == 'CASH') ...[
+                        SizedBox(height: 10),
+                        _buildCashButtons(),
+                      ],
+                    ],
+                  ),
+                ),
+                SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          // Handle "Pay Now"
+                          newBookingController
+                              .clearSelectedSlots(); // Clear selected slots
+                          Navigator.pop(
+                            context,
+                          ); // Navigate back to the previous screen (CourtViewScreen/Dashboard)
+                        },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade500,
+                          backgroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
+                            side: BorderSide(color: Colors.grey.shade300),
                           ),
                         ),
-                        child:
-                            checkoutController.checkoutPayBtn.value
-                                ? SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : Text(
-                                  'Pay Now',
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.inter(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Obx(() {
+                        final isProcessing =
+                            checkoutController.isProcessingPayment.value;
+                        return ElevatedButton(
+                          onPressed:
+                          isProcessing
+                              ? null
+                              : () async {
+                            if (totalPaid > 0) {
+                              if (double.parse(balanceAmountController.text,) <=0) {
+                                setState(() {
+                                  checkoutController.checkoutPayBtn.value = true;
+                                });
 
-              // Container(
-              //   width: MediaQuery.of(context).size.width / 2.2,
-              //   child: _payBtn,
-              // ),
-              SizedBox(height: 10),
-            ],
-          ),
-        ],
+                                try {
+                                  if (selectedMethod == 'EFTPOS') {
+                                    try {
+                                      await paymentController.processPayment(
+                                        context: context,
+                                        amount: 100,
+                                        reference: 'orderId',
+                                        apiKey: 'YOUR_TYRO_API_KEY', // Get from secure storage
+                                        merchantId: 'YOUR_MERCHANT_ID',
+                                        terminalId: 'YOUR_TERMINAL_ID',
+                                        integrationKey: 'YOUR_INTEGRATION_KEY',
+                                      );
+
+                                      if (paymentController.paymentStatus.value == 'Payment successful') {
+                                        Get.snackbar('Success', 'Payment processed successfully',backgroundColor: Colors.green);
+                                        Get.offAllNamed('/order-confirmation');
+                                      }
+                                    } catch (e) {
+                                      Get.snackbar('Error', paymentController.paymentError.value,backgroundColor: Colors.red);
+                                    }
+                                  }
+
+                                  // Continue with existing payment processing
+                                  if (widget.type == 'Membership') {
+                                    await checkoutController.makeMembershipPayment(
+                                      userId:
+                                      customerController
+                                          .selectedPlan[0]['userId'],
+                                      userMembershipId:
+                                      customerController
+                                          .selectedPlan[0]['userMembershipId'],
+                                      paymentType: selectedMethod,
+                                      promoCode: promoCodeController.text,
+                                      notes: notesController.text,
+                                      total: double.parse(
+                                        customerController
+                                            .selectedPlan[0]['price']
+                                            .toString(),
+                                      ),
+                                      paid: totalPaid,
+                                      balance: double.parse(
+                                        balanceAmountController.text,
+                                      ),
+                                      //membershipId: widget.membershipID,
+                                    );
+                                  } else if (widget.type ==
+                                      'ExistingBooking') {
+                                    populateCartWithSubSlots(
+                                      widget.bookings,
+                                    );
+                                    await checkoutController
+                                        .makeBookingPayment(
+                                      bookingSlots:
+                                      defaultController
+                                          .actionBookingSlots
+                                          .where(
+                                            (slot) =>
+                                        slot.paymentStatus !=
+                                            "Paid",
+                                      )
+                                          .toList(),
+                                      paymentType: selectedMethod,
+                                      promoCode:
+                                      promoCodeController.text,
+                                      notes: notesController.text,
+                                      paid: totalPaid,
+                                      balance: double.parse(
+                                        balanceAmountController.text,
+                                      ),
+                                    );
+                                  } else if (widget.type == 'New') {
+                                    if (controller.userData.value.id !=
+                                        null) {
+                                      populateCartWithSubSlots(
+                                        widget.bookings,
+                                      );
+                                      await checkoutController
+                                          .processFinalCheckout(
+                                        userId:
+                                        controller
+                                            .userData
+                                            .value
+                                            .id,
+                                        name:
+                                        controller
+                                            .nameController
+                                            .text,
+                                        email:
+                                        controller
+                                            .userData
+                                            .value
+                                            .email,
+                                        mobile:
+                                        controller
+                                            .userData
+                                            .value
+                                            .mobile,
+                                        paymentType: selectedMethod,
+                                        promoCode:
+                                        promoCodeController.text,
+                                        notes: notesController.text,
+                                        paid: totalPaid,
+                                        balance: double.parse(
+                                          balanceAmountController
+                                              .text,
+                                        ),
+                                        bookingId:
+                                        controller.bookingId,
+                                        isMembershipApplied:
+                                        widget
+                                            .isMembershipApplied,
+                                        membershipId:
+                                        widget.membershipID,
+                                      );
+                                    } else {
+                                      await checkoutController
+                                          .registerUser(
+                                        mobile: widget.mobileno,
+                                        firstName:
+                                        widget.customerName,
+                                        membershipId:
+                                        widget.membershipID,
+                                      )
+                                          .then((value) {
+                                        populateCartWithSubSlots(
+                                          widget.bookings,
+                                        );
+                                        checkoutController
+                                            .processFinalCheckout(
+                                          userId:
+                                          checkoutController
+                                              .userData
+                                              .value
+                                              .id,
+                                          name:
+                                          controller
+                                              .nameController
+                                              .text,
+                                          email:
+                                          controller
+                                              .userData
+                                              .value
+                                              .email,
+                                          mobile:
+                                          controller
+                                              .userData
+                                              .value
+                                              .mobile,
+                                          paymentType:
+                                          selectedMethod,
+                                          promoCode:
+                                          promoCodeController
+                                              .text,
+                                          notes:
+                                          notesController
+                                              .text,
+                                          paid: totalPaid,
+                                          balance: double.parse(
+                                            balanceAmountController
+                                                .text,
+                                          ),
+                                          bookingId:
+                                          controller
+                                              .bookingId,
+                                          isMembershipApplied:
+                                          widget
+                                              .isMembershipApplied,
+                                          membershipId:
+                                          widget.membershipID,
+                                        );
+                                      });
+                                    }
+                                  } else if (widget.type == 'Product') {
+                                    checkoutController.productsPayment(
+                                      paymentType: selectedMethod,
+                                      promoCode: promoCodeController.text,
+                                      notes: notesController.text,
+                                      paid: totalPaid,
+                                      balance: double.parse(
+                                        balanceAmountController.text,
+                                      ),
+                                      products:
+                                      shoppingController
+                                          .productsCartModal,
+                                    );
+                                  }
+                                } catch (e) {
+                                  showCustomSnackbar(
+                                    'Error',
+                                    e.toString(),
+                                    Colors.red,
+                                  );
+                                } finally {
+                                  setState(() {
+                                    checkoutController
+                                        .checkoutPayBtn
+                                        .value = false;
+                                  });
+                                }
+                              } else {
+                                showCustomSnackbar(
+                                  'Warning',
+                                  'Invalid Amount',
+                                  Colors.orange,
+                                );
+                              }
+                            } else {
+                              showCustomSnackbar(
+                                'Warning',
+                                'Please enter the Paid Amount',
+                                Colors.orange,
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade500,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          child:
+                          checkoutController.checkoutPayBtn.value
+                              ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : Text(
+                            'Pay Now',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+
+                // Container(
+                //   width: MediaQuery.of(context).size.width / 2.2,
+                //   child: _payBtn,
+                // ),
+                SizedBox(height: 10),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAmountSummary(CheckoutController checkoutController) {
+    // Calculate total from cart items
+
+    final double cartTotal = cartItems.fold(0, (sum, item) => sum + (double.tryParse(item.product.price) ?? 0) * item.quantity);
+
     final double billAmount = widget.billAmount;
     final double totalPaid = this.totalPaid;
     final double balance = billAmount - totalPaid;

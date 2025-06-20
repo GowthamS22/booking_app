@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -117,6 +119,19 @@ class AuthController extends GetxController {
                               .eq('shortcode', centerSlug.toString())
                               .single();
 
+      final categoryResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('categories')
+          .select('*')
+          .eq('status', true);
+
+      final productsResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('products')
+          .select('*');
+
+      await preferences.setString('categories', jsonEncode(categoryResponse));
+      await preferences.setString('products', jsonEncode(productsResponse));
       await preferences.setString('storeDetails', storeResponse.toString());
 
       if (userResponse != null) {

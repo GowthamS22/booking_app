@@ -1,3 +1,4 @@
+import 'package:booking_app/controllers/PosOrderController.dart';
 import 'package:booking_app/controllers/shopping_controller.dart';
 import 'package:get/get.dart';
 
@@ -8,6 +9,7 @@ class InitialBinding extends Bindings {
   void dependencies() {
     Get.lazyPut(() => ShoppingController(), fenix: true);
     Get.lazyPut(() => PrinterController(), fenix: true);
+    Get.lazyPut(() => PosOrderController(), fenix: true);
   }
 }
 

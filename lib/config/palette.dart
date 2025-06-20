@@ -34,6 +34,8 @@ class Palette {
 
   static const Color payColors = Color(0xFF2AC67B);
   static const Color payColorsLight = Color(0xFF78c6a0);
+  static const Color newColor = Color(0xFF6366F1);
+  static const Color newColorbg = Color(0xFFEEF2FF);
 }
 
 Color textPrimary = Color(0xFF111111);
