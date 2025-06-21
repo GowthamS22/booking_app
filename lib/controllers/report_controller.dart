@@ -234,7 +234,7 @@ class ReportController extends GetxController {
       final printerIp = '${printerIPs['ip']}';
       final PosPrintResult res = await printer.connect(printerIp, port: 9100);
       if (res != PosPrintResult.success) {
-        shoppingController.productsCartModal.clear();
+        //shoppingController.productsCartModal.clear();
         showCustomSnackbar(
           'Printer Error',
           'Failed to connect to the printer.',

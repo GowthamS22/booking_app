@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:booking_app/controllers/PosOrderController.dart';
+import 'package:booking_app/controllers/orders_list_controller.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:booking_app/stores/order_store.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/models/category.dart';
@@ -18,7 +20,10 @@ class ShoppingScreen extends StatefulWidget {
   State<ShoppingScreen> createState() => _ShoppingScreenState();
 }
 
-class _ShoppingScreenState extends State<ShoppingScreen> {
+class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProviderStateMixin {
+
+  final OrdersListController ordersListController = Get.put(OrdersListController());
+
   // SharedPreferences keys
   static const String _prefsCartKey = 'shopping_cart';
   static const String _prefsOrderNotesKey = 'order_notes';
@@ -35,9 +40,12 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
   String _tempOrderId = '';
   DateTime selectedDateTime = DateTime.now();
 
+  late TabController _tabController;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _clearPrefsData();
     _clearExistingOrderData();
     _loadData().then((_) async {
@@ -51,6 +59,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -447,7 +456,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
           customerName: 'System Customer',
           mobileno: '+61 0000 000 000',
           selectedDateTime: DateTime.now(),
-          billAmount: 0,
+          billAmount: total,
           bookings: [],
           membershipID: '',
           membershipName: '',
@@ -466,6 +475,32 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
     });
   }
 
+  Future<void> _selectDate(BuildContext context, bool isFromDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() {
+        if (isFromDate) {
+          // Update from date
+        } else {
+          // Update to date
+        }
+      });
+    }
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -474,9 +509,9 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      body: SafeArea(
+
+    Widget _buildNewOrderTab() {
+      return SafeArea(
         child: Container(
           margin: const EdgeInsets.all(20),
           child: Row(
@@ -843,6 +878,241 @@ class _ShoppingScreenState extends State<ShoppingScreen> {
             ],
           ),
         ),
+      );
+    }
+
+    Widget _buildAllOrdersTab() {
+      return Obx(() {
+
+        if (ordersListController.isLoading && ordersListController.orders.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (ordersListController.error.isNotEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(ordersListController.error),
+                ElevatedButton(
+                  onPressed: ordersListController.refreshOrders,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            color: Colors.white,
+          ),
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title on left, Search + Filter on right
+              Row(
+                spacing: 400,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Left Title
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'All Orders',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'View all current and past orders in one place.',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  // Right Search + Filter
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'e.g John',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                              fillColor: Colors.white,
+                              filled: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () {
+                            // filter logic
+                          },
+                          icon: Icon(Icons.filter_list, color: Colors.black),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Table Full Width
+              Expanded(
+                child: Container(
+                  width: MediaQuery.of(context).size.width,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.vertical,
+                    child: DataTable(
+                      columnSpacing: 24,
+                      headingRowColor: MaterialStateColor.resolveWith((states) => Colors.black),
+                      headingTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      columns: const [
+                        DataColumn(label: Text('Order Id')),
+                        DataColumn(label: Text('Name & Mobile No.')),
+                        DataColumn(label: Text('Date & Time')),
+                        DataColumn(label: Text('Items')),
+                        DataColumn(label: Text('Amount (\$)')),
+                        DataColumn(label: Text('Order Status')),
+                      ],
+                      rows: ordersListController.orders.map((order) {
+                        return DataRow(
+                          onSelectChanged: (_) {
+                            // Add navigation to order details if needed
+                          },
+                          cells: [
+                            DataCell(Text('#${order.tokenNumber}')),
+                            DataCell(Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                //Text(order.customerName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                                //Text(order.mobileNo, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                              ],
+                            )),
+                            DataCell(Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${order.createdAt?.day} ${_getMonthName(order.createdAt!.month)} ${order.createdAt?.year}'),
+                                Text('${order.createdAt?.hour}:${order.createdAt?.minute.toString().padLeft(2, '0')}',
+                                    style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                              ],
+                            )),
+                            DataCell(Text(
+                              order.cartItems!.map((item) => item.product.name).join('/n '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )),
+                            DataCell(Text('\$${order.billDetails?.billAmount!.toStringAsFixed(2)}')),
+                            DataCell(
+                              DropdownButton<String>(
+                                value: order.orderStatus,
+                                items: ['Pending', 'Paid', 'Cancelled', 'Completed']
+                                    .map((status) => DropdownMenuItem(
+                                  value: status,
+                                  child: Text(
+                                    status,
+                                    style: TextStyle(
+                                      color: status == 'Paid'
+                                          ? Colors.green
+                                          : status == 'Cancelled'
+                                          ? Colors.red
+                                          : Colors.orange,
+                                    ),
+                                  ),
+                                ))
+                                    .toList(),
+                                onChanged: (newStatus) {
+                                  if (newStatus != null) {
+                                    //ordersController.updateOrderStatus(order.id, newStatus);
+                                  }
+                                },
+                                underline: Container(),
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },);
+    }
+
+
+
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: EdgeInsets.only(left: 20, right: 20, top: 20),
+            width: MediaQuery.of(context).size.width / 4,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade300,
+                  blurRadius: 5,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: TabBar(
+              controller: _tabController,
+              //isScrollable: true,
+              indicator: BoxDecoration(
+                color: Colors.indigo.shade500,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              indicatorPadding: EdgeInsets.all(4),
+              // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.grey.shade400,
+              indicatorSize: TabBarIndicatorSize.tab,
+              labelStyle: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade50,
+              ),
+              unselectedLabelStyle: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+
+              dividerColor: Colors.transparent,
+              overlayColor: WidgetStateProperty.all(Colors.transparent),
+              tabs: const [
+                Tab(text: 'New Order'),
+                Tab(text: 'All Orders'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // New Order Tab - Your existing content
+                _buildNewOrderTab(),
+                // All Orders Tab - New content
+                _buildAllOrdersTab(),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }

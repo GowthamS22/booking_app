@@ -855,20 +855,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 try {
                                   if (selectedMethod == 'EFTPOS') {
                                     try {
-                                      await paymentController.processPayment(
-                                        context: context,
-                                        amount: 100,
-                                        reference: 'orderId',
-                                        apiKey: 'YOUR_TYRO_API_KEY', // Get from secure storage
-                                        merchantId: 'YOUR_MERCHANT_ID',
-                                        terminalId: 'YOUR_TERMINAL_ID',
-                                        integrationKey: 'YOUR_INTEGRATION_KEY',
-                                      );
-
-                                      if (paymentController.paymentStatus.value == 'Payment successful') {
-                                        Get.snackbar('Success', 'Payment processed successfully',backgroundColor: Colors.green);
-                                        Get.offAllNamed('/order-confirmation');
-                                      }
+                                      // await paymentController.processPayment(
+                                      //   context: context,
+                                      //   amount: 100,
+                                      //   reference: 'orderId',
+                                      //   apiKey: 'YOUR_TYRO_API_KEY', // Get from secure storage
+                                      //   merchantId: 'YOUR_MERCHANT_ID',
+                                      //   terminalId: 'YOUR_TERMINAL_ID',
+                                      //   integrationKey: 'YOUR_INTEGRATION_KEY',
+                                      // );
+                                      //
+                                      // if (paymentController.paymentStatus.value == 'Payment successful') {
+                                      //   Get.snackbar('Success', 'Payment processed successfully',backgroundColor: Colors.green);
+                                      //   Get.offAllNamed('/order-confirmation');
+                                      // }
                                     } catch (e) {
                                       Get.snackbar('Error', paymentController.paymentError.value,backgroundColor: Colors.red);
                                     }
@@ -1025,18 +1025,67 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       });
                                     }
                                   } else if (widget.type == 'Product') {
-                                    checkoutController.productsPayment(
-                                      paymentType: selectedMethod,
-                                      promoCode: promoCodeController.text,
-                                      notes: notesController.text,
-                                      paid: totalPaid,
-                                      balance: double.parse(
-                                        balanceAmountController.text,
-                                      ),
-                                      products:
-                                      shoppingController
-                                          .productsCartModal,
-                                    );
+
+                                    final prefs                                   = await SharedPreferences.getInstance();
+                                    String? paymentDevices                        = prefs.getString('paymentDevices');
+                                    final Map<String, dynamic> paymentDeviceData  = jsonDecode(paymentDevices!);
+
+                                    checkoutController.createTempOrder(total: widget.billAmount!).then((value) async {
+                                      final orderId = value['id'];
+                                      final total   = value['total'];
+                                      if(selectedMethod=='EFTPOS') {
+                                        try {
+                                          await paymentController.processPayment(
+                                            context: context,
+                                            amount: total,
+                                            reference: orderId,
+                                            apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                            merchantId: paymentDeviceData['merchant_id'],
+                                            terminalId: paymentDeviceData['terminal_id'],
+                                            integrationKey: paymentDeviceData['integration_key'],
+                                            posProductVendor: paymentDeviceData['product_vendor'],
+                                            posProductName: paymentDeviceData['product_name'],
+                                            posProductVersion: paymentDeviceData['product_version']
+                                          ).then((value) {
+                                            checkoutController.productsPayment(
+                                              order_id: orderId,
+                                              price: widget.billAmount,
+                                              taxes: widget.billAmount * 0.1,
+                                              surcharge: 0,
+                                              discount: 0,
+                                              billAmount: widget.billAmount,
+                                              paidAmount: totalPaid,
+                                              balanceAmount: double.parse(balanceAmountController.text,),
+                                              paymentType: selectedMethod,
+                                              paymentNotes: notesController.text,
+                                              paymentResponse: value.toString(),
+                                            );
+                                          },);
+
+                                          if (paymentController.paymentStatus.value == 'Payment successful') {
+                                            print('Payment Successful via Tyro');
+                                          }
+
+                                        } catch (e) {
+                                          Get.snackbar('Error', paymentController.paymentError.value,backgroundColor: Colors.red);
+                                        }
+
+                                      } else {
+                                        checkoutController.productsPayment(
+                                          order_id: orderId,
+                                          price: widget.billAmount,
+                                          taxes: widget.billAmount * 0.1,
+                                          surcharge: 0,
+                                          discount: 0,
+                                          billAmount: widget.billAmount,
+                                          paidAmount: totalPaid,
+                                          balanceAmount: double.parse(balanceAmountController.text,),
+                                          paymentType: selectedMethod,
+                                          paymentNotes: notesController.text,
+                                        );
+                                      }
+                                    },);
+
                                   }
                                 } catch (e) {
                                   showCustomSnackbar(
