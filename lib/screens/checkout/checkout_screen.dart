@@ -290,10 +290,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     for (final bookingInfo in bookings) {
       final courtId =
-          newBookingController.courtList.firstWhere(
+      newBookingController.courtList.firstWhere(
             (court) => court['name'] == bookingInfo.courtName,
-            orElse: () => {},
-          )['id']; // Find the court ID based on the name
+        orElse: () => {},
+      )['id']; // Find the court ID based on the name
 
       if (courtId == null) {
         print('Warning: Could not find court ID for ${bookingInfo.courtName}');
@@ -434,87 +434,87 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     // Court Info
                     Column(
                       children:
-                          groupedBookings.entries.map((entry) {
-                            String courtName = entry.key;
-                            List<BookingInfo> courtBookings = entry.value;
+                      groupedBookings.entries.map((entry) {
+                        String courtName = entry.key;
+                        List<BookingInfo> courtBookings = entry.value;
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Court Name Header
-                                  Text(
-                                    courtName,
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Time Slots for this Court
-                                  ...courtBookings.map((booking) {
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        // Display individual sub-slots
-                                        ...booking.subSlots.map((subSlot) {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: 4,
-                                              left: 8,
-                                            ), // Add some left padding for sub-slots
-                                            child: Row(
-                                              children: [
-                                                Text(
-                                                  '${subSlot.startTime} - ${subSlot.endTime}',
-                                                  style: GoogleFonts.inter(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 14,
-                                                    color:
-                                                        Colors
-                                                            .green, // Adjust color as needed
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  subSlot.isPeak
-                                                      ? '(Peak Hour)'
-                                                      : '(Non-Peak Hour)',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 13,
-                                                    color:
-                                                        subSlot.isPeak
-                                                            ? Colors
-                                                                .orange
-                                                                .shade700
-                                                            : Colors
-                                                                .grey
-                                                                .shade600, // Adjust color as needed
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                                const Spacer(),
-                                                Text(
-                                                  '\$${subSlot.price.toStringAsFixed(2)}',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ],
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Court Name Header
+                              Text(
+                                courtName,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
                               ),
-                            );
-                          }).toList(),
+                              const SizedBox(height: 8),
+
+                              // Time Slots for this Court
+                              ...courtBookings.map((booking) {
+                                return Column(
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                                  children: [
+                                    // Display individual sub-slots
+                                    ...booking.subSlots.map((subSlot) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 4,
+                                          left: 8,
+                                        ), // Add some left padding for sub-slots
+                                        child: Row(
+                                          children: [
+                                            Text(
+                                              '${subSlot.startTime} - ${subSlot.endTime}',
+                                              style: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                                color:
+                                                Colors
+                                                    .green, // Adjust color as needed
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              subSlot.isPeak
+                                                  ? '(Peak Hour)'
+                                                  : '(Non-Peak Hour)',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 13,
+                                                color:
+                                                subSlot.isPeak
+                                                    ? Colors
+                                                    .orange
+                                                    .shade700
+                                                    : Colors
+                                                    .grey
+                                                    .shade600, // Adjust color as needed
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              '\$${subSlot.price.toStringAsFixed(2)}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ],
+                                );
+                              }).toList(),
+                            ],
+                          ),
+                        );
+                      }).toList(),
                     ),
                     if (widget.isMembershipApplied == true) ...[
                       Container(
@@ -620,12 +620,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 child: Row(
                                   spacing: 30,
                                   mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             item.product.name,
@@ -753,9 +753,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   buildCheckout(
-    NewBookingController controller,
-    CheckoutController checkoutController,
-  ) {
+      NewBookingController controller,
+      CheckoutController checkoutController,
+      ) {
     if (paidAmountController.text.length > 0) {
       double paid = double.parse(paidAmountController.text);
       if (paid > 0) {
@@ -841,88 +841,88 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 child: Row(
                   children:
-                      paymentMethods.map((method) {
-                        final isSelected = selectedMethod == method['label'];
+                  paymentMethods.map((method) {
+                    final isSelected = selectedMethod == method['label'];
 
-                        return Expanded(
-                          child: GestureDetector(
-                            onTap: () async {
-                              if (method['label'] == 'EFTPOS') {
-                                totalPaid = widget.billAmount;
-                                customAmountString =
-                                    widget.billAmount.toString();
-                                setState(() {
-                                  selectedMethod = method['label'];
-                                });
-                              } else if (method['label'] == 'Cash') {
-                                totalPaid = 0.0;
-                                customAmountString = '';
-                                setState(() {
-                                  selectedMethod = method['label'];
-                                });
-                              } else {
-                                setState(() {
-                                  selectedMethod = method['label'];
-                                });
-                              }
-                              // setState(() {
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (method['label'] == 'EFTPOS') {
+                            totalPaid = widget.billAmount;
+                            customAmountString =
+                                widget.billAmount.toString();
+                            setState(() {
+                              selectedMethod = method['label'];
+                            });
+                          } else if (method['label'] == 'Cash') {
+                            totalPaid = 0.0;
+                            customAmountString = '';
+                            setState(() {
+                              selectedMethod = method['label'];
+                            });
+                          } else {
+                            setState(() {
+                              selectedMethod = method['label'];
+                            });
+                          }
+                          // setState(() {
 
-                              //   selected = method['label'];
-                              // });
-                            },
-                            child: Container(
-                              height: MediaQuery.of(context).size.height * 0.10,
-                              width: MediaQuery.of(context).size.width * 0.10,
-                              margin: const EdgeInsets.symmetric(horizontal: 5),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              decoration: BoxDecoration(
-                                color:
-                                    isSelected
-                                        ? const Color(0xFFF0F4FF)
-                                        : Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color:
-                                      isSelected
-                                          ? const Color(0xFF6366F1)
-                                          : Colors.grey.shade300,
-                                  width: isSelected ? 2 : 1,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Image.asset(
-                                    method['image'],
-                                    width:
-                                        MediaQuery.of(context).size.width / 2,
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                        .05,
-                                    color:
-                                        isSelected
-                                            ? Colors.indigo.shade500
-                                            : Colors.grey.shade600,
-                                  ),
-                                  // const SizedBox(height: 10),
-                                  Text(
-                                    method['label'],
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 25,
-                                      color:
-                                          isSelected
-                                              ? Colors.indigo.shade500
-                                              : Colors.black87,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          //   selected = method['label'];
+                          // });
+                        },
+                        child: Container(
+                          height: MediaQuery.of(context).size.height * 0.10,
+                          width: MediaQuery.of(context).size.width * 0.10,
+                          margin: const EdgeInsets.symmetric(horizontal: 5),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color:
+                            isSelected
+                                ? const Color(0xFFF0F4FF)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color:
+                              isSelected
+                                  ? const Color(0xFF6366F1)
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
                             ),
                           ),
-                        );
-                      }).toList(),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset(
+                                method['image'],
+                                width:
+                                MediaQuery.of(context).size.width / 2,
+                                height:
+                                MediaQuery.of(context).size.height *
+                                    .05,
+                                color:
+                                isSelected
+                                    ? Colors.indigo.shade500
+                                    : Colors.grey.shade600,
+                              ),
+                              // const SizedBox(height: 10),
+                              Text(
+                                method['label'],
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 25,
+                                  color:
+                                  isSelected
+                                      ? Colors.indigo.shade500
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
               if (selectedMethod == 'EFTPOS') ...[
@@ -941,11 +941,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             style: GoogleFonts.inter(
                               fontSize: 25,
                               color:
-                                  controller.paymentStatus.value.contains(
-                                        'failed',
-                                      )
-                                      ? Colors.red
-                                      : Colors.green,
+                              controller.paymentStatus.value.contains(
+                                'failed',
+                              )
+                                  ? Colors.red
+                                  : Colors.green,
                             ),
                           ),
                         ),
@@ -1061,7 +1061,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                               child: Row(
                                 mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                                MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     'Receipt',
@@ -1132,259 +1132,305 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             checkoutController.isProcessingPayment.value;
                         return ElevatedButton(
                           onPressed:
-                              isProcessing
-                                  ? null
-                                  : () async {
-                                    if (totalPaid > 0) {
-                                      if (double.parse(
-                                            balanceAmountController.text,
-                                          ) <=
-                                          0) {
-                                        setState(() {
+                          isProcessing
+                              ? null
+                              : () async {
+                            if (totalPaid > 0) {
+                              if (double.parse(
+                                balanceAmountController.text,
+                              ) <=
+                                  0) {
+                                setState(() {
+                                  checkoutController
+                                      .checkoutPayBtn
+                                      .value = true;
+                                });
+
+                                try {
+                                  // if (selectedMethod == 'EFTPOS') {
+                                  //   try {
+                                  //     await paymentController
+                                  //         .processPayment(
+                                  //       context: context,
+                                  //       amount: 100,
+                                  //       reference: 'orderId',
+                                  //       apiKey:
+                                  //       'YOUR_TYRO_API_KEY', // Get from secure storage
+                                  //       merchantId:
+                                  //       'YOUR_MERCHANT_ID',
+                                  //       terminalId:
+                                  //       'YOUR_TERMINAL_ID',
+                                  //       integrationKey:
+                                  //       'YOUR_INTEGRATION_KEY',
+                                  //     );
+                                  //
+                                  //     if (paymentController
+                                  //         .paymentStatus
+                                  //         .value ==
+                                  //         'Payment successful') {
+                                  //       Get.snackbar(
+                                  //         'Success',
+                                  //         'Payment processed successfully',
+                                  //         backgroundColor: Colors.green,
+                                  //       );
+                                  //       Get.offAllNamed(
+                                  //         '/order-confirmation',
+                                  //       );
+                                  //     }
+                                  //   } catch (e) {
+                                  //     Get.snackbar(
+                                  //       'Error',
+                                  //       paymentController
+                                  //           .paymentError
+                                  //           .value,
+                                  //       backgroundColor: Colors.red,
+                                  //     );
+                                  //   }
+                                  // }
+
+                                  // Continue with existing payment processing
+                                  if (widget.type == 'Membership') {
+                                    await checkoutController.makeMembershipPayment(
+                                      userId:
+                                      customerController
+                                          .selectedPlan[0]['userId'],
+                                      userMembershipId:
+                                      customerController
+                                          .selectedPlan[0]['userMembershipId'],
+                                      paymentType: selectedMethod,
+                                      promoCode:
+                                      promoCodeController.text,
+                                      notes: notesController.text,
+                                      total: double.parse(
+                                        customerController
+                                            .selectedPlan[0]['price']
+                                            .toString(),
+                                      ),
+                                      paid: totalPaid,
+                                      balance: double.parse(
+                                        balanceAmountController.text,
+                                      ),
+                                      //membershipId: widget.membershipID,
+                                    );
+                                  } else if (widget.type ==
+                                      'ExistingBooking') {
+                                    populateCartWithSubSlots(
+                                      widget.bookings,
+                                    );
+                                    await checkoutController
+                                        .makeBookingPayment(
+                                      bookingSlots:
+                                      defaultController
+                                          .actionBookingSlots
+                                          .where(
+                                            (slot) =>
+                                        slot.paymentStatus !=
+                                            "Paid",
+                                      )
+                                          .toList(),
+                                      paymentType: selectedMethod,
+                                      promoCode:
+                                      promoCodeController.text,
+                                      notes: notesController.text,
+                                      paid: totalPaid,
+                                      balance: double.parse(
+                                        balanceAmountController
+                                            .text,
+                                      ),
+                                    );
+                                  } else if (widget.type == 'New') {
+                                    if (controller.userData.value.id !=
+                                        null) {
+                                      populateCartWithSubSlots(
+                                        widget.bookings,
+                                      );
+                                      await checkoutController
+                                          .processFinalCheckout(
+                                        userId:
+                                        controller
+                                            .userData
+                                            .value
+                                            .id,
+                                        name:
+                                        controller
+                                            .nameController
+                                            .text,
+                                        email:
+                                        controller
+                                            .userData
+                                            .value
+                                            .email,
+                                        mobile:
+                                        controller
+                                            .userData
+                                            .value
+                                            .mobile,
+                                        paymentType: selectedMethod,
+                                        promoCode:
+                                        promoCodeController
+                                            .text,
+                                        notes: notesController.text,
+                                        paid: totalPaid,
+                                        balance: double.parse(
+                                          balanceAmountController
+                                              .text,
+                                        ),
+                                        bookingId:
+                                        controller.bookingId,
+                                        isMembershipApplied:
+                                        widget
+                                            .isMembershipApplied,
+                                        membershipId:
+                                        widget.membershipID,
+                                      );
+                                    } else {
+                                      await checkoutController
+                                          .registerUser(
+                                        mobile: widget.mobileno,
+                                        firstName:
+                                        widget.customerName,
+                                        membershipId:
+                                        widget.membershipID,
+                                      )
+                                          .then((value) {
+                                        populateCartWithSubSlots(
+                                          widget.bookings,
+                                        );
+                                        checkoutController
+                                            .processFinalCheckout(
+                                          userId:
                                           checkoutController
-                                              .checkoutPayBtn
-                                              .value = true;
-                                        });
+                                              .userData
+                                              .value
+                                              .id,
+                                          name:
+                                          controller
+                                              .nameController
+                                              .text,
+                                          email:
+                                          controller
+                                              .userData
+                                              .value
+                                              .email,
+                                          mobile:
+                                          controller
+                                              .userData
+                                              .value
+                                              .mobile,
+                                          paymentType:
+                                          selectedMethod,
+                                          promoCode:
+                                          promoCodeController
+                                              .text,
+                                          notes:
+                                          notesController
+                                              .text,
+                                          paid: totalPaid,
+                                          balance: double.parse(
+                                            balanceAmountController
+                                                .text,
+                                          ),
+                                          bookingId:
+                                          controller
+                                              .bookingId,
+                                          isMembershipApplied:
+                                          widget
+                                              .isMembershipApplied,
+                                          membershipId:
+                                          widget
+                                              .membershipID,
+                                        );
+                                      });
+                                    }
+                                  } else if (widget.type == 'Product') {
+                                    final prefs                                   = await SharedPreferences.getInstance();
+                                    String? paymentDevices                        = prefs.getString('paymentDevices');
+                                    final Map<String, dynamic> paymentDeviceData  = jsonDecode(paymentDevices!);
 
+                                    checkoutController.createTempOrder(total: widget.billAmount!).then((value) async {
+                                      final orderId = value['id'];
+                                      final total   = value['total'];
+                                      if(selectedMethod=='EFTPOS') {
                                         try {
-                                          if (selectedMethod == 'EFTPOS') {
-                                            try {
-                                              await paymentController
-                                                  .processPayment(
-                                                    context: context,
-                                                    amount: 100,
-                                                    reference: 'orderId',
-                                                    apiKey:
-                                                        'YOUR_TYRO_API_KEY', // Get from secure storage
-                                                    merchantId:
-                                                        'YOUR_MERCHANT_ID',
-                                                    terminalId:
-                                                        'YOUR_TERMINAL_ID',
-                                                    integrationKey:
-                                                        'YOUR_INTEGRATION_KEY',
-                                                  );
-
-                                              if (paymentController
-                                                      .paymentStatus
-                                                      .value ==
-                                                  'Payment successful') {
-                                                Get.snackbar(
-                                                  'Success',
-                                                  'Payment processed successfully',
-                                                  backgroundColor: Colors.green,
-                                                );
-                                                Get.offAllNamed(
-                                                  '/order-confirmation',
-                                                );
-                                              }
-                                            } catch (e) {
-                                              Get.snackbar(
-                                                'Error',
-                                                paymentController
-                                                    .paymentError
-                                                    .value,
-                                                backgroundColor: Colors.red,
-                                              );
-                                            }
-                                          }
-
-                                          // Continue with existing payment processing
-                                          if (widget.type == 'Membership') {
-                                            await checkoutController.makeMembershipPayment(
-                                              userId:
-                                                  customerController
-                                                      .selectedPlan[0]['userId'],
-                                              userMembershipId:
-                                                  customerController
-                                                      .selectedPlan[0]['userMembershipId'],
-                                              paymentType: selectedMethod,
-                                              promoCode:
-                                                  promoCodeController.text,
-                                              notes: notesController.text,
-                                              total: double.parse(
-                                                customerController
-                                                    .selectedPlan[0]['price']
-                                                    .toString(),
-                                              ),
-                                              paid: totalPaid,
-                                              balance: double.parse(
-                                                balanceAmountController.text,
-                                              ),
-                                              //membershipId: widget.membershipID,
-                                            );
-                                          } else if (widget.type ==
-                                              'ExistingBooking') {
-                                            populateCartWithSubSlots(
-                                              widget.bookings,
-                                            );
-                                            await checkoutController
-                                                .makeBookingPayment(
-                                                  bookingSlots:
-                                                      defaultController
-                                                          .actionBookingSlots
-                                                          .where(
-                                                            (slot) =>
-                                                                slot.paymentStatus !=
-                                                                "Paid",
-                                                          )
-                                                          .toList(),
-                                                  paymentType: selectedMethod,
-                                                  promoCode:
-                                                      promoCodeController.text,
-                                                  notes: notesController.text,
-                                                  paid: totalPaid,
-                                                  balance: double.parse(
-                                                    balanceAmountController
-                                                        .text,
-                                                  ),
-                                                );
-                                          } else if (widget.type == 'New') {
-                                            if (controller.userData.value.id !=
-                                                null) {
-                                              populateCartWithSubSlots(
-                                                widget.bookings,
-                                              );
-                                              await checkoutController
-                                                  .processFinalCheckout(
-                                                    userId:
-                                                        controller
-                                                            .userData
-                                                            .value
-                                                            .id,
-                                                    name:
-                                                        controller
-                                                            .nameController
-                                                            .text,
-                                                    email:
-                                                        controller
-                                                            .userData
-                                                            .value
-                                                            .email,
-                                                    mobile:
-                                                        controller
-                                                            .userData
-                                                            .value
-                                                            .mobile,
-                                                    paymentType: selectedMethod,
-                                                    promoCode:
-                                                        promoCodeController
-                                                            .text,
-                                                    notes: notesController.text,
-                                                    paid: totalPaid,
-                                                    balance: double.parse(
-                                                      balanceAmountController
-                                                          .text,
-                                                    ),
-                                                    bookingId:
-                                                        controller.bookingId,
-                                                    isMembershipApplied:
-                                                        widget
-                                                            .isMembershipApplied,
-                                                    membershipId:
-                                                        widget.membershipID,
-                                                  );
-                                            } else {
-                                              await checkoutController
-                                                  .registerUser(
-                                                    mobile: widget.mobileno,
-                                                    firstName:
-                                                        widget.customerName,
-                                                    membershipId:
-                                                        widget.membershipID,
-                                                  )
-                                                  .then((value) {
-                                                    populateCartWithSubSlots(
-                                                      widget.bookings,
-                                                    );
-                                                    checkoutController
-                                                        .processFinalCheckout(
-                                                          userId:
-                                                              checkoutController
-                                                                  .userData
-                                                                  .value
-                                                                  .id,
-                                                          name:
-                                                              controller
-                                                                  .nameController
-                                                                  .text,
-                                                          email:
-                                                              controller
-                                                                  .userData
-                                                                  .value
-                                                                  .email,
-                                                          mobile:
-                                                              controller
-                                                                  .userData
-                                                                  .value
-                                                                  .mobile,
-                                                          paymentType:
-                                                              selectedMethod,
-                                                          promoCode:
-                                                              promoCodeController
-                                                                  .text,
-                                                          notes:
-                                                              notesController
-                                                                  .text,
-                                                          paid: totalPaid,
-                                                          balance: double.parse(
-                                                            balanceAmountController
-                                                                .text,
-                                                          ),
-                                                          bookingId:
-                                                              controller
-                                                                  .bookingId,
-                                                          isMembershipApplied:
-                                                              widget
-                                                                  .isMembershipApplied,
-                                                          membershipId:
-                                                              widget
-                                                                  .membershipID,
-                                                        );
-                                                  });
-                                            }
-                                          } else if (widget.type == 'Product') {
+                                          await paymentController.processPayment(
+                                              context: context,
+                                              amount: total,
+                                              reference: orderId,
+                                              apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                              merchantId: paymentDeviceData['merchant_id'],
+                                              terminalId: paymentDeviceData['terminal_id'],
+                                              integrationKey: paymentDeviceData['integration_key'],
+                                              posProductVendor: paymentDeviceData['product_vendor'],
+                                              posProductName: paymentDeviceData['product_name'],
+                                              posProductVersion: paymentDeviceData['product_version']
+                                          ).then((value) {
                                             checkoutController.productsPayment(
+                                              order_id: orderId,
+                                              price: widget.billAmount,
+                                              taxes: widget.billAmount * 0.1,
+                                              surcharge: 0,
+                                              discount: 0,
+                                              billAmount: widget.billAmount,
+                                              paidAmount: totalPaid,
+                                              balanceAmount: double.parse(balanceAmountController.text,),
                                               paymentType: selectedMethod,
-                                              promoCode:
-                                                  promoCodeController.text,
-                                              notes: notesController.text,
-                                              paid: totalPaid,
-                                              balance: double.parse(
-                                                balanceAmountController.text,
-                                              ),
-                                              products:
-                                                  shoppingController
-                                                      .productsCartModal,
+                                              paymentNotes: notesController.text,
+                                              paymentResponse: value.toString(),
                                             );
+                                          },);
+
+                                          if (paymentController.paymentStatus.value == 'Payment successful') {
+                                            print('Payment Successful via Tyro');
                                           }
+
                                         } catch (e) {
-                                          showCustomSnackbar(
-                                            'Error',
-                                            e.toString(),
-                                            Colors.red,
-                                          );
-                                        } finally {
-                                          setState(() {
-                                            checkoutController
-                                                .checkoutPayBtn
-                                                .value = false;
-                                          });
+                                          Get.snackbar('Error', paymentController.paymentError.value,backgroundColor: Colors.red);
                                         }
+
                                       } else {
-                                        showCustomSnackbar(
-                                          'Warning',
-                                          'Invalid Amount',
-                                          Colors.orange,
+                                        checkoutController.productsPayment(
+                                          order_id: orderId,
+                                          price: widget.billAmount,
+                                          taxes: widget.billAmount * 0.1,
+                                          surcharge: 0,
+                                          discount: 0,
+                                          billAmount: widget.billAmount,
+                                          paidAmount: totalPaid,
+                                          balanceAmount: double.parse(balanceAmountController.text,),
+                                          paymentType: selectedMethod,
+                                          paymentNotes: notesController.text,
                                         );
                                       }
-                                    } else {
-                                      showCustomSnackbar(
-                                        'Warning',
-                                        'Please enter the Paid Amount',
-                                        Colors.orange,
-                                      );
-                                    }
-                                  },
+                                    },);
+                                  }
+                                } catch (e) {
+                                  showCustomSnackbar(
+                                    'Error',
+                                    e.toString(),
+                                    Colors.red,
+                                  );
+                                } finally {
+                                  setState(() {
+                                    checkoutController
+                                        .checkoutPayBtn
+                                        .value = false;
+                                  });
+                                }
+                              } else {
+                                showCustomSnackbar(
+                                  'Warning',
+                                  'Invalid Amount',
+                                  Colors.orange,
+                                );
+                              }
+                            } else {
+                              showCustomSnackbar(
+                                'Warning',
+                                'Please enter the Paid Amount',
+                                Colors.orange,
+                              );
+                            }
+                          },
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 44),
                             backgroundColor: Colors.green.shade500,
@@ -1394,23 +1440,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ),
                           child:
-                              checkoutController.checkoutPayBtn.value
-                                  ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : Text(
-                                    'Pay Now',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 25,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                          checkoutController.checkoutPayBtn.value
+                              ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : Text(
+                            'Pay Now',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 25,
+                              color: Colors.white,
+                            ),
+                          ),
                         );
                       }),
                     ),
@@ -1429,8 +1475,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     final double cartTotal = cartItems.fold(
       0,
-      (sum, item) =>
-          sum + (double.tryParse(item.product.price) ?? 0) * item.quantity,
+          (sum, item) =>
+      sum + (double.tryParse(item.product.price) ?? 0) * item.quantity,
     );
 
     final double billAmount = widget.billAmount;
@@ -1477,9 +1523,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             fontSize: 40,
             fontWeight: FontWeight.w700,
             color:
-                isBalance && amount != 0
-                    ? Colors.indigo.shade500
-                    : Colors.black,
+            isBalance && amount != 0
+                ? Colors.indigo.shade500
+                : Colors.black,
           ),
         ),
       ],
@@ -1568,7 +1614,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color:
-                  isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
+              isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -1600,27 +1646,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children:
-                  row1
-                      .map(
-                        (amount) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: buildAmountButton(amount),
-                        ),
-                      )
-                      .toList(),
+              row1
+                  .map(
+                    (amount) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: buildAmountButton(amount),
+                ),
+              )
+                  .toList(),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children:
-                  row2
-                      .map(
-                        (amount) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: buildAmountButton(amount),
-                        ),
-                      )
-                      .toList(),
+              row2
+                  .map(
+                    (amount) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: buildAmountButton(amount),
+                ),
+              )
+                  .toList(),
             ),
           ],
         ),
@@ -1638,7 +1684,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ...cashAmounts.map(
-              (amt) => ElevatedButton(
+                  (amt) => ElevatedButton(
                 onPressed: () => _addPayment(double.parse(amt)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
@@ -1824,7 +1870,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           '0',
                           '⌫',
                         ].map(
-                          (key) => SizedBox(
+                              (key) => SizedBox(
                             height: MediaQuery.of(context).size.height / 2,
                             child: ElevatedButton(
                               onPressed: () => onKeyTap(key),
@@ -1838,18 +1884,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                               ),
                               child:
-                                  key == '⌫'
-                                      ? const Icon(
-                                        Icons.backspace_outlined,
-                                        size: 25,
-                                      )
-                                      : Text(
-                                        key,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 25,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
+                              key == '⌫'
+                                  ? const Icon(
+                                Icons.backspace_outlined,
+                                size: 25,
+                              )
+                                  : Text(
+                                key,
+                                style: GoogleFonts.inter(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
                             ),
                           ),
                         ),

@@ -10,6 +10,9 @@ class TyroPaymentService {
     required String merchantId,
     required String terminalId,
     required String integrationKey,
+    required String posProductVendor,
+    required String posProductName,
+    required String posProductVersion,
   }) async {
     final result = await Navigator.of(context).push<Map<String, dynamic>>(
       MaterialPageRoute(
@@ -20,6 +23,9 @@ class TyroPaymentService {
           merchantId: merchantId,
           terminalId: terminalId,
           integrationKey: integrationKey,
+          posProductVendor: posProductVendor,
+          posProductName: posProductName,
+          posProductVersion: posProductVersion,
         ),
       ),
     );
@@ -35,6 +41,9 @@ class TyroPaymentScreen extends StatefulWidget {
   final String merchantId;
   final String terminalId;
   final String integrationKey;
+  final String posProductVendor;
+  final String posProductName;
+  final String posProductVersion;
 
   const TyroPaymentScreen({
     required this.amount,
@@ -43,6 +52,9 @@ class TyroPaymentScreen extends StatefulWidget {
     required this.merchantId,
     required this.terminalId,
     required this.integrationKey,
+    required this.posProductVendor,
+    required this.posProductName,
+    required this.posProductVersion,
     Key? key,
   }) : super(key: key);
 
@@ -108,19 +120,31 @@ class _TyroPaymentScreenState extends State<TyroPaymentScreen> {
               });
             },
             shouldOverrideUrlLoading: (controller, navigationAction) async {
+              print('response navigation action ${navigationAction.request}');
               final uri = navigationAction.request.url;
               if (uri != null) {
                 if (uri.toString().contains('payment-success')) {
+                  // Get transaction details from the webview
+                  final transactionDetails = await controller.evaluateJavascript(
+                    source: "window.transactionResponse || null",
+                  );
+
                   Navigator.of(context).pop({
                     'status': 'success',
                     'reference': widget.reference,
                     'amount': widget.amount,
+                    'transactionId': transactionDetails['response']['transactionId'],
+                    'timestamp': DateTime.now().toIso8601String(),
+                    'payment_response': transactionDetails['response'],
+                    // Add any other relevant details
                   });
                   return NavigationActionPolicy.CANCEL;
                 } else if (uri.toString().contains('payment-failed')) {
                   Navigator.of(context).pop({
                     'status': 'failed',
                     'message': uri.queryParameters['error'] ?? 'Payment failed',
+                    'reference': widget.reference,
+                    'amount': widget.amount,
                   });
                   return NavigationActionPolicy.CANCEL;
                 }
@@ -154,9 +178,9 @@ class _TyroPaymentScreenState extends State<TyroPaymentScreen> {
         <script>
           document.addEventListener('DOMContentLoaded', function() {
             const posProductInfo = {
-              posProductVendor: 'Acme Co',
-              posProductName: 'Acme Cloud POS',
-              posProductVersion: '1.0.0'
+              posProductVendor: '${widget.posProductVendor}',
+              posProductName: '${widget.posProductName}',
+              posProductVersion: '${widget.posProductVersion}'
             };
             
             const iclient = new TYRO.IClientWithUI('${widget.apiKey}', posProductInfo);
@@ -175,7 +199,13 @@ class _TyroPaymentScreenState extends State<TyroPaymentScreen> {
                   window.flutter_inappwebview.callHandler('merchantReceipt', receipt.merchantReceipt);
                 },
                 transactionCompleteCallback: (response) => {
-                  if(response.success) {
+                  if(response.result=='APPROVED') {
+                    window.transactionResponse = {
+                      ...window.transactionResponse,
+                      status: 'success',
+                      message: response.message,
+                      response: response
+                    };
                     window.location.href = 'https://yourdomain.com/payment-success?ref=${widget.reference}';
                   } else {
                     window.location.href = 'https://yourdomain.com/payment-failed?error=' +  encodeURIComponent(response.message || 'Payment failed');

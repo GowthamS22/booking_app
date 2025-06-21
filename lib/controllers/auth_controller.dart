@@ -106,18 +106,18 @@ class AuthController extends GetxController {
     try {
 
       final userResponse = await supabase
-                            .schema('${centerSlug}_prod_schema')
-                            .from('users')
-                            .select('*')
-                            .eq('pin', memberPin)
-                            .single();
+          .schema('${centerSlug}_prod_schema')
+          .from('users')
+          .select('*')
+          .eq('pin', memberPin)
+          .single();
 
       final storeResponse = await supabase
-                              .schema('${centerSlug}_prod_schema')
-                              .from('store_details')
-                              .select('*')
-                              .eq('shortcode', centerSlug.toString())
-                              .single();
+          .schema('${centerSlug}_prod_schema')
+          .from('store_details')
+          .select('*')
+          .eq('shortcode', centerSlug.toString())
+          .single();
 
       final categoryResponse = await supabase
           .schema('${centerSlug}_prod_schema')
@@ -130,9 +130,16 @@ class AuthController extends GetxController {
           .from('products')
           .select('*');
 
+      final paymentDeviceResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('payment_devices')
+          .select('*')
+          .single();
+
       await preferences.setString('categories', jsonEncode(categoryResponse));
       await preferences.setString('products', jsonEncode(productsResponse));
-      await preferences.setString('storeDetails', storeResponse.toString());
+      await preferences.setString('storeDetails', jsonEncode(storeResponse));
+      await preferences.setString('paymentDevices', jsonEncode(paymentDeviceResponse));
 
       if (userResponse != null) {
         emailID.value = userResponse['email'];
@@ -197,75 +204,6 @@ class AuthController extends GetxController {
     }
   }
 
-  // Future<void> pinLogin({String? memberPin}) async {
-
-  //   SharedPreferences preferences = await SharedPreferences.getInstance();
-
-  //   try {
-
-  //     final QuerySnapshot staffSnapshot = await FirebaseFirestore.instance
-  //         .collection(centerSlug.toString())
-  //         .doc('staff_details')
-  //         .collection('staff')
-  //         .where('pin',isEqualTo: memberPin.toString())
-  //         .get();
-  //     if(staffSnapshot.docs.isNotEmpty) {
-
-  //       pin.value             = '${staffSnapshot.docs[0]['pin']}';
-  //       userId.value          = '${staffSnapshot.docs[0].id}';
-  //       userName.value        = '${staffSnapshot.docs[0]['firstName']} ${staffSnapshot.docs[0]['lastName']}';
-  //       staffID.value         = '${staffSnapshot.docs[0]['staffID']}';
-  //       emailID.value         = '${staffSnapshot.docs[0]['email']}';
-
-  //       preferences.setString('pin', pin.toString());
-  //       preferences.setString('userId', userId.toString());
-  //       preferences.setString('userName', userName.toString());
-  //       preferences.setString('staffID', staffID.toString());
-  //       preferences.setString('emailID', emailID.toString());
-
-  //       DateTime now = DateTime.now();
-  //       QuerySnapshot openCloseCashSnapshot = await FirebaseFirestore.instance
-  //           .collection(centerSlug.toString())
-  //           .doc('openCloseCash')
-  //           .collection('records')
-  //           //.where('date',isEqualTo: DateTime(now.year,now.month,now.day))
-  //           .where('status',isEqualTo: true)
-  //           .get();
-  //       if(openCloseCashSnapshot.docs.isNotEmpty) {
-  //         Map<String, dynamic> data = openCloseCashSnapshot.docs[0].data() as Map<String, dynamic>;
-
-  //         openCloseId         = openCloseCashSnapshot.docs[0].id;
-  //         openCloseDate       = data['date'].toDate();
-  //         openCloseStaffId    = data['openStaffId'];
-  //         openCloseStaffName  = data['openStaffName'];
-  //         openCloseAmount     = data['openingAmount'].toDouble();
-
-  //         preferences.setString('openCloseId', openCloseCashSnapshot.docs[0].id.toString());
-
-  //       }
-
-  //       //Status Alert
-  //       showCustomSnackbar('Success', 'Login Successful', Colors.green);
-
-  //       //Redirect to Home
-  //       Get.offAllNamed('/');
-
-  //     } else {
-  //       //Status Alert
-  //       showCustomSnackbar('Failed', 'Invalid login credentials!', Colors.red);
-  //     }
-
-  //   } catch (e) {
-
-  //     //Status Alert
-  //     showCustomSnackbar('Failed', '${e.toString()}', Colors.red);
-
-  //   } finally {
-  //     pinLoading.value = false;
-  //     isLoading.value  = false;
-  //   }
-  // }
-
   void logOut() async {
     try {
       //centerName = RxString('');
@@ -319,23 +257,6 @@ class AuthController extends GetxController {
       return true;
     }
   }
-  // Future<bool> validateOpenCashStatus() async {
-  //   DateTime now = DateTime.now();
-  //   QuerySnapshot openCloseCashSnapshot =
-  //       await FirebaseFirestore.instance
-  //           .collection(centerSlug.toString())
-  //           .doc('openCloseCash')
-  //           .collection('records')
-  //           //.where('date',isEqualTo: DateTime(now.year,now.month,now.day))
-  //           .where('status', isEqualTo: true)
-  //           .get();
-
-  //   if (openCloseCashSnapshot.docs.isNotEmpty) {
-  //     return false;
-  //   } else {
-  //     return true;
-  //   }
-  // }
 
   Future<void> addOpenCash({double? openingAmount}) async {
     final preferences = await SharedPreferences.getInstance();
@@ -381,64 +302,5 @@ class AuthController extends GetxController {
       startLoading.value = false;
     }
   }
-  // Future<void> addOpenCash({double? openingAmount}) async {
-  //   try {
-  //     SharedPreferences preferences = await SharedPreferences.getInstance();
 
-  //     DateTime now = DateTime.now();
-  //     var docRef =
-  //         FirebaseFirestore.instance
-  //             .collection(centerSlug.toString())
-  //             .doc('openCloseCash')
-  //             .collection('records')
-  //             .doc();
-
-  //     await docRef
-  //         .set({
-  //           'date': DateTime.now(), // Use the obtained bookingId
-  //           'openingAmount': openingAmount,
-  //           'openDateTime': DateTime.now(),
-  //           'openStaffId': userId.toString(),
-  //           'openStaffName': userName.toString(),
-  //           'status': true,
-  //         })
-  //         .then((value) {
-  //           docRef
-  //               .get()
-  //               .then((docSnapshot) {
-  //                 if (docSnapshot.exists) {
-  //                   Map<String, dynamic> data =
-  //                       docSnapshot.data() as Map<String, dynamic>;
-  //                   // Process the retrieved data as needed
-  //                   openCloseId = docRef.id;
-  //                   openCloseDate = data['date'].toDate();
-  //                   openCloseStaffId = data['openStaffId'];
-  //                   openCloseStaffName = data['openStaffName'];
-  //                   openCloseAmount = data['openingAmount'].toDouble();
-
-  //                   preferences.setString('openCloseId', docRef.id.toString());
-
-  //                   //Status Alert
-  //                   showCustomSnackbar(
-  //                     'Success',
-  //                     'Opening Cash Saved Successfully',
-  //                     Colors.green,
-  //                   );
-
-  //                   //Redirect to Home
-  //                   Get.offAllNamed('/');
-  //                 }
-  //               })
-  //               .catchError((error) {
-  //                 print('Error retrieving document: $error');
-  //               });
-  //         });
-  //   } catch (e) {
-  //     showCustomSnackbar('Failed', '${e.toString()}', Colors.red);
-  //   } finally {
-  //     //Redirect to Home
-  //     Get.offAllNamed('/');
-  //     startLoading.value = false;
-  //   }
-  // }
 }

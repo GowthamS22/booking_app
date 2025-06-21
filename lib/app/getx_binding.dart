@@ -13,5 +13,5 @@ class InitialBinding extends Bindings {
   }
 }
 
-ShoppingController shoppingController = ShoppingController.instance;
+//ShoppingController shoppingController = ShoppingController.instance;
 PrinterController printerController = PrinterController.instance;

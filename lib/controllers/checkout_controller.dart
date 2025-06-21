@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:booking_app/app/getx_binding.dart';
+import 'package:booking_app/controllers/payment_controller.dart';
+import 'package:booking_app/models/order.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -6,11 +10,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import '../config/constants.dart';
 import '../config/palette.dart';
 import '../models/booking_model.dart';
-import '../models/shopping_products_models.dart';
 import '../models/user.dart';
 import '../screens/service/tyro_screen.dart';
 import 'customer_controller.dart';
@@ -31,18 +35,13 @@ class CheckoutController extends GetxController {
   final NewBookingController newBookingController = Get.find();
   //final DefaultController defaultController = Get.find();
   final CustomerController customerController = Get.put(CustomerController());
+  final PaymentController paymentController   = Get.put(PaymentController());
 
   late TyroService tyroService;
 
   @override
   void onInit() {
     super.onInit();
-    // Initialize Tyro service with your credentials
-    tyroService = TyroService(
-      apiKey: 'd69af83751574e280f3f6738c5a9760f',
-      merchantId: '1',
-      isTestMode: true, // Set to false for production
-    );
   }
 
   Future<void> validatePromocode(String promoCode) async {
@@ -344,7 +343,7 @@ class CheckoutController extends GetxController {
     ) {
       return sum + (bookingSlot.price ?? 0);
     });
-    return val + shoppingController.totalPrice!.value + membershipAmount;
+    return val + membershipAmount;
     //     return val + membershipAmount;
   }
 
@@ -371,61 +370,202 @@ class CheckoutController extends GetxController {
     return totalAmount;
   }
 
-  Future<void> productsPayment({
-    String? paymentType,
-    String? promoCode,
-    String? notes,
-    double? paid,
-    double? balance,
-    List<ProductsModal>? products,
+
+  //Product payment section
+
+  Future<PostgrestMap> createTempOrder({
+    double? total,
   }) async {
     try {
-      List<Map>? map = [];
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+      final cartJson     = preferences.getString('shopping_cart');
+      final orderNotes   = preferences.getString('order_notes');
+      final orderId      = preferences.getString('order_id');
 
-      for (var item in products!) {
-        map.add({
-          'itemName': item.name,
-          'itemPrice': item.price,
-          'itemQuantity': item.count!.value,
-          'itemSalePrice': item.salePrice,
-          'itemStatus': item.status,
-          'itemDiscountPercentage': item.discountPercentage,
-          'itemDescription': item.description,
-          'itemStocks': item.stocks,
-          'itemImageUrl': item.imageUrl,
-          'itemCreatedAt': item.createdAt,
-          'itemCategoryID': item.categoryId,
-        });
+      final orderResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .insert({
+            'token_number': orderId,
+            'order_date': DateFormat('yyyy-MM-dd').format(DateTime.now()), // <-- 'MM' for month, not 'mm'
+            'order_type': 'product',
+            'cart_items': jsonDecode(cartJson!),
+            'total': total,
+            'order_status': 'Pending',
+            'notes': orderNotes,
+          })
+          .select()
+          .single();
+
+      return orderResponse;
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      rethrow; // Optional: Let the caller handle the exception
+    }
+  }
+
+  void _printAlignedText(NetworkPrinter printer, String leftText, String rightText) {
+    final totalWidth = 42;
+    final leftWidth  = leftText.length;
+    final rightWidth = rightText.length;
+    final spaceWidth = totalWidth - leftWidth - rightWidth;
+
+    final alignedText = '$leftText${' ' * spaceWidth}$rightText';
+    printer.text(alignedText);
+  }
+
+  Future<void> printProductReceipt({
+    required String orderNo,
+    required Orders order,
+  }) async {
+
+    SharedPreferences prefs               = await SharedPreferences.getInstance();
+    String? storeDetails                  = prefs.getString('storeDetails');
+    final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
+    String printerIp                      = storeData['printer'][0]['ip'];
+    int printerPort                       = int.parse(storeData['printer'][0]['port']);
+
+    try {
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(PaperSize.mm80, profile);
+      final PosPrintResult res = await printer.connect(printerIp, port: printerPort);
+      if (res == PosPrintResult.success) {
+
+        final orderDate = DateFormat('dd/MM/yyyy hh:mm:ss a').format(DateTime.now());
+
+        printer.setStyles(PosStyles(align: PosAlign.center, bold: true));
+        printer.text('Tax Invoice / Receipt \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.setStyles(PosStyles(align: PosAlign.center));
+        printer.text('${storeData['name']} \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.text('${storeData['address']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('PH: ${storeData['mobile']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('WEBSITE: ${storeData['website']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('ABN: ${storeData['abn']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('Order Date: $orderDate \n', styles: PosStyles(align: PosAlign.center));
+        printer.text('Order ID: #${order.tokenNumber}', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.text('--------------------------------------------');
+
+        // Header for table
+        printer.setStyles(PosStyles(align: PosAlign.left, bold: true));
+        printer.text('Item                    Qty    Price   Total');
+        printer.setStyles(PosStyles(align: PosAlign.left));
+        printer.text('--------------------------------------------');
+
+        // Print each item in table format
+        for (var item in order.cartItems!) {
+          final itemName      = item.product.name.padRight(20);
+          final itemQuantity  = item.quantity.toString().padLeft(4);
+          final itemPrice     = ('\$${(double.parse(item.product.price) ?? 0).toStringAsFixed(2)}').padLeft(7);
+          final itemTotal     = ('\$${(double.parse(item.product.price) * item.quantity ?? 0).toStringAsFixed(2)}').padLeft(8);
+
+          printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+
+          // if (item['options'] != null) {
+          //   for (var option in item['options']) {
+          //     final optionText  = ' - ${option['name']}';
+          //     final optionPrice = option['price'].toStringAsFixed(2);
+          //     //printer.text('$optionText $optionPrice');
+          //     _printAlignedText(printer, optionText, '\$${optionPrice}');
+          //   }
+          // }
+          //
+          // if (item['discount'] != null && item['discount'] > 0) {
+          //   final itemDiscount = (item['price'] + (item['options']?.fold(0.0, (prev, opt) => prev + opt['price']) ?? 0.0) - item['appliedPrice']).toStringAsFixed(2);
+          //   //printer.text(' - Discount ${item['discount']}% $itemDiscount');
+          //   _printAlignedText(printer, ' - Discount ${item['discount']}%', '\$${itemDiscount}');
+          // }
+        }
+
+        printer.text('--------------------------------------------');
+
+        if ((order.billDetails?.discount ?? 0) > 0) {
+          _printAlignedText(printer, 'Discount:', '\$${(order.billDetails?.discount ?? 0).toStringAsFixed(2)}');
+        }
+        _printAlignedText(printer, 'Sub-Total:', '\$${(order.billDetails?.price ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'GST Incl.:', '\$${(order.billDetails?.taxes ?? 0).toStringAsFixed(2)}');
+        if ((order.billDetails?.surcharge ?? 0) > 0) {
+          _printAlignedText(printer, 'Surcharge:', '\$${(order.billDetails?.surcharge ?? 0).toStringAsFixed(2)}');
+        }
+        _printAlignedText(printer, 'Payment Method:', '${order.billDetails?.paymentType}');
+        _printAlignedText(printer, 'Total Amount:', '\$${(order.billDetails?.billAmount ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Paid Amount:', '\$${(order.billDetails?.paidAmount ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Balance Amount:', '\$${(order.billDetails?.balanceAmount ?? 0).abs().toStringAsFixed(2)}');
+
+        printer.text('--------------------------------------------');
+        printer.text('THANK YOU! HAVE A NICE DAY!', styles: PosStyles(align: PosAlign.center));
+        printer.cut();
+        if(order.billDetails?.paymentType=='CASH') {
+         printer.drawer(pin: PosDrawer.pin2);
+        }
+        printer.disconnect();
+
+      } else {
+        print('Failed to connect to the printer');
       }
+    } catch (e) {
+      print('Error during printing: $e');
+    }
 
-      print('checking the map ${authController.centerSlug.toString()}');
+  }
 
-      await FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('productsPaymentsCollection')
-          .collection('productsPayment')
-          .add({
-            'bookingId':
-                shoppingController.uuid.value, // Use the obtained bookingId
-            'paymentType': paymentType,
-            'total': shoppingController.totalPrice!.value,
-            'paidAmount': paid,
-            'balance': 0,
-            'status': true,
-            'createdBy': authController.userId.toString(),
-            'updatedBy': authController.userId.toString(),
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-            'items': map,
-          });
+  Future<void> productsPayment({
+    String? order_id,
+    double? price,
+    double? taxes,
+    double? surcharge,
+    double? discount,
+    double? billAmount,
+    double? paidAmount,
+    double? balanceAmount,
+    String? paymentType,
+    String? paymentNotes,
+    String? paymentResponse,
+  }) async {
+    try {
 
-      //printReceipt(bookingSlotItems: defaultController.actionBookingSlots);
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug                  = preferences.getString('centerSlug');
+      final cartJson                      = preferences.getString('shopping_cart');
+
+      // Convert to 2 decimal places
+      double to2(double? value) => value != null ? double.parse(value.toStringAsFixed(2)) : 0.0;
+
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .update({
+            'token_number': 1,
+            'cart_items': jsonDecode(cartJson!),
+            'bill_details': {
+              'order_id': order_id!,
+              'price' : to2(price),
+              'taxes' : to2(taxes),
+              'surcharge' : to2(surcharge),
+              'discount' : to2(discount),
+              'billAmount' : to2(billAmount),
+              'paidAmount' : to2(paidAmount),
+              'balanceAmount' : to2(balanceAmount),
+              'paymentType' : paymentType,
+              'paymentNotes' : paymentNotes,
+            },
+            'transaction_data': paymentResponse,
+            'payment_response': paymentResponse,
+            'total': to2(billAmount),
+            'paid_amount': to2(paidAmount),
+            'payment_type': paymentType,
+            'payment_via': 'App',
+            'order_status': 'Completed',
+          })
+          .eq('id', order_id!)
+          .select()
+          .single();
+
+      await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));
 
       // Status Alert
       showPaymentSuccessAlert();
-
-      //clearing the cart modal of product
-      // shoppingController.productsCartModal.clear();
 
       // Update the Page
       isLoading.value = false;
@@ -433,15 +573,17 @@ class CheckoutController extends GetxController {
 
       // Redirect
       Future.delayed(Duration(seconds: 1), () {
-        //clearing the product cart
-        // shoppingController.productsCartModal.clear();
-
         Get.offAllNamed('/');
       });
+
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
     }
   }
+
+  //Product payment section
+
+
 
   Future<void> processTyroPayment({
     required double amount,
@@ -516,6 +658,8 @@ class CheckoutController extends GetxController {
       isProcessingPayment.value = false;
     }
   }
+
+
 
   Future<void> makeBookingPayment({
     String? userId,
@@ -698,9 +842,9 @@ class CheckoutController extends GetxController {
   }
 
   void printReceipt({List<BookingSlot>? bookingSlotItems}) async {
-    print(
-      'checking the printer inside ${shoppingController.productsCartModal.length}',
-    );
+    // print(
+    //   'checking the printer inside ${shoppingController.productsCartModal.length}',
+    // );
 
     List<BookingSlot> listItems = [];
     for (var item in bookingSlotItems!) {
@@ -801,7 +945,7 @@ class CheckoutController extends GetxController {
       final printerIp = '${printerIPs['ip']}';
       final PosPrintResult res = await printer.connect(printerIp, port: 9100);
       if (res != PosPrintResult.success) {
-        shoppingController.productsCartModal.clear();
+        //shoppingController.productsCartModal.clear();
         showCustomSnackbar(
           'Printer Error',
           'Failed to connect to the printer.',
@@ -945,64 +1089,64 @@ class CheckoutController extends GetxController {
         }
       }
 
-      if (shoppingController.productsCartModal.length > 0) {
-        // Print products text
-        printer.feed(1);
-        printer.hr();
-
-        printer.text(
-          'Products#',
-          styles: PosStyles(align: PosAlign.right),
-          linesAfter: 1,
-        );
-      }
+      // if (shoppingController.productsCartModal.length > 0) {
+      //   // Print products text
+      //   printer.feed(1);
+      //   printer.hr();
+      //
+      //   printer.text(
+      //     'Products#',
+      //     styles: PosStyles(align: PosAlign.right),
+      //     linesAfter: 1,
+      //   );
+      // }
 
       // Print order items
-      for (var item in shoppingController.productsCartModal) {
-        print('checking the item ${item.name}');
-        printer.row([
-          PosColumn(
-            text: '${item.name}',
-            width: 6,
-            styles: PosStyles(align: PosAlign.center, underline: false),
-          ),
-          PosColumn(
-            text: '${item.salePrice}',
-            width: 3,
-            styles: PosStyles(align: PosAlign.center, underline: false),
-          ),
-          PosColumn(
-            text: ' X ${item.count!.value}',
-            width: 3,
-            styles: PosStyles(align: PosAlign.center, underline: false),
-          ),
-        ]);
-
-        printer.emptyLines(1);
-      }
+      // for (var item in shoppingController.productsCartModal) {
+      //   print('checking the item ${item.name}');
+      //   printer.row([
+      //     PosColumn(
+      //       text: '${item.name}',
+      //       width: 6,
+      //       styles: PosStyles(align: PosAlign.center, underline: false),
+      //     ),
+      //     PosColumn(
+      //       text: '${item.salePrice}',
+      //       width: 3,
+      //       styles: PosStyles(align: PosAlign.center, underline: false),
+      //     ),
+      //     PosColumn(
+      //       text: ' X ${item.count!.value}',
+      //       width: 3,
+      //       styles: PosStyles(align: PosAlign.center, underline: false),
+      //     ),
+      //   ]);
+      //
+      //   printer.emptyLines(1);
+      // }
 
       printer.feed(1);
       printer.hr();
 
       // Print total
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: 'Total : ',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text:
-              '${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(bookingTotal + shoppingController.totalPrice!.value)}',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
+      // printer.row([
+      //   PosColumn(
+      //     text: '',
+      //     width: 3,
+      //     styles: PosStyles(align: PosAlign.center, underline: false),
+      //   ),
+      //   PosColumn(
+      //     text: 'Total : ',
+      //     width: 6,
+      //     styles: PosStyles(align: PosAlign.center, underline: false),
+      //   ),
+      //   PosColumn(
+      //     text:
+      //         '${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(bookingTotal + shoppingController.totalPrice!.value)}',
+      //     width: 3,
+      //     styles: PosStyles(align: PosAlign.center, underline: false),
+      //   ),
+      // ]);
 
       printer.feed(1);
       printer.hr();
@@ -1040,7 +1184,7 @@ class CheckoutController extends GetxController {
         'The receipt has been printed successfully.',
         Colors.green,
       );
-      shoppingController.productsCartModal.clear();
+      //shoppingController.productsCartModal.clear();
     }
 
     // printer.text('$storeName\n$storeAddress\n$storeMobile\n', styles: PosStyles(align: PosAlign.center));

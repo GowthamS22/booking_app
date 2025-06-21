@@ -54,6 +54,12 @@ class CartItem {
   final Products product;
   int quantity;
 
+  double get appliedPrice {
+    // Convert product.price (String) to double
+    final numericPrice = double.tryParse(product.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
+    return numericPrice * quantity;
+  }
+
   CartItem({required this.product, this.quantity = 1});
 
   // Serialization methods

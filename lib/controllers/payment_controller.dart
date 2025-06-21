@@ -7,7 +7,7 @@ class PaymentController extends GetxController {
   final RxString paymentStatus = ''.obs;
   final RxString paymentError = ''.obs;
 
-  Future<void> processPayment({
+  Future<Map<String, dynamic>> processPayment({
     required BuildContext context,
     required double amount,
     required String reference,
@@ -15,6 +15,9 @@ class PaymentController extends GetxController {
     required String merchantId,
     required String terminalId,
     required String integrationKey,
+    required String posProductVendor,
+    required String posProductName,
+    required String posProductVersion,
   }) async {
     try {
       isProcessing.value = true;
@@ -29,16 +32,32 @@ class PaymentController extends GetxController {
         merchantId: merchantId,
         terminalId: terminalId,
         integrationKey: integrationKey,
+        posProductVendor: posProductVendor,
+        posProductName: posProductName,
+        posProductVersion: posProductVersion,
       );
 
       if (result['status'] == 'success') {
         paymentStatus.value = 'Payment successful';
-        // Handle successful payment logic
-        await _savePaymentToDatabase(
-          amount: amount,
-          reference: reference,
-          details: result,
-        );
+
+        // Create a payment details map with all relevant information
+        final paymentDetails = {
+          'amount': amount,
+          'reference': reference,
+          'transactionId': result['transactionId'],
+          'timestamp': result['timestamp'],
+          'receipt': result['receipt'],
+          'status': 'completed',
+          'paymentMethod': 'Tyro EFTPOS',
+          'merchantId': merchantId,
+          'terminalId': terminalId,
+        };
+
+        return paymentDetails; // ✅ Return payment details
+
+        // Save to database
+        //await _savePaymentToDatabase(details: paymentDetails);
+
       } else {
         paymentStatus.value = 'Payment failed';
         paymentError.value = result['message'] ?? 'Unknown error';
