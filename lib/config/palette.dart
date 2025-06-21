@@ -59,6 +59,6 @@ void showCustomSnackbar(String title, String message, Color color) {
     duration: Duration(seconds: 1), // Customize the duration
     borderRadius: 20, // Customize the border radius
     margin: EdgeInsets.only(top: 100), // Customize the margin
-    maxWidth: 300, // Set the maximum width of the Snackbar
+    maxWidth: 500, // Set the maximum width of the Snackbar
   );
 }

@@ -136,10 +136,17 @@ class AuthController extends GetxController {
           .select('*')
           .single();
 
+      final sportsWithPlatformResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('sports')
+          .select('*, platform_status(*)')
+          .eq('status', true);
+
       await preferences.setString('categories', jsonEncode(categoryResponse));
       await preferences.setString('products', jsonEncode(productsResponse));
       await preferences.setString('storeDetails', jsonEncode(storeResponse));
       await preferences.setString('paymentDevices', jsonEncode(paymentDeviceResponse));
+      await preferences.setString('sportsWithPlatforms', jsonEncode(sportsWithPlatformResponse));
 
       if (userResponse != null) {
         emailID.value = userResponse['email'];

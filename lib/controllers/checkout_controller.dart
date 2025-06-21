@@ -458,7 +458,7 @@ class CheckoutController extends GetxController {
           final itemName      = item.product.name.padRight(20);
           final itemQuantity  = item.quantity.toString().padLeft(4);
           final itemPrice     = ('\$${(double.parse(item.product.price) ?? 0).toStringAsFixed(2)}').padLeft(7);
-          final itemTotal     = ('\$${(double.parse(item.product.price) * item.quantity ?? 0).toStringAsFixed(2)}').padLeft(8);
+          final itemTotal     = ('\$${(item.appliedPrice ?? 0).toStringAsFixed(2)}').padLeft(8);
 
           printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
 
@@ -522,12 +522,16 @@ class CheckoutController extends GetxController {
     String? paymentType,
     String? paymentNotes,
     String? paymentResponse,
+    bool? receiptToggle,
   }) async {
     try {
 
       final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug                  = preferences.getString('centerSlug');
       final cartJson                      = preferences.getString('shopping_cart');
+
+      // Get the next token number
+      final tokenNumber = await getNextTokenNumber();
 
       // Convert to 2 decimal places
       double to2(double? value) => value != null ? double.parse(value.toStringAsFixed(2)) : 0.0;
@@ -536,7 +540,7 @@ class CheckoutController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('orders')
           .update({
-            'token_number': 1,
+            'token_number': tokenNumber,
             'cart_items': jsonDecode(cartJson!),
             'bill_details': {
               'order_id': order_id!,
@@ -562,7 +566,9 @@ class CheckoutController extends GetxController {
           .select()
           .single();
 
-      await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));
+      if(receiptToggle==true) {
+        await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));
+      }
 
       // Status Alert
       showPaymentSuccessAlert();
@@ -579,6 +585,54 @@ class CheckoutController extends GetxController {
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
     }
+  }
+
+  Future<void> mergeBookingtoOrder({
+    String? order_id,
+    String? booking_id,
+    String? customer_id,
+  }) async {
+
+    try {
+
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug                  = preferences.getString('centerSlug');
+
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .update({
+            'booking_id': booking_id,
+            'customer_id': customer_id,
+          })
+          .eq('id', order_id!)
+          .select()
+          .single();
+
+      update();
+
+      showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
+
+      // Redirect
+      Future.delayed(Duration(seconds: 1), () {
+        Get.offAllNamed('/');
+      });
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+    }
+
+  }
+
+  Future<int> getNextTokenNumber() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .rpc('increment_token_counter')
+        .select()
+        .single();
+    return response['current_token'] as int;
   }
 
   //Product payment section
@@ -819,8 +873,9 @@ class CheckoutController extends GetxController {
           }),
         ),
         child: AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(10),
           ),
           contentPadding: EdgeInsets.all(40),
           //title: Center(child: Text('Booking Success',style: TextStyle(color: Palette.primaryColor,fontSize: 40),)),

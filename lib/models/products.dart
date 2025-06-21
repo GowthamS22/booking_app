@@ -53,25 +53,31 @@ class Products {
 class CartItem {
   final Products product;
   int quantity;
+  double appliedPrice;
 
-  double get appliedPrice {
-    // Convert product.price (String) to double
-    final numericPrice = double.tryParse(product.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
-    return numericPrice * quantity;
+  CartItem({required this.product, this.quantity = 1}) : appliedPrice = _parsePrice(product.price) * quantity;
+
+  // Helper to convert String price (e.g., "$10.99") to double
+  static double _parsePrice(String priceStr) {
+    return double.tryParse(priceStr.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0;
   }
 
-  CartItem({required this.product, this.quantity = 1});
+  // Update appliedPrice when quantity changes
+  void updateAppliedPrice() {
+    appliedPrice = _parsePrice(product.price) * quantity;
+  }
 
   // Serialization methods
   Map<String, dynamic> toJson() => {
     'product': product.toJson(),
     'quantity': quantity,
+    'appliedPrice': appliedPrice,  // Now stored in JSON
   };
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
     return CartItem(
       product: Products.fromJson(json['product']),
       quantity: json['quantity'],
-    );
+    )..appliedPrice = json['appliedPrice'];
   }
 }

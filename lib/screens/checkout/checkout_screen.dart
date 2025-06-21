@@ -86,7 +86,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _addPayment(double amount) {
     setState(() {
-      totalPaid += amount;
+      totalPaid = amount;
     });
   }
 
@@ -106,6 +106,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   ];
 
   List<CartItem> cartItems = []; // Add this line
+
+  double discountAmount = 0.0;
+  bool isDiscountApplied = false;
+  TextEditingController discountController = TextEditingController();
 
   @override
   void initState() {
@@ -159,7 +163,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return Scaffold(
           appBar: AppBar(
             elevation: 0,
-            toolbarHeight: 80,
+            toolbarHeight: 100,
             titleSpacing: 0,
             automaticallyImplyLeading: false,
             //leadingWidth: MediaQuery.of(context).size.width / 2.1,
@@ -220,7 +224,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 10,
+                      vertical: 8,
                     ),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.shade500),
@@ -396,7 +400,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               widget.mobileno,
                               style: GoogleFonts.inter(
                                 color: Colors.grey.shade600,
-                                fontSize: 14,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -411,7 +415,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 'd MMM yyyy',
                               ).format(widget.selectedDateTime),
                               style: GoogleFonts.inter(
-                                fontSize: 14,
+                                fontSize: 25,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -419,7 +423,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             Text(
                               DateFormat('h:mm a').format(DateTime.now()),
                               style: GoogleFonts.inter(
-                                fontSize: 13,
+                                fontSize: 20,
                                 color: Colors.grey.shade600,
                               ),
                             ),
@@ -559,7 +563,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       width: MediaQuery.of(context).size.width / 2.5,
                       height: MediaQuery.of(context).size.height / 1.5,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
+                        horizontal: 15,
                         vertical: 20,
                       ),
                       decoration: BoxDecoration(
@@ -580,7 +584,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     Text(
                                       'Item',
                                       style: GoogleFonts.inter(
-                                        fontSize: 16,
+                                        fontSize: 25,
                                         fontWeight: FontWeight.w500,
                                       ),
                                       maxLines: 1,
@@ -590,19 +594,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                               ),
 
-                              Text(
-                                'Qty.',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                width: 110,
+                                child: Text(
+                                  'Qty.',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.right,
                                 ),
                               ),
 
-                              Text(
-                                'Price',
-                                style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                width: 110,
+                                child: Text(
+                                  'Price',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  textAlign: TextAlign.right,
                                 ),
                               ),
                             ],
@@ -630,7 +642,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           Text(
                                             item.product.name,
                                             style: GoogleFonts.inter(
-                                              fontSize: 16,
+                                              fontSize: 22,
                                               fontWeight: FontWeight.w500,
                                             ),
                                             maxLines: 1,
@@ -650,19 +662,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ),
                                     ),
 
-                                    Text(
-                                      'x${item.quantity}',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                    Container(
+                                      width: 110,
+                                      child: Text(
+                                        'x${item.quantity}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        textAlign: TextAlign.right,
                                       ),
+
                                     ),
 
-                                    Text(
-                                      '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                    Container(
+                                      width: 110,
+                                      child: Text(
+                                        '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                        textAlign: TextAlign.right,
                                       ),
                                     ),
                                   ],
@@ -684,22 +705,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Divider(color: Colors.grey.shade300),
+                Divider(color: Colors.grey.shade300, thickness: 3,),
+                const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       'Total',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     Text(
-                      '\$${widget.billAmount.toStringAsFixed(2)}',
+                      '\$${(widget.billAmount - discountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                if(isDiscountApplied) const SizedBox(height: 4),
+                if(isDiscountApplied) Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Discount',
+                      style: GoogleFonts.inter(
+                        fontSize: 25,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '\$${(discountAmount).toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 25,
+                        color: Colors.grey.shade600,
                       ),
                     ),
                   ],
@@ -711,14 +753,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     Text(
                       'GST Incl',
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 25,
                         color: Colors.grey.shade600,
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount * 0.1).toStringAsFixed(2)}',
+                      '\$${((widget.billAmount - discountAmount) * 0.1).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 25,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -731,14 +773,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     Text(
                       'Grand Total',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount).toStringAsFixed(2)}',
+                      '\$${(widget.billAmount - discountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -777,7 +819,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                height: MediaQuery.of(context).size.height * 0.13,
+                height: MediaQuery.of(context).size.height * 0.14,
                 margin: const EdgeInsets.only(
                   // left: 15,
                   bottom: 10,
@@ -830,7 +872,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               //   child: _buildPaymentOptions(),
               // ),
               Container(
-                height: MediaQuery.of(context).size.height * 0.13,
+                height: MediaQuery.of(context).size.height * 0.16,
 
                 margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
                 padding: const EdgeInsets.all(16),
@@ -848,9 +890,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       child: GestureDetector(
                         onTap: () async {
                           if (method['label'] == 'EFTPOS') {
-                            totalPaid = widget.billAmount;
-                            customAmountString =
-                                widget.billAmount.toString();
+                            totalPaid = widget.billAmount - discountAmount;
+                            customAmountString = (widget.billAmount - discountAmount).toString();
                             setState(() {
                               selectedMethod = method['label'];
                             });
@@ -861,6 +902,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               selectedMethod = method['label'];
                             });
                           } else {
+                            totalPaid = widget.billAmount - discountAmount;
+                            customAmountString = (widget.billAmount - discountAmount).toString();
                             setState(() {
                               selectedMethod = method['label'];
                             });
@@ -871,8 +914,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           // });
                         },
                         child: Container(
-                          height: MediaQuery.of(context).size.height * 0.10,
-                          width: MediaQuery.of(context).size.width * 0.10,
                           margin: const EdgeInsets.symmetric(horizontal: 5),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(
@@ -898,7 +939,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 MediaQuery.of(context).size.width / 2,
                                 height:
                                 MediaQuery.of(context).size.height *
-                                    .05,
+                                    .07,
                                 color:
                                 isSelected
                                     ? Colors.indigo.shade500
@@ -961,7 +1002,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
 
               Container(
-                margin: const EdgeInsets.only(top: 16),
+                margin: const EdgeInsets.only(top: 16, right: 15),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -971,14 +1012,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   children: [
                     // Discount Notes Input
-                    TextField(
-                      enabled: false,
+                    if(isDiscountApplied) TextField(
+                      controller: notesController,
                       decoration: InputDecoration(
                         hintText: "Discount Notes",
                         hintStyle: GoogleFonts.inter(
                           color: Colors.grey.shade400,
                           fontWeight: FontWeight.w500,
-                          fontSize: 18,
+                          fontSize: 25,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
@@ -991,17 +1032,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           borderSide: BorderSide(color: Colors.grey.shade300),
                         ),
                       ),
+                      style: TextStyle(fontSize: 25),
                     ),
-
-                    const SizedBox(height: 16),
+                    if(isDiscountApplied) const SizedBox(height: 16),
 
                     // Buttons Row
                     Padding(
-                      padding: const EdgeInsets.all(8.0),
+                      padding: const EdgeInsets.all(0.0),
                       child: Row(
                         children: [
+
+
                           // Discount Applied
-                          Expanded(
+                          if(isDiscountApplied) Expanded(
                             child: Container(
                               height: MediaQuery.of(context).size.height * .05,
                               decoration: BoxDecoration(
@@ -1010,7 +1053,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                               alignment: Alignment.center,
                               child: Text(
-                                '\$15 Discount Applied',
+                                '\$${(discountAmount ?? 0).toStringAsFixed(2)} Discount Applied',
                                 style: GoogleFonts.inter(
                                   color: Colors.indigo.shade500,
                                   fontWeight: FontWeight.w600,
@@ -1019,20 +1062,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          if(isDiscountApplied) const SizedBox(width: 12),
 
                           // Remove Discount
-                          Expanded(
-                            child: Container(
-                              height: MediaQuery.of(context).size.height * .05,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: Colors.grey.shade300,
-                                  width: 2,
+                          if(isDiscountApplied) Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                setState(() {
+                                  discountAmount = 0.0;
+                                  isDiscountApplied = false;
+                                });
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(color: Colors.grey.shade300),
                                 ),
-                                borderRadius: BorderRadius.circular(10),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
                               ),
-                              alignment: Alignment.center,
                               child: Text(
                                 'Remove Discount',
                                 style: GoogleFonts.inter(
@@ -1043,12 +1091,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          if(isDiscountApplied) const SizedBox(width: 12),
+
+                          if(!isDiscountApplied) Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => _showDiscountDialog(checkoutController),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF0F4FF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: Text(
+                                'Apply Discount',
+                                style: GoogleFonts.inter(
+                                  color: Colors.indigo.shade500,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 25,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if(!isDiscountApplied) const SizedBox(width: 12),
 
                           // Receipt Toggle
                           Expanded(
                             child: Container(
-                              height: MediaQuery.of(context).size.height * .05,
+                              height: MediaQuery.of(context).size.height * .06,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
                               ),
@@ -1093,7 +1163,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 50),
               //Spacer(),
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.only(right: 15),
                 child: Row(
                   children: [
                     Expanded(
@@ -1128,92 +1198,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Obx(() {
-                        final isProcessing =
-                            checkoutController.isProcessingPayment.value;
+                        final isProcessing = checkoutController.isProcessingPayment.value;
                         return ElevatedButton(
-                          onPressed:
-                          isProcessing
-                              ? null
-                              : () async {
+                          onPressed: isProcessing ? null : () async {
                             if (totalPaid > 0) {
-                              if (double.parse(
-                                balanceAmountController.text,
-                              ) <=
-                                  0) {
+                              if (double.parse(balanceAmountController.text,) <= 0) {
                                 setState(() {
-                                  checkoutController
-                                      .checkoutPayBtn
-                                      .value = true;
+                                  checkoutController.checkoutPayBtn.value = true;
                                 });
 
+                                if(isDiscountApplied) {
+                                  if(notesController.text==null || notesController.text=='' || notesController.text.isEmpty) {
+                                    showCustomSnackbar('Warning', 'Please enter the discount notes', Colors.orange);
+                                    setState(() {
+                                      checkoutController.checkoutPayBtn.value = false;
+                                    });
+                                    return;
+                                  }
+                                }
+
                                 try {
-                                  // if (selectedMethod == 'EFTPOS') {
-                                  //   try {
-                                  //     await paymentController
-                                  //         .processPayment(
-                                  //       context: context,
-                                  //       amount: 100,
-                                  //       reference: 'orderId',
-                                  //       apiKey:
-                                  //       'YOUR_TYRO_API_KEY', // Get from secure storage
-                                  //       merchantId:
-                                  //       'YOUR_MERCHANT_ID',
-                                  //       terminalId:
-                                  //       'YOUR_TERMINAL_ID',
-                                  //       integrationKey:
-                                  //       'YOUR_INTEGRATION_KEY',
-                                  //     );
-                                  //
-                                  //     if (paymentController
-                                  //         .paymentStatus
-                                  //         .value ==
-                                  //         'Payment successful') {
-                                  //       Get.snackbar(
-                                  //         'Success',
-                                  //         'Payment processed successfully',
-                                  //         backgroundColor: Colors.green,
-                                  //       );
-                                  //       Get.offAllNamed(
-                                  //         '/order-confirmation',
-                                  //       );
-                                  //     }
-                                  //   } catch (e) {
-                                  //     Get.snackbar(
-                                  //       'Error',
-                                  //       paymentController
-                                  //           .paymentError
-                                  //           .value,
-                                  //       backgroundColor: Colors.red,
-                                  //     );
-                                  //   }
-                                  // }
 
                                   // Continue with existing payment processing
                                   if (widget.type == 'Membership') {
                                     await checkoutController.makeMembershipPayment(
-                                      userId:
-                                      customerController
-                                          .selectedPlan[0]['userId'],
-                                      userMembershipId:
-                                      customerController
-                                          .selectedPlan[0]['userMembershipId'],
+                                      userId: customerController.selectedPlan[0]['userId'],
+                                      userMembershipId: customerController.selectedPlan[0]['userMembershipId'],
                                       paymentType: selectedMethod,
-                                      promoCode:
-                                      promoCodeController.text,
+                                      promoCode: promoCodeController.text,
                                       notes: notesController.text,
-                                      total: double.parse(
-                                        customerController
-                                            .selectedPlan[0]['price']
-                                            .toString(),
-                                      ),
+                                      total: double.parse(customerController.selectedPlan[0]['price'].toString(),),
                                       paid: totalPaid,
-                                      balance: double.parse(
-                                        balanceAmountController.text,
-                                      ),
+                                      balance: double.parse(balanceAmountController.text,),
                                       //membershipId: widget.membershipID,
                                     );
-                                  } else if (widget.type ==
-                                      'ExistingBooking') {
+                                  } else if (widget.type == 'ExistingBooking') {
                                     populateCartWithSubSlots(
                                       widget.bookings,
                                     );
@@ -1347,7 +1366,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     String? paymentDevices                        = prefs.getString('paymentDevices');
                                     final Map<String, dynamic> paymentDeviceData  = jsonDecode(paymentDevices!);
 
-                                    checkoutController.createTempOrder(total: widget.billAmount!).then((value) async {
+                                    checkoutController.createTempOrder(total: (widget.billAmount - discountAmount)!).then((value) async {
                                       final orderId = value['id'];
                                       final total   = value['total'];
                                       if(selectedMethod=='EFTPOS') {
@@ -1366,16 +1385,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           ).then((value) {
                                             checkoutController.productsPayment(
                                               order_id: orderId,
-                                              price: widget.billAmount,
-                                              taxes: widget.billAmount * 0.1,
+                                              price: widget.billAmount - discountAmount,
+                                              taxes: (widget.billAmount - discountAmount) * 0.1,
                                               surcharge: 0,
-                                              discount: 0,
+                                              discount: discountAmount,
                                               billAmount: widget.billAmount,
                                               paidAmount: totalPaid,
                                               balanceAmount: double.parse(balanceAmountController.text,),
                                               paymentType: selectedMethod,
                                               paymentNotes: notesController.text,
                                               paymentResponse: value.toString(),
+                                              receiptToggle: receiptToggle
                                             );
                                           },);
 
@@ -1390,15 +1410,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       } else {
                                         checkoutController.productsPayment(
                                           order_id: orderId,
-                                          price: widget.billAmount,
-                                          taxes: widget.billAmount * 0.1,
+                                          price: widget.billAmount - discountAmount,
+                                          taxes: (widget.billAmount - discountAmount) * 0.1,
                                           surcharge: 0,
                                           discount: 0,
-                                          billAmount: widget.billAmount,
+                                          billAmount: widget.billAmount - discountAmount,
                                           paidAmount: totalPaid,
                                           balanceAmount: double.parse(balanceAmountController.text,),
                                           paymentType: selectedMethod,
                                           paymentNotes: notesController.text,
+                                          receiptToggle: receiptToggle
                                         );
                                       }
                                     },);
@@ -1470,6 +1491,123 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Future<void> _showDiscountDialog(CheckoutController checkoutController) async {
+    discountController.clear();
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          // Use insetPadding to control the dialog's position and size
+          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: MediaQuery.of(context).size.width * 0.3, // 70% of screen width
+              maxWidth: MediaQuery.of(context).size.width * 0.3, // Optional max width
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Apply Discount',
+                    style: GoogleFonts.inter(
+                      fontSize: 25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Enter discount amount (max \$${widget.billAmount.toStringAsFixed(2)})',
+                    style: GoogleFonts.inter(fontSize: 22),
+                  ),
+                  SizedBox(height: 20),
+                  TextField(
+                    controller: discountController,
+                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                    ],
+                    decoration: InputDecoration(
+                      prefixText: '\$',
+                      border: OutlineInputBorder(),
+                      hintText: '0.00',
+                    ),
+                    style: GoogleFonts.inter(fontSize: 25),
+                  ),
+                  SizedBox(height: 30),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Palette.newColorbg,
+                            minimumSize: const Size(0, 60), // 0 width means expand
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: Palette.newColor)
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              color: Palette.newColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 20),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final enteredAmount = double.tryParse(discountController.text) ?? 0.0;
+                            if (enteredAmount > 0 && enteredAmount <= widget.billAmount) {
+                              setState(() {
+                                discountAmount = enteredAmount;
+                                isDiscountApplied = true;
+                              });
+                              Navigator.pop(context);
+                            } else {
+                              showCustomSnackbar(
+                                'Invalid Amount',
+                                'Discount must be between 0 and ${widget.billAmount.toStringAsFixed(2)}',
+                                Colors.red,
+                              );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Palette.newColor,
+                            minimumSize: const Size(0, 60), // 0 width means expand
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Apply',
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildAmountSummary(CheckoutController checkoutController) {
     // Calculate total from cart items
 
@@ -1479,14 +1617,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       sum + (double.tryParse(item.product.price) ?? 0) * item.quantity,
     );
 
-    final double billAmount = widget.billAmount;
+    final double billAmount = widget.billAmount - discountAmount;
     final double totalPaid = this.totalPaid;
     final double balance = billAmount - totalPaid;
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _amountColumn('Bill Amount', billAmount),
@@ -1600,8 +1738,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             await _showCustomAmountDialog();
           } else if (amount == 'Exact') {
             setState(() {
-              totalPaid += widget.billAmount;
-              customAmountString = widget.billAmount.toString();
+              totalPaid = widget.billAmount - discountAmount;
+              customAmountString = (widget.billAmount - discountAmount).toString();
             });
           }
         },
@@ -1847,7 +1985,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
-                    height: MediaQuery.of(context).size.height * .38,
+                    height: MediaQuery.of(context).size.height * .50,
                     width: MediaQuery.of(context).size.width * .30,
                     child: GridView.count(
                       crossAxisCount: 3,
@@ -1944,8 +2082,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     onTap: () {
                       final parsed = double.tryParse(input);
                       if (parsed != null && parsed > 0) {
+                        print(parsed);
                         setState(() {
-                          totalPaid += parsed;
+                          totalPaid = parsed;
                           customAmountString = parsed.toString();
                         });
                         Navigator.of(context).pop();
