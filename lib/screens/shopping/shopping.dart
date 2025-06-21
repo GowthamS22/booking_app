@@ -460,7 +460,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
           bookings: [],
           membershipID: '',
           membershipName: '',
-          isMembershipApplied: false
+          isMembershipApplied: false,
+          membershipPrice: 0.0,
       )),
     ).then((_) {
       // After returning from checkout

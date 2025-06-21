@@ -30,6 +30,7 @@ class CheckoutScreen extends StatefulWidget {
   final String membershipID;
   final String? membershipName;
   final bool? isMembershipApplied;
+  final double? membershipPrice;
   CheckoutScreen({
     Key? key,
     required this.type,
@@ -41,6 +42,7 @@ class CheckoutScreen extends StatefulWidget {
     required this.membershipID,
     required this.membershipName,
     required this.isMembershipApplied,
+    required this.membershipPrice,
   }) : super(key: key);
 
   @override
@@ -62,15 +64,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   TextEditingController balanceAmountController = TextEditingController();
 
   // String? _selectedPaymentType = 'Credit Card';
+  bool receiptToggle = true;
   Map<String, List<BookingInfo>> groupedBookings = {};
   double totalPaid = 0.0;
   String customAmountString = '';
-  final List<String> paymentMethods = [
-    'CASH',
-    'EFTPOS',
-    'On Account/Void',
-    // 'MIXED',
+  // final List<String> paymentMethods = [
+  //   'CASH',
+  //   'EFTPOS',
+  //   'On Account/Void',
+  //   // 'MIXED',
+  // ];
+  String selected = 'EPTPOS';
+  String selectedAmount = '';
+  final List<Map<String, dynamic>> paymentMethods = [
+    {'label': 'EFTPOS', 'image': 'assets/images/pic/EFTPOS.png'},
+    {'label': 'On Acc. / Void', 'image': 'assets/images/pic/account.png'},
+    {'label': 'Cash', 'image': 'assets/images/pic/cash.png'},
   ];
+
   String selectedMethod = 'CASH';
 
   void _addPayment(double amount) {
@@ -79,15 +90,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
-  List<List<String>> keys = [
-    ['1', '2', '3'],
-    ['4', '5', '6'],
-    ['7', '8', '9'],
-    ['.', '0', '⌫'],
+  List<String> keys = [
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
+    '.',
+    '0',
+    '⌫',
   ];
 
   List<CartItem> cartItems = []; // Add this line
-
 
   @override
   void initState() {
@@ -119,8 +137,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     await prefs.remove('shopping_cart');
   }
 
+  Color? borderColor;
+  Color? backgroundColor;
+  Color? textColor;
   @override
   Widget build(BuildContext context) {
+    if (widget.membershipName.toString().toLowerCase().contains('gold')) {
+      borderColor = Colors.amber.shade500;
+      backgroundColor = Colors.amber.shade50;
+      textColor = Colors.amber.shade800;
+    } else if (widget.membershipName.toString().toLowerCase().contains(
+      'platinum',
+    )) {
+      borderColor = Colors.indigo.shade500;
+      backgroundColor = Colors.indigo.shade50;
+      textColor = Colors.indigo.shade700;
+    }
     return GetBuilder(
       init: CheckoutController(),
       builder: (controller) {
@@ -135,7 +167,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(10)
+                borderRadius: BorderRadius.circular(10),
               ),
               padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               margin: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
@@ -168,7 +200,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Text(
                         'Payment',
                         style: GoogleFonts.inter(
-                          fontSize: 18,
+                          fontSize: 25,
                           fontWeight: FontWeight.w700,
                           color: Colors.black,
                         ),
@@ -176,7 +208,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Text(
                         'Create new booking based on selected courts',
                         style: GoogleFonts.inter(
-                          fontSize: 14,
+                          fontSize: 20,
                           fontWeight: FontWeight.w400,
                           color: Colors.grey.shade500,
                         ),
@@ -198,13 +230,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     child: Row(
                       spacing: 10,
                       children: [
-                        Icon(LucideIcons.layoutDashboard),
+                        Icon(LucideIcons.layoutDashboard, size: 40),
                         Text(
                           'Dashboard',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w500,
                             color: Colors.grey.shade900,
-                            fontSize: 16,
+                            fontSize: 25,
                           ),
                         ),
                       ],
@@ -222,9 +254,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 //Divider(color: Colors.grey.shade300, thickness: 1),
                 Container(
                   decoration: BoxDecoration(
-                      //color: Colors.white,
-                      //border: Border.all(color: Colors.grey.shade300),
-                      //borderRadius: BorderRadius.circular(10)
+                    //color: Colors.white,
+                    //border: Border.all(color: Colors.grey.shade300),
+                    //borderRadius: BorderRadius.circular(10)
                   ),
                   //margin: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                   //padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
@@ -258,10 +290,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     for (final bookingInfo in bookings) {
       final courtId =
-          newBookingController.courtList.firstWhere(
+      newBookingController.courtList.firstWhere(
             (court) => court['name'] == bookingInfo.courtName,
-            orElse: () => {},
-          )['id']; // Find the court ID based on the name
+        orElse: () => {},
+      )['id']; // Find the court ID based on the name
 
       if (courtId == null) {
         print('Warning: Could not find court ID for ${bookingInfo.courtName}');
@@ -338,7 +370,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'Customer Info',
                       style: GoogleFonts.inter(
                         color: Palette.black,
-                        fontSize: 14,
+                        fontSize: 25,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -351,41 +383,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Text(
-                                  widget.customerName,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                if (widget.isMembershipApplied == true) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: Colors.amber.shade500,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      widget.membershipName ?? '',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.amber.shade800,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
+                            Text(
+                              widget.customerName,
+                              style: GoogleFonts.inter(
+                                fontSize: 23,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
+                            const SizedBox(width: 6),
                             const SizedBox(height: 4),
                             Text(
                               widget.mobileno,
@@ -423,51 +428,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
-                    Divider(thickness: 1, color: Colors.grey.shade300),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        spacing: 35,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Item',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          Text(
-                            'Qty.',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-
-                          Text(
-                            'Price',
-                            style: GoogleFonts.inter(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
+                    const SizedBox(height: 10),
                     Divider(thickness: 1, color: Colors.grey.shade300),
 
                     // Court Info
@@ -495,7 +456,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               // Time Slots for this Court
                               ...courtBookings.map((booking) {
                                 return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                  CrossAxisAlignment.start,
                                   children: [
                                     // Display individual sub-slots
                                     ...booking.subSlots.map((subSlot) {
@@ -525,7 +487,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 fontSize: 13,
                                                 color:
                                                 subSlot.isPeak
-                                                    ? Colors.orange.shade700
+                                                    ? Colors
+                                                    .orange
+                                                    .shade700
                                                     : Colors
                                                     .grey
                                                     .shade600, // Adjust color as needed
@@ -552,15 +516,61 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         );
                       }).toList(),
                     ),
+                    if (widget.isMembershipApplied == true) ...[
+                      Container(
+                        width: MediaQuery.of(context).size.width / 2.5,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: backgroundColor,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: borderColor!),
+                        ),
 
-                    // Display cart items if they exist
-                    if (cartItems.isNotEmpty) ...[
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${widget.membershipName} Membership' ?? '',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
 
-                      ...cartItems.map((item) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
-                            spacing: 30,
+                            Text(
+                              '\$ ${widget.membershipPrice!.toStringAsFixed(2)}' ??
+                                  '',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: 8),
+                    Container(
+                      width: MediaQuery.of(context).size.width / 2.5,
+                      height: MediaQuery.of(context).size.height / 1.5,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 20,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            spacing: 35,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(
@@ -568,7 +578,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      item.product.name,
+                                      'Item',
                                       style: GoogleFonts.inter(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w500,
@@ -576,22 +586,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    // if (item.product.description != null && item.product.description!.isNotEmpty)
-                                    //   Text(
-                                    //     item.product.description!,
-                                    //     style: GoogleFonts.inter(
-                                    //       fontSize: 12,
-                                    //       color: Colors.grey.shade600,
-                                    //     ),
-                                    //     maxLines: 1,
-                                    //     overflow: TextOverflow.ellipsis,
-                                    //   ),
                                   ],
                                 ),
                               ),
 
                               Text(
-                                'x${item.quantity}',
+                                'Qty.',
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -599,7 +599,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
 
                               Text(
-                                '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
+                                'Price',
                                 style: GoogleFonts.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -607,54 +607,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ],
                           ),
-                        );
-                      }).toList(),
 
-                      // const SizedBox(height: 16),
-                      // Divider(thickness: 1, color: Colors.grey.shade300),
-                    ],
+                          Divider(thickness: 1, color: Colors.grey.shade300),
 
-                    // // Cart Items
-                    // ...[
-                    //   ['Yung Corck', '12', '25.00'],
-                    //   ['Energy Drink', '12', '25.00'],
-                    //   ['Protein Bar', '24', '45.00'],
-                    //   ['Vegan Snack Mix', '12', '30.00'],
-                    //   ['Herbal Tea', '20', '20.00'],
-                    //   ['Electrolyte Powder', '10', '15.00'],
-                    //   ['Organic Nut Butter', '8', '40.00'],
-                    //   ['Chia Seed Pudding', '12', '18.00'],
-                    // ].map((item) {
-                    //   return Padding(
-                    //     padding: const EdgeInsets.symmetric(vertical: 4),
-                    //     child: Row(
-                    //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    //       children: [
-                    //         Text(item[0], style: GoogleFonts.inter(fontSize: 14)),
-                    //         Row(
-                    //           children: [
-                    //             Text(
-                    //               'x${item[1]}',
-                    //               style: GoogleFonts.inter(
-                    //                 fontSize: 14,
-                    //                 fontWeight: FontWeight.w600,
-                    //               ),
-                    //             ),
-                    //             const SizedBox(width: 12),
-                    //             Text(
-                    //               '\$${item[2]}',
-                    //               style: GoogleFonts.inter(
-                    //                 fontSize: 14,
-                    //                 fontWeight: FontWeight.w500,
-                    //               ),
-                    //             ),
-                    //           ],
-                    //         ),
-                    //       ],
-                    //     ),
-                    //   );
-                    // }).toList(),
+                          // Display cart items if they exist
+                          if (cartItems.isNotEmpty) ...[
+                            ...cartItems.map((item) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  spacing: 30,
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.product.name,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          // if (item.product.description != null && item.product.description!.isNotEmpty)
+                                          //   Text(
+                                          //     item.product.description!,
+                                          //     style: GoogleFonts.inter(
+                                          //       fontSize: 12,
+                                          //       color: Colors.grey.shade600,
+                                          //     ),
+                                          //     maxLines: 1,
+                                          //     overflow: TextOverflow.ellipsis,
+                                          //   ),
+                                        ],
+                                      ),
+                                    ),
 
+                                    Text(
+                                      'x${item.quantity}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+
+                                    Text(
+                                      '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+
+                            // const SizedBox(height: 16),
+                            // Divider(thickness: 1, color: Colors.grey.shade300),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -732,9 +753,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   buildCheckout(
-    NewBookingController controller,
-    CheckoutController checkoutController,
-  ) {
+      NewBookingController controller,
+      CheckoutController checkoutController,
+      ) {
     if (paidAmountController.text.length > 0) {
       double paid = double.parse(paidAmountController.text);
       if (paid > 0) {
@@ -747,66 +768,333 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     return Expanded(
       flex: 3,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: ListView(
-          scrollDirection: Axis.vertical,
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          children: [
-            Column(
-              children: [
-                _buildAmountSummary(checkoutController),
-                SizedBox(height: 30),
-                Container(
-                  width: MediaQuery.of(context).size.width / 10.0,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade500),
-                    borderRadius: BorderRadius.circular(6),
-                    color: Colors.white,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.edit3),
+      child: ListView(
+        scrollDirection: Axis.vertical,
+        shrinkWrap: true,
+        physics: NeverScrollableScrollPhysics(),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: MediaQuery.of(context).size.height * 0.13,
+                margin: const EdgeInsets.only(
+                  // left: 15,
+                  bottom: 10,
+                  top: 10,
+                  right: 15,
+                ),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300, width: 2),
+                ),
+                child: _buildAmountSummary(checkoutController),
+              ),
+              // SizedBox(height: ),
+              // Container(
+              //   margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: BoxDecoration(
+              //     color: Colors.white,
+              //     borderRadius: BorderRadius.circular(12),
+              //     border: Border.all(color: Colors.grey.shade300),
+              //   ),
+              //   child: Row(
+              //     children: [
+              //       Icon(LucideIcons.edit3),
 
-                      SizedBox(width: 20),
-                      Text(
-                        'Notes',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade900,
-                          fontSize: 16,
+              //       SizedBox(width: 20),
+              //       Text(
+              //         'Notes',
+              //         style: GoogleFonts.inter(
+              //           fontWeight: FontWeight.w500,
+              //           color: Colors.grey.shade900,
+              //           fontSize: 16,
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
+              // SizedBox(height: 20),
+              // Container(
+              //   height: MediaQuery.of(context).size.height * 0.09,
+              //   margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: BoxDecoration(
+              //     color: Colors.white,
+              //     borderRadius: BorderRadius.circular(12),
+              //     border: Border.all(color: Colors.grey.shade300, width: 2),
+              //   ),
+              //   child: _buildPaymentOptions(),
+              // ),
+              Container(
+                height: MediaQuery.of(context).size.height * 0.13,
+
+                margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300, width: 2),
+                ),
+                child: Row(
+                  children:
+                  paymentMethods.map((method) {
+                    final isSelected = selectedMethod == method['label'];
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (method['label'] == 'EFTPOS') {
+                            totalPaid = widget.billAmount;
+                            customAmountString =
+                                widget.billAmount.toString();
+                            setState(() {
+                              selectedMethod = method['label'];
+                            });
+                          } else if (method['label'] == 'Cash') {
+                            totalPaid = 0.0;
+                            customAmountString = '';
+                            setState(() {
+                              selectedMethod = method['label'];
+                            });
+                          } else {
+                            setState(() {
+                              selectedMethod = method['label'];
+                            });
+                          }
+                          // setState(() {
+
+                          //   selected = method['label'];
+                          // });
+                        },
+                        child: Container(
+                          height: MediaQuery.of(context).size.height * 0.10,
+                          width: MediaQuery.of(context).size.width * 0.10,
+                          margin: const EdgeInsets.symmetric(horizontal: 5),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color:
+                            isSelected
+                                ? const Color(0xFFF0F4FF)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color:
+                              isSelected
+                                  ? const Color(0xFF6366F1)
+                                  : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Image.asset(
+                                method['image'],
+                                width:
+                                MediaQuery.of(context).size.width / 2,
+                                height:
+                                MediaQuery.of(context).size.height *
+                                    .05,
+                                color:
+                                isSelected
+                                    ? Colors.indigo.shade500
+                                    : Colors.grey.shade600,
+                              ),
+                              // const SizedBox(height: 10),
+                              Text(
+                                method['label'],
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 25,
+                                  color:
+                                  isSelected
+                                      ? Colors.indigo.shade500
+                                      : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 ),
-                SizedBox(height: 20),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width / 2.2,
-
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Payment Methods
-                      _buildPaymentOptions(),
-                      if (selectedMethod == 'CASH') ...[
-                        SizedBox(height: 10),
-                        _buildCashButtons(),
-                      ],
-                    ],
-                  ),
-                ),
+              ),
+              if (selectedMethod == 'EFTPOS') ...[
                 SizedBox(height: 10),
-                Row(
+                Obx(() {
+                  final controller = Get.find<CheckoutController>();
+                  return Column(
+                    children: [
+                      if (controller.isProcessingPayment.value)
+                        CircularProgressIndicator(),
+                      if (controller.paymentStatus.value.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            controller.paymentStatus.value,
+                            style: GoogleFonts.inter(
+                              fontSize: 25,
+                              color:
+                              controller.paymentStatus.value.contains(
+                                'failed',
+                              )
+                                  ? Colors.red
+                                  : Colors.green,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }),
+              ],
+
+              // Payment Methods
+              if (selectedMethod == 'Cash') ...[
+                SizedBox(height: 10),
+                _buildAmountSelector(),
+              ],
+
+              Container(
+                margin: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300, width: 2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    // Discount Notes Input
+                    TextField(
+                      enabled: false,
+                      decoration: InputDecoration(
+                        hintText: "Discount Notes",
+                        hintStyle: GoogleFonts.inter(
+                          color: Colors.grey.shade400,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 18,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Buttons Row
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          // Discount Applied
+                          Expanded(
+                            child: Container(
+                              height: MediaQuery.of(context).size.height * .05,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F4FF),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '\$15 Discount Applied',
+                                style: GoogleFonts.inter(
+                                  color: Colors.indigo.shade500,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 25,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Remove Discount
+                          Expanded(
+                            child: Container(
+                              height: MediaQuery.of(context).size.height * .05,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Remove Discount',
+                                style: GoogleFonts.inter(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 25,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+
+                          // Receipt Toggle
+                          Expanded(
+                            child: Container(
+                              height: MediaQuery.of(context).size.height * .05,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey.shade300,
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Receipt',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 25,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: receiptToggle,
+                                    activeColor: const Color(0xFF6366F1),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        receiptToggle = value;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 50),
+              //Spacer(),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
                   children: [
                     Expanded(
                       child: ElevatedButton(
@@ -820,6 +1108,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 44),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
@@ -830,7 +1119,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           'Cancel',
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                            fontSize: 25,
                             color: Colors.grey.shade500,
                           ),
                         ),
@@ -847,32 +1136,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ? null
                               : () async {
                             if (totalPaid > 0) {
-                              if (double.parse(balanceAmountController.text,) <=0) {
+                              if (double.parse(
+                                balanceAmountController.text,
+                              ) <=
+                                  0) {
                                 setState(() {
-                                  checkoutController.checkoutPayBtn.value = true;
+                                  checkoutController
+                                      .checkoutPayBtn
+                                      .value = true;
                                 });
 
                                 try {
-                                  if (selectedMethod == 'EFTPOS') {
-                                    try {
-                                      // await paymentController.processPayment(
-                                      //   context: context,
-                                      //   amount: 100,
-                                      //   reference: 'orderId',
-                                      //   apiKey: 'YOUR_TYRO_API_KEY', // Get from secure storage
-                                      //   merchantId: 'YOUR_MERCHANT_ID',
-                                      //   terminalId: 'YOUR_TERMINAL_ID',
-                                      //   integrationKey: 'YOUR_INTEGRATION_KEY',
-                                      // );
-                                      //
-                                      // if (paymentController.paymentStatus.value == 'Payment successful') {
-                                      //   Get.snackbar('Success', 'Payment processed successfully',backgroundColor: Colors.green);
-                                      //   Get.offAllNamed('/order-confirmation');
-                                      // }
-                                    } catch (e) {
-                                      Get.snackbar('Error', paymentController.paymentError.value,backgroundColor: Colors.red);
-                                    }
-                                  }
+                                  // if (selectedMethod == 'EFTPOS') {
+                                  //   try {
+                                  //     await paymentController
+                                  //         .processPayment(
+                                  //       context: context,
+                                  //       amount: 100,
+                                  //       reference: 'orderId',
+                                  //       apiKey:
+                                  //       'YOUR_TYRO_API_KEY', // Get from secure storage
+                                  //       merchantId:
+                                  //       'YOUR_MERCHANT_ID',
+                                  //       terminalId:
+                                  //       'YOUR_TERMINAL_ID',
+                                  //       integrationKey:
+                                  //       'YOUR_INTEGRATION_KEY',
+                                  //     );
+                                  //
+                                  //     if (paymentController
+                                  //         .paymentStatus
+                                  //         .value ==
+                                  //         'Payment successful') {
+                                  //       Get.snackbar(
+                                  //         'Success',
+                                  //         'Payment processed successfully',
+                                  //         backgroundColor: Colors.green,
+                                  //       );
+                                  //       Get.offAllNamed(
+                                  //         '/order-confirmation',
+                                  //       );
+                                  //     }
+                                  //   } catch (e) {
+                                  //     Get.snackbar(
+                                  //       'Error',
+                                  //       paymentController
+                                  //           .paymentError
+                                  //           .value,
+                                  //       backgroundColor: Colors.red,
+                                  //     );
+                                  //   }
+                                  // }
 
                                   // Continue with existing payment processing
                                   if (widget.type == 'Membership') {
@@ -884,7 +1198,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       customerController
                                           .selectedPlan[0]['userMembershipId'],
                                       paymentType: selectedMethod,
-                                      promoCode: promoCodeController.text,
+                                      promoCode:
+                                      promoCodeController.text,
                                       notes: notesController.text,
                                       total: double.parse(
                                         customerController
@@ -919,7 +1234,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       notes: notesController.text,
                                       paid: totalPaid,
                                       balance: double.parse(
-                                        balanceAmountController.text,
+                                        balanceAmountController
+                                            .text,
                                       ),
                                     );
                                   } else if (widget.type == 'New') {
@@ -951,7 +1267,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             .mobile,
                                         paymentType: selectedMethod,
                                         promoCode:
-                                        promoCodeController.text,
+                                        promoCodeController
+                                            .text,
                                         notes: notesController.text,
                                         paid: totalPaid,
                                         balance: double.parse(
@@ -1020,12 +1337,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           widget
                                               .isMembershipApplied,
                                           membershipId:
-                                          widget.membershipID,
+                                          widget
+                                              .membershipID,
                                         );
                                       });
                                     }
                                   } else if (widget.type == 'Product') {
-
                                     final prefs                                   = await SharedPreferences.getInstance();
                                     String? paymentDevices                        = prefs.getString('paymentDevices');
                                     final Map<String, dynamic> paymentDeviceData  = jsonDecode(paymentDevices!);
@@ -1036,16 +1353,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       if(selectedMethod=='EFTPOS') {
                                         try {
                                           await paymentController.processPayment(
-                                            context: context,
-                                            amount: total,
-                                            reference: orderId,
-                                            apiKey: paymentDeviceData['api_key'], // Get from secure storage
-                                            merchantId: paymentDeviceData['merchant_id'],
-                                            terminalId: paymentDeviceData['terminal_id'],
-                                            integrationKey: paymentDeviceData['integration_key'],
-                                            posProductVendor: paymentDeviceData['product_vendor'],
-                                            posProductName: paymentDeviceData['product_name'],
-                                            posProductVersion: paymentDeviceData['product_version']
+                                              context: context,
+                                              amount: total,
+                                              reference: orderId,
+                                              apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                              merchantId: paymentDeviceData['merchant_id'],
+                                              terminalId: paymentDeviceData['terminal_id'],
+                                              integrationKey: paymentDeviceData['integration_key'],
+                                              posProductVendor: paymentDeviceData['product_vendor'],
+                                              posProductName: paymentDeviceData['product_name'],
+                                              posProductVersion: paymentDeviceData['product_version']
                                           ).then((value) {
                                             checkoutController.productsPayment(
                                               order_id: orderId,
@@ -1085,7 +1402,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         );
                                       }
                                     },);
-
                                   }
                                 } catch (e) {
                                   showCustomSnackbar(
@@ -1116,6 +1432,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 44),
                             backgroundColor: Colors.green.shade500,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -1136,7 +1453,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             'Pay Now',
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                              fontSize: 25,
                               color: Colors.white,
                             ),
                           ),
@@ -1145,16 +1462,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ],
                 ),
-
-                // Container(
-                //   width: MediaQuery.of(context).size.width / 2.2,
-                //   child: _payBtn,
-                // ),
-                SizedBox(height: 10),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1162,23 +1473,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _buildAmountSummary(CheckoutController checkoutController) {
     // Calculate total from cart items
 
-    final double cartTotal = cartItems.fold(0, (sum, item) => sum + (double.tryParse(item.product.price) ?? 0) * item.quantity);
+    final double cartTotal = cartItems.fold(
+      0,
+          (sum, item) =>
+      sum + (double.tryParse(item.product.price) ?? 0) * item.quantity,
+    );
 
     final double billAmount = widget.billAmount;
     final double totalPaid = this.totalPaid;
     final double balance = billAmount - totalPaid;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        _amountColumn('Bill Amount', billAmount),
-
-        _amountColumn('Total Paid', totalPaid),
-
-        _amountColumn('Balance', balance, isBalance: true),
-      ],
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _amountColumn('Bill Amount', billAmount),
+          _divider(),
+          _amountColumn('Total Paid', totalPaid),
+          _divider(),
+          _amountColumn('Balance', balance, isBalance: true),
+        ],
+      ),
     );
   }
+
+  Widget _divider() => Container(
+    width: 2,
+    height: MediaQuery.of(context).size.height * .13,
+    color: Colors.grey.shade300,
+  );
 
   Widget _amountColumn(String label, double amount, {bool isBalance = false}) {
     return Column(
@@ -1186,118 +1511,171 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Text(
           label,
           style: GoogleFonts.inter(
-            color: Colors.black,
+            color: Colors.grey.shade500,
             fontWeight: FontWeight.w600,
-            fontSize: 16,
+            fontSize: 25,
           ),
         ),
         SizedBox(height: 4),
         Text(
           '${amount.abs().toStringAsFixed(2)}',
           style: GoogleFonts.inter(
-            fontSize: 30,
+            fontSize: 40,
             fontWeight: FontWeight.w700,
-            color: isBalance && amount != 0 ? Colors.red : Colors.black,
+            color:
+            isBalance && amount != 0
+                ? Colors.indigo.shade500
+                : Colors.black,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPaymentOptions() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children:
-              paymentMethods.map((method) {
-                final isSelected = selectedMethod == method;
-                return ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        isSelected ? Colors.white : Colors.grey[100],
-                    side: BorderSide(
-                      color:
-                          isSelected
-                              ? Colors.indigo.shade500
-                              : Colors.grey.shade400,
-                    ),
-                    minimumSize: Size(50, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(color: Colors.grey.shade400, width: 1),
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (method == 'EFTPOS') {
-                      // Set the values first
-                      totalPaid = widget.billAmount;
-                      customAmountString = widget.billAmount.toString();
-                      // Then update the state
-                      setState(() {
-                        selectedMethod = method;
-                      });
-                    } else if (method == 'CASH') {
-                      // Set the values first
-                      totalPaid = 0.0;
-                      customAmountString = '';
-                      // Then update the state
-                      setState(() {
-                        selectedMethod = method;
-                      });
-                    } else {
-                      setState(() {
-                        selectedMethod = method;
-                      });
-                    }
-                  },
-                  child: Text(
-                    method,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w600,
-                      color:
-                          isSelected
-                              ? Colors.indigo.shade500
-                              : Colors.grey.shade400,
-                    ),
-                  ),
-                );
-              }).toList(),
+  // Widget _buildPaymentOptions() {
+  //   return Column(
+  //     children: [
+  //       Row(
+  //         crossAxisAlignment: CrossAxisAlignment.center,
+  //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //         children:
+  //             paymentMethods.map((method) {
+  //               final isSelected = selectedMethod == method;
+  //               return Container(
+  //                 height: MediaQuery.of(context).size.height * 0.07,
+  //                 width: MediaQuery.of(context).size.width * 0.08,
+  //                 color: Colors.amber,
+  //               );
+  //             }).toList(),
+  //       ),
+  //       if (selectedMethod == 'EFTPOS') ...[
+  //         SizedBox(height: 20),
+  //         Obx(() {
+  //           final controller = Get.find<CheckoutController>();
+  //           return Column(
+  //             children: [
+  //               if (controller.isProcessingPayment.value)
+  //                 CircularProgressIndicator(),
+  //               if (controller.paymentStatus.value.isNotEmpty)
+  //                 Padding(
+  //                   padding: const EdgeInsets.symmetric(vertical: 8.0),
+  //                   child: Text(
+  //                     controller.paymentStatus.value,
+  //                     style: GoogleFonts.inter(
+  //                       fontSize: 14,
+  //                       color:
+  //                           controller.paymentStatus.value.contains('failed')
+  //                               ? Colors.red
+  //                               : Colors.green,
+  //                     ),
+  //                   ),
+  //                 ),
+  //             ],
+  //           );
+  //         }),
+  //       ],
+  //     ],
+  //   );
+  // }
+  Widget _buildAmountSelector() {
+    final List<String> row1 = ['\$10', '\$20', '\$50'];
+    final List<String> row2 = ['\$100', 'Exact', 'Custom'];
+
+    Widget buildAmountButton(String amount) {
+      final bool isSelected = amount == selectedAmount;
+
+      return GestureDetector(
+        onTap: () async {
+          setState(() {
+            selectedAmount = amount;
+          });
+
+          // Safely parse numeric values
+          if (amount.startsWith('\$')) {
+            final parsed = double.tryParse(amount.replaceAll('\$', ''));
+            if (parsed != null) {
+              _addPayment(parsed); // Your custom function
+            }
+          } else if (amount == 'Custom') {
+            await _showCustomAmountDialog();
+          } else if (amount == 'Exact') {
+            setState(() {
+              totalPaid += widget.billAmount;
+              customAmountString = widget.billAmount.toString();
+            });
+          }
+        },
+        child: Container(
+          width: MediaQuery.of(context).size.width / 5.7,
+          height: MediaQuery.of(context).size.height * .08,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFF0F4FF) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color:
+              isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Text(
+            amount,
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.indigo.shade500 : Colors.grey.shade700,
+              fontSize: 25,
+            ),
+          ),
         ),
-        if (selectedMethod == 'EFTPOS') ...[
-          SizedBox(height: 20),
-          Obx(() {
-            final controller = Get.find<CheckoutController>();
-            return Column(
-              children: [
-                if (controller.isProcessingPayment.value)
-                  CircularProgressIndicator(),
-                if (controller.paymentStatus.value.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Text(
-                      controller.paymentStatus.value,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color:
-                            controller.paymentStatus.value.contains('failed')
-                                ? Colors.red
-                                : Colors.green,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          }),
-        ],
-      ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300, width: 2),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children:
+              row1
+                  .map(
+                    (amount) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: buildAmountButton(amount),
+                ),
+              )
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children:
+              row2
+                  .map(
+                    (amount) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: buildAmountButton(amount),
+                ),
+              )
+                  .toList(),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildCashButtons() {
-    final cashAmounts = [5, 10, 20, 50, 100];
+    final cashAmounts = ['\$10', '\$20', '\$50', '\$100', 'Exact', 'Custom'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -1306,21 +1684,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             ...cashAmounts.map(
-              (amt) => ElevatedButton(
-                onPressed: () => _addPayment(amt.toDouble()),
+                  (amt) => ElevatedButton(
+                onPressed: () => _addPayment(double.parse(amt)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   minimumSize: Size(50, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: Colors.grey.shade300, width: 1),
+                    side: BorderSide(color: Colors.grey.shade300, width: 2),
                   ),
                 ),
                 child: Text(
                   '\$$amt',
                   style: GoogleFonts.inter(
                     color: Colors.grey.shade800,
-                    fontSize: 14,
+                    fontSize: 25,
                     fontWeight: FontWeight.w400,
                   ),
                 ),
@@ -1344,77 +1722,250 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'Custom',
                 style: GoogleFonts.inter(
                   color: Colors.grey.shade800,
-                  fontSize: 14,
+                  fontSize: 25,
                   fontWeight: FontWeight.w400,
                 ),
               ),
             ),
           ],
         ),
-        SizedBox(height: 16),
-        ...keys.map((row) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children:
-                  row.map((key) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (key == '⌫') {
-                              if (customAmountString.isNotEmpty) {
-                                customAmountString = customAmountString
-                                    .substring(
-                                      0,
-                                      customAmountString.length - 1,
-                                    );
-                              }
-                            } else if (key == '.') {
-                              if (!customAmountString.contains('.')) {
-                                customAmountString += '.';
-                              }
-                            } else {
-                              if (customAmountString == '0') {
-                                customAmountString = key; // replace initial 0
-                              } else {
-                                customAmountString += key;
-                              }
-                            }
 
-                            totalPaid =
-                                double.tryParse(customAmountString) ?? 0.0;
-                          });
-                        },
-                        child: Container(
-                          width: 100,
-                          height: 60,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
-                            borderRadius: BorderRadius.circular(10),
-                            color: Colors.white,
-                          ),
-                          child:
-                              key == '⌫'
-                                  ? const Icon(Icons.backspace_outlined)
-                                  : Text(
-                                    key,
-                                    style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-            ),
-          );
-        }).toList(),
+        // SizedBox(height: 16),
+        // ...keys.map((key) {
+        //   return Padding(
+        //     padding: const EdgeInsets.symmetric(vertical: 4),
+        //     child: GestureDetector(
+        //       onTap: () {
+        //         setState(() {
+        //           if (key == '⌫') {
+        //             if (customAmountString.isNotEmpty) {
+        //               customAmountString = customAmountString
+        //                   .substring(
+        //                     0,
+        //                     customAmountString.length - 1,
+        //                   );
+        //             }
+        //           } else if (key == '.') {
+        //             if (!customAmountString.contains('.')) {
+        //               customAmountString += '.';
+        //             }
+        //           } else {
+        //             if (customAmountString == '0') {
+        //               customAmountString = key; // replace initial 0
+        //             } else {
+        //               customAmountString += key;
+        //             }
+        //           }
+
+        //           totalPaid =
+        //               double.tryParse(customAmountString) ?? 0.0;
+        //         });
+        //       },
+        //       child: Container(
+        //         width: 100,
+        //         height: 60,
+        //         alignment: Alignment.center,
+        //         decoration: BoxDecoration(
+        //           border: Border.all(color: Colors.grey.shade300),
+        //           borderRadius: BorderRadius.circular(10),
+        //           color: Colors.white,
+        //         ),
+        //         child:
+        //             key == '⌫'
+        //                 ? const Icon(Icons.backspace_outlined)
+        //                 : Text(
+        //                   key,
+        //                   style: GoogleFonts.inter(
+        //                     fontSize: 24,
+        //                     fontWeight: FontWeight.w500,
+        //                   ),
+        //                 ),
+        //       ),
+        //     ),
+        //   );
+        // }).toList(),
       ],
+    );
+  }
+
+  Future<void> _showCustomAmountDialog() async {
+    String input = '';
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            void onKeyTap(String key) {
+              setState(() {
+                if (key == '⌫') {
+                  if (input.isNotEmpty) {
+                    input = input.substring(0, input.length - 1);
+                  }
+                } else if (key == '.') {
+                  if (!input.contains('.')) {
+                    input += '.';
+                  }
+                } else {
+                  if (input == '0') {
+                    input = key;
+                  } else {
+                    input += key;
+                  }
+                }
+              });
+            }
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              title: Text(
+                'Enter Amount',
+                style: GoogleFonts.inter(
+                  color: Colors.grey.shade700,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: MediaQuery.of(context).size.height * .05,
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.grey.shade100,
+                    ),
+                    child: Text(
+                      input.isEmpty ? '0' : input,
+                      style: GoogleFonts.inter(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * .38,
+                    width: MediaQuery.of(context).size.width * .30,
+                    child: GridView.count(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.5,
+                      physics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        ...[
+                          '1',
+                          '2',
+                          '3',
+                          '4',
+                          '5',
+                          '6',
+                          '7',
+                          '8',
+                          '9',
+                          '.',
+                          '0',
+                          '⌫',
+                        ].map(
+                              (key) => SizedBox(
+                            height: MediaQuery.of(context).size.height / 2,
+                            child: ElevatedButton(
+                              onPressed: () => onKeyTap(key),
+                              style: ElevatedButton.styleFrom(
+                                padding: EdgeInsets.zero,
+                                backgroundColor: Colors.grey[200],
+                                foregroundColor: Colors.black,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              child:
+                              key == '⌫'
+                                  ? const Icon(
+                                Icons.backspace_outlined,
+                                size: 25,
+                              )
+                                  : Text(
+                                key,
+                                style: GoogleFonts.inter(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 90,
+                    vertical: 15,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text(
+                      'Cancel',
+                      style: GoogleFonts.inter(
+                        fontSize: 28,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 100,
+                    vertical: 15,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade500,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: GestureDetector(
+                    onTap: () {
+                      final parsed = double.tryParse(input);
+                      if (parsed != null && parsed > 0) {
+                        setState(() {
+                          totalPaid += parsed;
+                          customAmountString = parsed.toString();
+                        });
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    child: Text(
+                      'Ok',
+                      style: GoogleFonts.inter(
+                        fontSize: 28,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
