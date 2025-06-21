@@ -45,7 +45,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
           ),
           hoverColor: Colors.transparent,
         ),
-        extendedTheme: const SidebarXTheme(width: 100),
+        extendedTheme: const SidebarXTheme(width: 120),
         toggleButtonBuilder: (context, extended) {
           return const SizedBox.shrink();
         },

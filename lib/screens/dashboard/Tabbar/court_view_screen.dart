@@ -185,7 +185,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       "Court Availability",
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         color: Colors.black,
                         fontWeight: FontWeight.w700,
                       ),
@@ -196,7 +196,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       Text(
                         " - ${DateFormat('MMM d, yyyy EEEE').format(selectedDateTime!)}",
                         style: GoogleFonts.inter(
-                          fontSize: 16,
+                          fontSize: 25,
                           color: Colors.indigo.shade500,
                           fontWeight: FontWeight.w700,
                         ),
@@ -206,7 +206,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 Text(
                   "View and manage court bookings",
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 22,
                     color: Colors.grey.shade500,
                     fontWeight: FontWeight.w400,
                   ),
@@ -223,13 +223,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 });
               },
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                // padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Icon(Icons.date_range_sharp, size: 28),
+                child: Icon(Icons.date_range_sharp, size: 35),
               ),
             ),
             const SizedBox(width: 15),
@@ -246,6 +247,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               ? null
                               : () async {
                                 if (!isSelected) {
+                                  // Clear previous selections when switching category
+                                  controller.clearSelectedSlots();
+                                  selectedSlots.clear();
+                                  setState(() {}); // Update UI
+
                                   final selectedItem = item;
                                   if (selectedItem['is_available']) {
                                     try {
@@ -270,8 +276,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 }
                               },
                       child: Container(
-                        margin: EdgeInsets.only(right: 8),
-                        padding: EdgeInsets.all(8),
+                        margin: EdgeInsets.only(right: 12),
+                        padding: EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color:
                               isSelected
@@ -283,8 +289,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           item['name'] == 'Badminton'
                               ? 'assets/images/icons/badminton.png'
                               : 'assets/images/icons/tennis.png',
-                          width: 28,
-                          height: 28,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.fill,
                           color: isSelected ? Colors.white : Colors.grey,
                         ),
                       ),
@@ -317,7 +324,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       for (final group in slotGroups) {
                         group.sort();
                         final start = group.first;
-                        final end = calculateEndTime(group.last);
+                        final lastSlotData = slotInfoMap[group.last];
+                        final end =
+                            lastSlotData != null
+                                ? calculateEndTime(group.last)
+                                : calculateEndTime(
+                                  group.last,
+                                ); // fallback, but ideally use slotInfoMap
                         List<BookingSubSlotInfo> subSlots = [];
                         for (String slot in group) {
                           final slotData = slotInfoMap[slot];
@@ -372,7 +385,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   child: Text(
                     'Book Now',
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: 25,
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
@@ -398,7 +411,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   child: Text(
                     'Clear Selection',
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: 25,
                       color: Colors.grey,
                       fontWeight: FontWeight.w500,
                     ),
@@ -741,26 +754,76 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                                         return GestureDetector(
                                           onTap: () {
-                                            print("hi");
+                                            final slotTime = parseTime(
+                                              controller.timeSlots[index],
+                                            );
+                                            final courtId =
+                                                controller.courtList.firstWhere(
+                                                  (c) => c['name'] == courtName,
+                                                  orElse:
+                                                      () => <String, dynamic>{},
+                                                )?['id'];
+
+                                            // Find the booking for this court and slot
                                             final bookingSlot = controller
                                                 .bookedSlots
-                                                .firstWhereOrNull(
-                                                  (b) =>
-                                                      b.court == courtName &&
+                                                .firstWhereOrNull((b) {
+                                                  return b.courtId == courtId &&
                                                       b.startTime != null &&
-                                                      b.startTime!.hour ==
-                                                          parseTime(
-                                                            controller
-                                                                .timeSlots[index],
-                                                          ).hour &&
-                                                      b.startTime!.minute ==
-                                                          parseTime(
-                                                            controller
-                                                                .timeSlots[index],
-                                                          ).minute,
-                                                );
-                                            print("bookingSlot: $bookingSlot");
+                                                      b.endTime != null &&
+                                                      !slotTime.isBefore(
+                                                        b.startTime!,
+                                                      ) &&
+                                                      slotTime.isBefore(
+                                                        b.endTime!,
+                                                      );
+                                                });
+
                                             if (bookingSlot != null) {
+                                              // Find the merged block for this user/court
+                                              int startIdx = index;
+                                              int endIdx = index;
+
+                                              // Expand left
+                                              while (startIdx > 0) {
+                                                final prevUser = getBookingUser(
+                                                  courtName,
+                                                  controller
+                                                      .timeSlots[startIdx - 1],
+                                                );
+                                                if (prevUser == currentUser) {
+                                                  startIdx--;
+                                                } else {
+                                                  break;
+                                                }
+                                              }
+                                              // Expand right
+                                              while (endIdx <
+                                                  controller.timeSlots.length -
+                                                      1) {
+                                                final nextUser = getBookingUser(
+                                                  courtName,
+                                                  controller.timeSlots[endIdx +
+                                                      1],
+                                                );
+                                                if (nextUser == currentUser) {
+                                                  endIdx++;
+                                                } else {
+                                                  break;
+                                                }
+                                              }
+
+                                              final mergedStart = parseTime(
+                                                controller.timeSlots[startIdx],
+                                              );
+                                              final mergedEnd = parseTime(
+                                                controller.timeSlots[endIdx],
+                                              ).add(Duration(minutes: 30));
+                                              print(
+                                                'Merged booking: start=$mergedStart, end=$mergedEnd',
+                                              );
+
+                                              // Your existing logic for extension drawer
                                               final isCurrentUser =
                                                   bookingSlot.name ==
                                                   currentUser;
@@ -768,18 +831,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   (bookingSlot.membershipPlanId ??
                                                           '')
                                                       .isNotEmpty;
-
                                               if (isCurrentUser &&
                                                   hasMembership) {
                                                 openExtendedbookingRightDrawer(
                                                   context,
                                                   bookingSlot,
+                                                  mergedStartTime: mergedStart,
+                                                  mergedEndTime: mergedEnd,
                                                   controller: controller,
                                                   updateTotalPrice:
                                                       () => totalPrice,
                                                   onMembershipApplied:
                                                       (price, isApplied) {},
                                                 );
+                                                controller.fetchBookedSlots();
+                                                fetchSlotInfo();
+                                                setState(() {});
                                               } else {
                                                 ScaffoldMessenger.of(
                                                   context,
@@ -817,7 +884,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         );
                                       }
                                       return GestureDetector(
-                                        onTap: () {
+                                        onTapDown: (TapDownDetails details) {
                                           if (isBooked || isPastSlot) return;
                                           setState(() {
                                             final selected =
@@ -825,7 +892,36 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     .selectedCourtSlots[courtName] ??
                                                 [];
                                             if (selected.contains(slot)) {
-                                              selected.remove(slot);
+                                              int clickedSlotIndex = index;
+                                              if (mergeSpan > 1) {
+                                                double slotWidth = 80.0;
+                                                double tapX =
+                                                    details.localPosition.dx;
+
+                                                int slotOffset =
+                                                    (tapX / slotWidth).floor();
+                                                clickedSlotIndex =
+                                                    index + slotOffset;
+                                                if (clickedSlotIndex < 0 ||
+                                                    clickedSlotIndex >=
+                                                        controller
+                                                            .timeSlots
+                                                            .length ||
+                                                    !selected.contains(
+                                                      controller
+                                                          .timeSlots[clickedSlotIndex],
+                                                    )) {
+                                                  clickedSlotIndex = index;
+                                                }
+                                              }
+                                              String slotToRemove =
+                                                  controller
+                                                      .timeSlots[clickedSlotIndex];
+                                              selected.remove(slotToRemove);
+
+                                              controller
+                                                      .selectedCourtSlots[courtName] =
+                                                  selected;
                                             } else {
                                               bool isAdjacentToAny = false;
                                               for (var existingSlot
@@ -845,10 +941,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               } else {
                                                 selected.add(slot);
                                               }
+                                              controller
+                                                      .selectedCourtSlots[courtName] =
+                                                  selected;
                                             }
-                                            controller
-                                                    .selectedCourtSlots[courtName] =
-                                                selected;
                                             controller.selectedCourt.value =
                                                 courtName;
                                           });
@@ -1121,7 +1217,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     //       sum +
     //       b.subSlots.fold(
     //         0.0,
-    //         (subSum, subSlot) => subSum + (subSlot.price as num).toDouble(),
+    //         (subSum, subSlot) => subSum + (subSlot.price is num)
+    //             ? subSlot.price.toDouble()
+    //             : 0.0,
     //       ),
     // );
 
@@ -1803,15 +1901,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 //   ),
                                 // ),
                                 Spacer(),
-                                Text(
-                                  'Total',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 15,
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                SizedBox(width: 8),
                                 if (hasMembership &&
                                     memberPeakPrice != null &&
                                     memberNonPeakPrice != null) ...[
@@ -1823,21 +1912,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Member Price',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 15,
-                                      color: Colors.green,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+
                                   SizedBox(width: 8),
                                   Text(
                                     '\$ ${courtPrice.toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
                                       fontSize: 19,
-                                      color: Colors.green,
+                                      color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -2866,778 +2947,4 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       print('courtPrice : $courtPrice');
     });
   }
-  // // Advance Booking Dialog
-  // Future<void> showAdvanceBookingDialog(
-  //   BuildContext context,
-  //   List<BookingInfo> bookings,
-  // ) {
-  //   return showDialog(
-  //     context: context,
-  //     builder: (context) {
-  //       return StatefulBuilder(
-  //         builder: (context, setState) {
-  //           // List of controllers for the Repeat Until TextFields
-  //           final List<TextEditingController> repeatUntilControllers =
-  //               List.generate(
-  //                 bookings.length,
-  //                 (index) => TextEditingController(
-  //                   text:
-  //                       bookings[index].repeatUntil != null
-  //                           ? DateFormat(
-  //                             'MMM d, yyyy',
-  //                           ).format(bookings[index].repeatUntil!)
-  //                           : '',
-  //                 ),
-  //               );
-
-  //           // Dispose controllers when the dialog is closed
-  //           // This is important to prevent memory leaks
-  //           WidgetsBinding.instance.addPostFrameCallback((_) {
-  //             if (!Navigator.of(context).canPop()) {
-  //               for (var controller in repeatUntilControllers) {
-  //                 controller.dispose();
-  //               }
-  //             }
-  //           });
-
-  //           return Dialog(
-  //             backgroundColor: Colors.white,
-  //             shape: RoundedRectangleBorder(
-  //               borderRadius: BorderRadius.circular(20),
-  //             ),
-  //             child: ConstrainedBox(
-  //               constraints: BoxConstraints(
-  //                 maxWidth:
-  //                     MediaQuery.of(context).size.width /
-  //                     1.5, // 💡 Set this to your preferred max width
-  //               ),
-  //               child: Padding(
-  //                 padding: const EdgeInsets.all(16.0),
-  //                 child: SingleChildScrollView(
-  //                   child: Column(
-  //                     mainAxisSize: MainAxisSize.min,
-  //                     crossAxisAlignment: CrossAxisAlignment.start,
-  //                     children: [
-  //                       // Header
-  //                       Row(
-  //                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //                         children: [
-  //                           Column(
-  //                             crossAxisAlignment: CrossAxisAlignment.start,
-  //                             children: [
-  //                               Text(
-  //                                 'New Booking',
-  //                                 style: GoogleFonts.inter(
-  //                                   fontSize: 18,
-  //                                   color: Colors.black,
-  //                                   fontWeight: FontWeight.bold,
-  //                                 ),
-  //                               ),
-  //                               Text(
-  //                                 'Create new booking based on selected courts',
-  //                                 style: GoogleFonts.inter(
-  //                                   fontSize: 16,
-  //                                   color: Colors.grey.shade500,
-  //                                   fontWeight: FontWeight.w500,
-  //                                 ),
-  //                               ),
-  //                             ],
-  //                           ),
-  //                           Column(
-  //                             crossAxisAlignment: CrossAxisAlignment.end,
-  //                             children: [
-  //                               Text(
-  //                                 selectedDateTime != null
-  //                                     ? DateFormat(
-  //                                       'd MMM yyyy',
-  //                                     ).format(selectedDateTime!)
-  //                                     : DateFormat(
-  //                                       'd MMM yyyy',
-  //                                     ).format(DateTime.now()),
-  //                                 style: GoogleFonts.inter(
-  //                                   fontSize: 16,
-  //                                   color: Colors.black,
-  //                                   fontWeight: FontWeight.w500,
-  //                                 ),
-  //                               ),
-  //                               Text(
-  //                                 selectedDateTime != null
-  //                                     ? DateFormat(
-  //                                       'h:mm a',
-  //                                     ).format(selectedDateTime!)
-  //                                     : DateFormat(
-  //                                       'h:mm a',
-  //                                     ).format(DateTime.now()),
-  //                                 style: GoogleFonts.inter(
-  //                                   fontSize: 16,
-  //                                   color: Colors.grey.shade500,
-  //                                   fontWeight: FontWeight.w500,
-  //                                 ),
-  //                               ),
-  //                             ],
-  //                           ),
-  //                         ],
-  //                       ),
-  //                       const SizedBox(height: 16),
-  //                       Form(
-  //                         key: _advanceformKey,
-  //                         child: Row(
-  //                           mainAxisAlignment: MainAxisAlignment.start,
-  //                           children: [
-  //                             // Name Field
-  //                             Flexible(
-  //                               child: Column(
-  //                                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                                 children: [
-  //                                   Text(
-  //                                     'Name',
-  //                                     style: GoogleFonts.inter(
-  //                                       fontSize: 17,
-  //                                       color: Colors.grey.shade900,
-  //                                       fontWeight: FontWeight.w500,
-  //                                     ),
-  //                                   ),
-  //                                   const SizedBox(height: 4),
-
-  //                                   ConstrainedBox(
-  //                                     constraints: BoxConstraints(
-  //                                       minWidth: 200,
-  //                                       maxWidth:
-  //                                           MediaQuery.of(context).size.width *
-  //                                           0.50,
-  //                                     ),
-  //                                     child: TypeAheadField<
-  //                                       Map<String, dynamic>
-  //                                     >(
-  //                                       controller: nameController,
-  //                                       suggestionsCallback: (pattern) {
-  //                                         if (pattern.isEmpty) return [];
-  //                                         return controller.userList.where((
-  //                                           user,
-  //                                         ) {
-  //                                           return user['name']!
-  //                                               .toLowerCase()
-  //                                               .contains(
-  //                                                 pattern.toLowerCase(),
-  //                                               );
-  //                                         }).toList();
-  //                                       },
-  //                                       builder: (
-  //                                         context,
-  //                                         controller,
-  //                                         focusNode,
-  //                                       ) {
-  //                                         return TextFormField(
-  //                                           controller: controller,
-  //                                           focusNode: focusNode,
-  //                                           style: GoogleFonts.inter(
-  //                                             fontSize: 16,
-  //                                             color: Colors.grey.shade900,
-  //                                             fontWeight: FontWeight.w500,
-  //                                           ),
-  //                                           decoration: InputDecoration(
-  //                                             //labelText: 'Name',
-  //                                             isDense: true,
-  //                                             contentPadding:
-  //                                                 const EdgeInsets.symmetric(
-  //                                                   vertical: 10,
-  //                                                   horizontal: 12,
-  //                                                 ),
-  //                                             border: OutlineInputBorder(
-  //                                               borderRadius:
-  //                                                   BorderRadius.circular(8),
-  //                                             ),
-  //                                           ),
-  //                                         );
-  //                                       },
-  //                                       itemBuilder: (context, suggestion) {
-  //                                         return ListTile(
-  //                                           title: Text(suggestion['name']),
-  //                                           subtitle: Text(
-  //                                             suggestion['mobile'],
-  //                                           ),
-  //                                         );
-  //                                       },
-  //                                       onSelected: (suggestion) {
-  //                                         nameController.text =
-  //                                             suggestion['name'];
-  //                                         mobileController.text =
-  //                                             suggestion['mobile'];
-  //                                       },
-  //                                     ),
-  //                                   ),
-  //                                 ],
-  //                               ),
-  //                             ),
-  //                             const SizedBox(width: 16),
-  //                             // Mobile Field
-  //                             Flexible(
-  //                               child: Column(
-  //                                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                                 children: [
-  //                                   Text(
-  //                                     'Mobile',
-  //                                     style: GoogleFonts.inter(
-  //                                       fontSize: 17,
-  //                                       color: Colors.grey.shade900,
-  //                                       fontWeight: FontWeight.w500,
-  //                                     ),
-  //                                   ),
-  //                                   const SizedBox(height: 4),
-  //                                   ConstrainedBox(
-  //                                     constraints: BoxConstraints(
-  //                                       minWidth: 200,
-  //                                       maxWidth:
-  //                                           MediaQuery.of(context).size.width *
-  //                                           0.50,
-  //                                     ),
-  //                                     child: TextFormField(
-  //                                       controller: mobileController,
-  //                                       style: GoogleFonts.inter(
-  //                                         fontSize: 16,
-  //                                         color: Colors.grey.shade900,
-  //                                         fontWeight: FontWeight.w500,
-  //                                       ),
-  //                                       keyboardType: TextInputType.phone,
-  //                                       //  initialValue: '0465 657 456',
-  //                                       decoration: InputDecoration(
-  //                                         isDense: true,
-  //                                         contentPadding:
-  //                                             const EdgeInsets.symmetric(
-  //                                               vertical: 10,
-  //                                               horizontal: 12,
-  //                                             ),
-  //                                         border: OutlineInputBorder(
-  //                                           borderRadius: BorderRadius.circular(
-  //                                             8,
-  //                                           ),
-  //                                         ),
-  //                                       ),
-  //                                       validator: (value) {
-  //                                         if (value == null ||
-  //                                             value.trim().isEmpty) {
-  //                                           return 'Mobile number is required';
-  //                                         }
-  //                                         if (!RegExp(
-  //                                           r'^[0-9]{10}$',
-  //                                         ).hasMatch(value)) {
-  //                                           return 'Enter a valid 10-digit number';
-  //                                         }
-  //                                         return null;
-  //                                       },
-  //                                     ),
-  //                                   ),
-  //                                 ],
-  //                               ),
-  //                             ),
-  //                           ],
-  //                         ),
-  //                       ),
-  //                       const SizedBox(height: 20),
-  //                       Text(
-  //                         'Court Information',
-  //                         style: GoogleFonts.inter(
-  //                           fontSize: 17,
-  //                           color: Colors.black,
-  //                           fontWeight: FontWeight.w600,
-  //                         ),
-  //                       ),
-  //                       const SizedBox(height: 10),
-  //                       // Booking Details List
-  //                       Column(
-  //                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  //                         children: [
-  //                           Container(
-  //                             decoration: BoxDecoration(
-  //                               border: Border.all(
-  //                                 color: Colors.grey.shade400,
-  //                               ), // outer border
-  //                               borderRadius: BorderRadius.circular(4),
-  //                             ),
-  //                             child: Column(
-  //                               children: List.generate(bookings.length, (
-  //                                 index,
-  //                               ) {
-  //                                 final booking = bookings[index];
-  //                                 final isLast = index == bookings.length - 1;
-  //                                 final isExpanded = expandedIndexes.contains(
-  //                                   index,
-  //                                 );
-  //                                 return Column(
-  //                                   children: [
-  //                                     Padding(
-  //                                       padding: const EdgeInsets.symmetric(
-  //                                         horizontal: 8.0,
-  //                                         vertical: 12,
-  //                                       ),
-  //                                       child: Row(
-  //                                         children: [
-  //                                           Expanded(
-  //                                             flex: 2,
-  //                                             child: Text(
-  //                                               booking.courtName,
-  //                                               style: GoogleFonts.inter(
-  //                                                 fontSize: 16,
-  //                                                 fontWeight: FontWeight.w600,
-  //                                               ),
-  //                                             ),
-  //                                           ),
-  //                                           if (booking.subSlots.any(
-  //                                             (subSlot) => subSlot.isPeak,
-  //                                           )) ...[
-  //                                             Expanded(
-  //                                               flex: 4,
-  //                                               child: Text.rich(
-  //                                                 TextSpan(
-  //                                                   children: [
-  //                                                     TextSpan(
-  //                                                       text:
-  //                                                           "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-  //                                                       style:
-  //                                                           GoogleFonts.inter(
-  //                                                             fontSize: 16,
-  //                                                             fontWeight:
-  //                                                                 FontWeight
-  //                                                                     .w600,
-  //                                                             color:
-  //                                                                 Colors
-  //                                                                     .green
-  //                                                                     .shade600,
-  //                                                           ),
-  //                                                     ),
-  //                                                     TextSpan(
-  //                                                       text:
-  //                                                           "(${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
-  //                                                       style:
-  //                                                           GoogleFonts.inter(
-  //                                                             fontSize: 14,
-  //                                                             fontWeight:
-  //                                                                 FontWeight
-  //                                                                     .w500,
-  //                                                             color:
-  //                                                                 Colors
-  //                                                                     .orange
-  //                                                                     .shade700,
-  //                                                           ),
-  //                                                     ),
-  //                                                   ],
-  //                                                 ),
-  //                                               ),
-  //                                             ),
-  //                                           ] else ...[
-  //                                             Expanded(
-  //                                               flex: 4,
-  //                                               child: Text(
-  //                                                 "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-  //                                                 style: GoogleFonts.inter(
-  //                                                   fontSize: 16,
-  //                                                   fontWeight: FontWeight.w600,
-  //                                                   color:
-  //                                                       Colors.green.shade600,
-  //                                                 ),
-  //                                               ),
-  //                                             ),
-  //                                           ],
-  //                                           Expanded(
-  //                                             flex: 2,
-  //                                             child: Text(
-  //                                               "${booking.subSlots.length * 30}mins",
-  //                                               style: GoogleFonts.inter(
-  //                                                 fontSize: 16,
-  //                                                 fontWeight: FontWeight.w600,
-  //                                                 color: Colors.indigo.shade600,
-  //                                               ),
-  //                                             ),
-  //                                           ),
-  //                                           Expanded(
-  //                                             flex: 2,
-  //                                             child: Text(
-  //                                               "\$${booking.subSlots.fold(0.0, (sum, subSlot) => sum + subSlot.price).toStringAsFixed(2)}",
-  //                                               textAlign: TextAlign.right,
-  //                                               style: GoogleFonts.inter(
-  //                                                 fontSize: 16,
-  //                                                 fontWeight: FontWeight.w600,
-  //                                               ),
-  //                                             ),
-  //                                           ),
-  //                                           IconButton(
-  //                                             icon: Icon(
-  //                                               isExpanded
-  //                                                   ? Icons.expand_less
-  //                                                   : Icons.expand_more,
-  //                                             ),
-  //                                             onPressed: () {
-  //                                               setState(() {
-  //                                                 if (isExpanded) {
-  //                                                   expandedIndexes.remove(
-  //                                                     index,
-  //                                                   );
-  //                                                 } else {
-  //                                                   expandedIndexes.add(index);
-  //                                                 }
-  //                                               });
-  //                                             },
-  //                                           ),
-  //                                         ],
-  //                                       ),
-  //                                     ),
-  //                                     if (isExpanded) ...[
-  //                                       /// === Repeat Day Section ===
-  //                                       Padding(
-  //                                         padding: const EdgeInsets.symmetric(
-  //                                           horizontal: 8.0,
-  //                                           vertical: 12,
-  //                                         ),
-  //                                         child: Row(
-  //                                           crossAxisAlignment:
-  //                                               CrossAxisAlignment.start,
-  //                                           children: [
-  //                                             // Label
-  //                                             Expanded(
-  //                                               flex: 1,
-  //                                               child: Padding(
-  //                                                 padding:
-  //                                                     const EdgeInsets.only(
-  //                                                       top: 8.0,
-  //                                                     ),
-  //                                                 child: Text(
-  //                                                   'Repeat Day',
-  //                                                   style: GoogleFonts.inter(
-  //                                                     color:
-  //                                                         Colors.grey.shade900,
-  //                                                     fontWeight:
-  //                                                         FontWeight.w500,
-  //                                                     fontSize: 14,
-  //                                                   ),
-  //                                                 ),
-  //                                               ),
-  //                                             ),
-  //                                             const SizedBox(width: 12),
-
-  //                                             // Day Chips
-  //                                             Expanded(
-  //                                               flex: 3,
-  //                                               child: Wrap(
-  //                                                 spacing: 8,
-  //                                                 runSpacing: 8,
-  //                                                 children:
-  //                                                     [
-  //                                                       'Mon',
-  //                                                       'Tue',
-  //                                                       'Wed',
-  //                                                       'Thu',
-  //                                                       'Fri',
-  //                                                       'Sat',
-  //                                                       'Sun',
-  //                                                     ].map((day) {
-  //                                                       final isSelected =
-  //                                                           booking.selectedDays
-  //                                                               .contains(day);
-  //                                                       return ChoiceChip(
-  //                                                         shape:
-  //                                                             const StadiumBorder(),
-  //                                                         label: Text(day),
-  //                                                         selected: isSelected,
-  //                                                         onSelected: (
-  //                                                           selected,
-  //                                                         ) {
-  //                                                           if (booking
-  //                                                               .sameLikeAbove)
-  //                                                             return; // Disable editing
-  //                                                           setState(() {
-  //                                                             if (selected) {
-  //                                                               booking
-  //                                                                   .selectedDays
-  //                                                                   .add(day);
-  //                                                             } else {
-  //                                                               booking
-  //                                                                   .selectedDays
-  //                                                                   .remove(
-  //                                                                     day,
-  //                                                                   );
-  //                                                             }
-  //                                                           });
-  //                                                         },
-  //                                                         selectedColor:
-  //                                                             Colors.black,
-  //                                                         backgroundColor:
-  //                                                             Colors
-  //                                                                 .grey
-  //                                                                 .shade100,
-  //                                                         labelStyle:
-  //                                                             GoogleFonts.inter(
-  //                                                               fontSize: 12,
-  //                                                               fontWeight:
-  //                                                                   FontWeight
-  //                                                                       .w500,
-  //                                                               color:
-  //                                                                   isSelected
-  //                                                                       ? Colors
-  //                                                                           .white
-  //                                                                       : Colors
-  //                                                                           .grey
-  //                                                                           .shade800,
-  //                                                             ),
-  //                                                       );
-  //                                                     }).toList(),
-  //                                               ),
-  //                                             ),
-  //                                           ],
-  //                                         ),
-  //                                       ),
-
-  //                                       /// === Repeat Until Section ===
-  //                                       Padding(
-  //                                         padding: const EdgeInsets.symmetric(
-  //                                           horizontal: 8.0,
-  //                                           vertical: 12,
-  //                                         ),
-  //                                         child: Row(
-  //                                           crossAxisAlignment:
-  //                                               CrossAxisAlignment.center,
-  //                                           children: [
-  //                                             Expanded(
-  //                                               flex: 1,
-  //                                               child: Text(
-  //                                                 'Repeat Until',
-  //                                                 style: GoogleFonts.inter(
-  //                                                   fontSize: 14,
-  //                                                   color: Colors.grey.shade900,
-  //                                                   fontWeight: FontWeight.w500,
-  //                                                 ),
-  //                                               ),
-  //                                             ),
-  //                                             const SizedBox(width: 12),
-  //                                             Expanded(
-  //                                               flex: 3,
-  //                                               child: TextFormField(
-  //                                                 controller:
-  //                                                     repeatUntilControllers[index],
-  //                                                 readOnly: true,
-  //                                                 onTap: () async {
-  //                                                   if (booking.sameLikeAbove)
-  //                                                     return; // Disable editing
-  //                                                   final pickedDate =
-  //                                                       await showDatePicker(
-  //                                                         context: context,
-  //                                                         initialDate:
-  //                                                             booking
-  //                                                                 .repeatUntil ??
-  //                                                             DateTime.now().add(
-  //                                                               const Duration(
-  //                                                                 days: 7,
-  //                                                               ),
-  //                                                             ),
-  //                                                         firstDate:
-  //                                                             DateTime.now(),
-  //                                                         lastDate: DateTime(
-  //                                                           2100,
-  //                                                         ),
-  //                                                       );
-  //                                                   if (pickedDate != null) {
-  //                                                     setState(() {
-  //                                                       booking.repeatUntil =
-  //                                                           pickedDate;
-  //                                                       repeatUntilControllers[index]
-  //                                                           .text = DateFormat(
-  //                                                         'MMM d, yyyy',
-  //                                                       ).format(pickedDate);
-  //                                                     });
-  //                                                   }
-  //                                                 },
-  //                                                 decoration: InputDecoration(
-  //                                                   hintText:
-  //                                                       'e.g May 28, 2026',
-  //                                                   suffixIcon:
-  //                                                       booking.repeatUntil !=
-  //                                                               null
-  //                                                           ? IconButton(
-  //                                                             icon: Icon(
-  //                                                               LucideIcons
-  //                                                                   .xCircle,
-  //                                                             ),
-  //                                                             onPressed:
-  //                                                                 booking.sameLikeAbove
-  //                                                                     ? null
-  //                                                                     : () {
-  //                                                                       setState(() {
-  //                                                                         booking.repeatUntil =
-  //                                                                             null;
-  //                                                                         repeatUntilControllers[index]
-  //                                                                             .clear();
-  //                                                                       });
-  //                                                                     },
-  //                                                           )
-  //                                                           : Icon(
-  //                                                             LucideIcons
-  //                                                                 .calendar,
-  //                                                           ),
-  //                                                   isDense: true,
-  //                                                   contentPadding:
-  //                                                       const EdgeInsets.symmetric(
-  //                                                         vertical: 10,
-  //                                                         horizontal: 12,
-  //                                                       ),
-  //                                                   border: OutlineInputBorder(
-  //                                                     borderRadius:
-  //                                                         BorderRadius.circular(
-  //                                                           8,
-  //                                                         ),
-  //                                                   ),
-  //                                                 ),
-  //                                               ),
-  //                                             ),
-  //                                           ],
-  //                                         ),
-  //                                       ),
-
-  //                                       /// === "Same like above" Checkbox ===
-  //                                       if (index != 0)
-  //                                         Padding(
-  //                                           padding: const EdgeInsets.symmetric(
-  //                                             horizontal: 8.0,
-  //                                           ),
-  //                                           child: Row(
-  //                                             children: [
-  //                                               Checkbox(
-  //                                                 value: booking.sameLikeAbove,
-  //                                                 onChanged: (value) {
-  //                                                   setState(() {
-  //                                                     booking.sameLikeAbove =
-  //                                                         value ?? false;
-  //                                                     if (booking
-  //                                                         .sameLikeAbove) {
-  //                                                       // Clone repeatDays and repeatUntil from index 0
-  //                                                       booking.selectedDays =
-  //                                                           List<String>.from(
-  //                                                             bookings[0]
-  //                                                                 .selectedDays,
-  //                                                           );
-  //                                                       booking.repeatUntil =
-  //                                                           bookings[0]
-  //                                                               .repeatUntil;
-  //                                                       repeatUntilControllers[index]
-  //                                                               .text =
-  //                                                           bookings[0].repeatUntil !=
-  //                                                                   null
-  //                                                               ? DateFormat(
-  //                                                                 'MMM d, yyyy',
-  //                                                               ).format(
-  //                                                                 bookings[0]
-  //                                                                     .repeatUntil!,
-  //                                                               )
-  //                                                               : '';
-  //                                                     }
-  //                                                   });
-  //                                                 },
-  //                                               ),
-  //                                               const Text("Same like above"),
-  //                                             ],
-  //                                           ),
-  //                                         ),
-  //                                     ],
-
-  //                                     if (!isLast)
-  //                                       Divider(
-  //                                         height: 2,
-  //                                         color: Colors.grey.shade400,
-  //                                       ), // bottom line for each row
-  //                                   ],
-  //                                 );
-  //                               }),
-  //                             ),
-  //                           ),
-  //                         ],
-  //                       ),
-
-  //                       SizedBox(height: 10),
-
-  //                       Row(
-  //                         children: [
-  //                           Text(
-  //                             'Add Membership and pay ${55} and save ${25}',
-  //                             style: GoogleFonts.inter(
-  //                               fontSize: 15,
-  //                               color: Colors.black,
-  //                               fontWeight: FontWeight.w600,
-  //                             ),
-  //                           ),
-  //                           Spacer(),
-  //                           Text(
-  //                             'Total',
-  //                             style: GoogleFonts.inter(
-  //                               fontSize: 15,
-  //                               color: Colors.black,
-  //                               fontWeight: FontWeight.w600,
-  //                             ),
-  //                           ),
-  //                           SizedBox(width: 8),
-  //                           Text(
-  //                             '\$ 20',
-  //                             style: GoogleFonts.inter(
-  //                               fontSize: 19,
-  //                               color: Colors.black,
-  //                               fontWeight: FontWeight.w600,
-  //                             ),
-  //                           ),
-  //                         ],
-  //                       ),
-
-  //                       const SizedBox(height: 20),
-
-  //                       // Bottom Row
-  //                       Row(
-  //                         mainAxisAlignment: MainAxisAlignment.end,
-  //                         children: [
-  //                           Expanded(
-  //                             child: ElevatedButton(
-  //                               onPressed: () {
-  //                                 controller.clearSelectedSlots();
-  //                                 Navigator.pop(context);
-  //                               },
-  //                               style: ElevatedButton.styleFrom(
-  //                                 backgroundColor: Colors.grey.shade300,
-  //                                 foregroundColor: Colors.white,
-  //                               ),
-  //                               child: Text(
-  //                                 "Cancel",
-  //                                 style: GoogleFonts.inter(
-  //                                   fontSize: 17,
-  //                                   color: Colors.black,
-  //                                   fontWeight: FontWeight.w600,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                           ),
-  //                           const SizedBox(width: 8),
-  //                           Expanded(
-  //                             child: ElevatedButton(
-  //                               onPressed: () {},
-  //                               style: ElevatedButton.styleFrom(
-  //                                 backgroundColor: Colors.green,
-  //                                 foregroundColor: Colors.white,
-  //                               ),
-  //                               child: Text(
-  //                                 "Book Now",
-  //                                 style: GoogleFonts.inter(
-  //                                   fontSize: 17,
-  //                                   color: Colors.white,
-  //                                   fontWeight: FontWeight.w600,
-  //                                 ),
-  //                               ),
-  //                             ),
-  //                           ),
-  //                         ],
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ),
-  //             ),
-  //           );
-  //         },
-  //       );
-  //     },
-  //   );
-  // }
 }

@@ -98,12 +98,28 @@ bool _isSlotInPastForExtension(String slot, DateTime selectedBookingDate) {
   return false;
 }
 
+// Helper function to check if a slot is in the past for extension (comparing against booking date)
+bool _isSlotInPastForExtensionBooking(
+  String slot,
+  DateTime bookingDate,
+  DateTime bookingEndTime,
+) {
+  final slotTime = _parseTimeForExtension(slot, bookingDate);
+
+  // For extension, we compare against the booking's end time, not current time
+  // A slot is "in the past" if it's before or equal to the booking's end time
+  return slotTime.isBefore(bookingEndTime) ||
+      slotTime.isAtSameMomentAs(bookingEndTime);
+}
+
 Future<void> openExtendedbookingRightDrawer(
   BuildContext context,
   BookingSlot booking, {
   required dynamic controller,
   required double Function() updateTotalPrice,
   required void Function(double price, bool isApplied) onMembershipApplied,
+  required DateTime mergedStartTime,
+  required DateTime mergedEndTime,
 }) async {
   final timeFormat = DateFormat('hh:mm a');
   final dateFormat = DateFormat('dd MMM yyyy');
@@ -119,7 +135,10 @@ Future<void> openExtendedbookingRightDrawer(
       final ValueNotifier<bool> isNextSlotAvailable = ValueNotifier<bool>(
         false,
       );
-      final ValueNotifier<int> selectedDuration = ValueNotifier<int>(30);
+      final ValueNotifier<int?> selectedDuration = ValueNotifier<int?>(null);
+      final ValueNotifier<bool> isExtensionConfirmed = ValueNotifier<bool>(
+        false,
+      );
 
       // Function to calculate available durations dynamically
       List<int> calculateAvailableDurations() {
@@ -140,7 +159,11 @@ Future<void> openExtendedbookingRightDrawer(
 
             bool isSlotValid =
                 controller.timeSlots.contains(checkTimeStr) &&
-                !_isSlotInPastForExtension(checkTimeStr, booking.date!);
+                !_isSlotInPastForExtensionBooking(
+                  checkTimeStr,
+                  booking.date!,
+                  endTime,
+                );
 
             if (!isSlotValid) {
               isDurationAvailable = false;
@@ -176,13 +199,8 @@ Future<void> openExtendedbookingRightDrawer(
 
       final List<int> durations = calculateAvailableDurations();
 
-      // Set default selected duration to the first available one, or 30 if none available
-      if (durations.isNotEmpty && selectedDuration.value == 30) {
-        selectedDuration.value = durations.first;
-      }
-
       Widget buildExtendTimeButtons() {
-        return ValueListenableBuilder<int>(
+        return ValueListenableBuilder<int?>(
           valueListenable: selectedDuration,
           builder: (context, duration, child) {
             // If no durations are available, show a message
@@ -247,8 +265,13 @@ Future<void> openExtendedbookingRightDrawer(
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () {},
-
+                        onPressed: () {
+                          isExtensionConfirmed.value = true;
+                          controller.extendBooking(
+                            originalBookingSlot: booking,
+                            extensionInMinutes: selectedDuration.value,
+                          );
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.indigo.shade500,
                           foregroundColor: Colors.white,
@@ -273,7 +296,7 @@ Future<void> openExtendedbookingRightDrawer(
                   spacing: 10,
                   children:
                       durations.map((d) {
-                        final isSelected = duration == d;
+                        final isSelected = selectedDuration.value == d;
                         return TextButton(
                           onPressed: () {
                             selectedDuration.value = d;
@@ -426,7 +449,8 @@ Future<void> openExtendedbookingRightDrawer(
 
                     /// Booking Details
                     Text(
-                      "Booking Details : ${booking.id}",
+                      "Booking Details",
+                      // "Booking Details : ${booking.id}",
                       style: GoogleFonts.inter(
                         fontSize: 16,
                         color: Colors.black,
@@ -475,16 +499,26 @@ Future<void> openExtendedbookingRightDrawer(
                                   bookingDetailRow(
                                     LucideIcons.clock,
                                     "Time",
-                                    booking.startTime != null &&
-                                            booking.endTime != null
-                                        ? '${timeFormat.format(booking.startTime!)} - ${timeFormat.format(booking.endTime!)}'
-                                        : 'N/A',
+                                    mergedStartTime != null &&
+                                            mergedEndTime != null
+                                        ? '${timeFormat.format(mergedStartTime.toLocal())} - ${timeFormat.format(mergedEndTime.toLocal())}'
+                                        : (booking.startTime != null &&
+                                                booking.endTime != null
+                                            ? '${timeFormat.format(booking.startTime!.toLocal())} - ${timeFormat.format(booking.endTime!.toLocal())}'
+                                            : 'N/A'),
                                   ),
                                   const SizedBox(height: 12),
-                                  bookingDetailRow(
-                                    LucideIcons.timer,
-                                    "Extended Time",
-                                    "---",
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: isExtensionConfirmed,
+                                    builder: (context, confirmed, child) {
+                                      return bookingDetailRow(
+                                        LucideIcons.timer,
+                                        "Extended Time",
+                                        confirmed
+                                            ? "${selectedDuration.value} mins"
+                                            : "---",
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
@@ -500,9 +534,9 @@ Future<void> openExtendedbookingRightDrawer(
                                   bookingDetailRow(
                                     LucideIcons.timer,
                                     "Duration",
-                                    booking.startTime != null &&
-                                            booking.endTime != null
-                                        ? '${booking.endTime!.difference(booking.startTime!).inMinutes} min'
+                                    mergedStartTime != null &&
+                                            mergedEndTime != null
+                                        ? '${mergedEndTime.difference(mergedStartTime.toLocal()).inMinutes} min'
                                         : 'N/A',
                                   ),
                                   const SizedBox(height: 12),
@@ -546,9 +580,10 @@ Future<void> openExtendedbookingRightDrawer(
                                           controller.timeSlots.contains(
                                             nextPotentialSlotStr,
                                           ) &&
-                                          !_isSlotInPastForExtension(
+                                          !_isSlotInPastForExtensionBooking(
                                             nextPotentialSlotStr,
                                             booking.date!,
+                                            booking.endTime!,
                                           );
 
                                       if (!isNextSlotValidAndFuture) {

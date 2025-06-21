@@ -22,7 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 5,
+      length: 4,
       child: Scaffold(
         backgroundColor: Colors.grey.shade100,
         // appBar: AppBar(
@@ -121,7 +121,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 children: [
                   Container(
-                    width: MediaQuery.of(context).size.width / 2.0,
+                    width: MediaQuery.of(context).size.width / 2.5,
+                    height: MediaQuery.of(context).size.height * .06,
                     //    margin: const EdgeInsets.only(left: 16, top: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -149,12 +150,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       unselectedLabelColor: Colors.grey.shade400,
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelStyle: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w700,
                         color: Colors.grey.shade50,
                       ),
                       unselectedLabelStyle: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w500,
                       ),
 
@@ -164,7 +165,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Tab(text: 'Court View'),
                         Tab(text: 'Active'),
                         Tab(text: 'Upcoming'),
-                        Tab(text: 'Scheduled'),
+                        // Tab(text: 'Scheduled'),
                         Tab(text: 'All Booking'),
                         //Tab(text: 'Dashboard'),
                       ],
@@ -205,7 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     CourtViewScreen(),
                     ActiveTabScreen(),
                     UpcomingTabScreen(),
-                    ScheduledTabScreen(),
+                    //ScheduledTabScreen(),
                     AllBookingTabScreen(),
                     //DashboardTabViewScreen()
                   ],

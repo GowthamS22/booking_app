@@ -31,6 +31,7 @@ class OrderController extends GetxController {
           booking_id,
           court_id,
           service_id,
+          is_extended_booking,
           bookings (
             booking_no,
             grand_total,
@@ -52,7 +53,7 @@ class OrderController extends GetxController {
       )
         ''');
 
-      if (filterType == 'current') {
+      if (filterType == 'Active') {
         final now = DateTime.now();
         final minute = now.minute;
         final slotStart = DateTime(
@@ -70,7 +71,7 @@ class OrderController extends GetxController {
       } else if (filterType == 'upcoming') {
         query = query.eq('status', 'Booked').gt('start_time', nowStr);
       } else if (filterType == 'scheduled') {
-        final future = _formatDateTime(now.add(Duration(days: 7)));
+        final future = _formatDateTime(now.add(Duration(days: 90)));
         query = query
             .eq('status', 'Booked')
             .gt('start_time', nowStr)

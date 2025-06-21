@@ -867,6 +867,7 @@ class NewBookingController extends GetxController {
       end_time,
       price,
       status,
+      is_extended_booking,
       bookings (
         customer_id,
         booking_no,
@@ -909,6 +910,7 @@ class NewBookingController extends GetxController {
             id: booked['id'] as String?,
             bookingId: booked['booking_id'] as String?,
             subBookingId: booked['sub_booking_id'] as String?,
+            is_extended_booking: booked['is_extended_booking'] as bool,
             userId: customer['user_id'] as String?,
             name: customer['first_name'] as String?,
             mobile: customer['mobile'] as String?,
@@ -965,11 +967,6 @@ class NewBookingController extends GetxController {
             platformIndex: courtInfo['platform_id']?.toString(),
           ),
         );
-      }
-
-      print("bookedSlots count: ${bookedSlots.length}");
-      if (bookedSlots.isNotEmpty) {
-        print("First bookedSlot: ${bookedSlots.first}");
       }
       update();
     }
@@ -2478,13 +2475,72 @@ class NewBookingController extends GetxController {
 
   @override
   void onClose() {
-    _stopPolling();
-    if (mobileNumberController.hasListeners) {
-      mobileNumberController.dispose(); // Only if not still bound
-    }
-    // bookingdateController.dispose();
-    _bookingSlotsStreamController.close();
-    _serviceStreamController.close();
+    _pollingTimer?.cancel();
     super.onClose();
+  }
+
+  Future<void> extendBooking({
+    required BookingSlot originalBookingSlot,
+    required int extensionInMinutes,
+  }) async {
+    try {
+      isLoading.value = true;
+      update();
+
+      final int numberOfSlots = extensionInMinutes ~/ 30;
+      DateTime lastEndTime = originalBookingSlot.endTime!;
+
+      List<Map<String, dynamic>> newSlotsData = [];
+
+      for (int i = 0; i < numberOfSlots; i++) {
+        final startTime = lastEndTime.add(Duration(minutes: 30));
+        final endTime = startTime.add(Duration(minutes: extensionInMinutes));
+        final price = originalBookingSlot.price;
+
+        final newSlot = {
+          'booking_id': originalBookingSlot.bookingId,
+          'service_id': originalBookingSlot.serviceId,
+          'court_id': originalBookingSlot.courtId,
+          'start_time': startTime.toIso8601String(),
+          'end_time': endTime.toIso8601String(),
+          'price': price,
+          'slot_type': 'Extended Time',
+          'status': 'Booked',
+          'is_extended_booking': true,
+          'created_by': authController.userId.toString(),
+          'updated_by': authController.userId.toString(),
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+        newSlotsData.add(newSlot);
+        lastEndTime = endTime;
+      }
+
+      if (newSlotsData.isNotEmpty) {
+        await supabase
+            .schema('s22_prod_schema')
+            .from('booking_slots')
+            .insert(newSlotsData);
+      }
+
+      await fetchBookedSlots();
+
+      Get.back(); // Close the drawer
+      showCustomSnackbar(
+        'Success',
+        'Booking extended successfully for $extensionInMinutes minutes.',
+        Colors.green.shade500,
+      );
+    } catch (e) {
+      print('Error extending booking: $e');
+      showCustomSnackbar(
+        'Error',
+        'Failed to extend booking. Please try again.',
+        Colors.red.shade500,
+      );
+    } finally {
+      isLoading.value = false;
+      update();
+    }
   }
 }

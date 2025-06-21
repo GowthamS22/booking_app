@@ -171,6 +171,7 @@ class BookingSlot {
   String? bookingNo;
   double? total;
   String? platformIndex;
+  bool? is_extended_booking;
 
   BookingSlot({
     this.id,
@@ -202,6 +203,7 @@ class BookingSlot {
     this.bookingNo,
     this.total,
     this.platformIndex,
+    this.is_extended_booking,
   });
 }
 

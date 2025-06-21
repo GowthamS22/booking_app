@@ -249,7 +249,7 @@ class DefaultController extends GetxController
 
     // bookingController.fetchBookings('active');
 
-    dashboardTabController = TabController(length: 5, vsync: this);
+    dashboardTabController = TabController(length: 4, vsync: this);
     dashboardTabController!.addListener(() {
       if (dashboardTabController!.indexIsChanging) return;
 
@@ -266,10 +266,10 @@ class DefaultController extends GetxController
         case 2:
           bookingController.fetchBookings('upcoming');
           break;
+        // case 3:
+        //   bookingController.fetchBookings('scheduled');
+        //   break;
         case 3:
-          bookingController.fetchBookings('scheduled');
-          break;
-        case 4:
           bookingController.fetchBookings('all');
           break;
       }
