@@ -2922,7 +2922,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   child: Text(
                                     "Cancel",
                                     style: GoogleFonts.inter(
-                                      fontSize: 17,
+                                      fontSize: 23,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -2973,7 +2973,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   child: Text(
                                     "Confirm",
                                     style: GoogleFonts.inter(
-                                      fontSize: 17,
+                                      fontSize: 23,
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                     ),
