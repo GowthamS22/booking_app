@@ -50,37 +50,39 @@ class _SidebarMenuState extends State<SidebarMenu> {
         toggleButtonBuilder: (context, extended) {
           return const SizedBox.shrink();
         },
-        headerBuilder: (context, extended) => Column(
-          children: [
-            StreamBuilder(
-              stream: Stream.periodic(const Duration(seconds: 1)),
-              builder: (context, snapshot) {
-                 return Text(
-                   TimeOfDay.now().format(context),
+        headerBuilder:
+            (context, extended) => Column(
+              children: [
+                StreamBuilder(
+                  stream: Stream.periodic(const Duration(seconds: 1)),
+                  builder: (context, snapshot) {
+                    return Text(
+                      TimeOfDay.now().format(context),
                       style: GoogleFonts.inter(
                         fontSize: 20,
                         color: Colors.black,
                         fontWeight: FontWeight.w600,
-                   ),
-                 );
-              },
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(height: 10),
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.blue),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo/fb.png', // Replace with your actual image path
+                    width: 45,
+                    height: 45,
+                  ),
+                ),
+                SizedBox(height: 20),
+              ],
             ),
-            SizedBox(height: 10),
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 16),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.blue),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Image.asset('assets/images/logo/fb.png', // Replace with your actual image path
-                width: 45,
-                height: 45,
-              ),
-            ),
-            SizedBox(height: 20),
-          ],
-        ),
         items: [
           SidebarXItem(
             onTap: () {
@@ -91,12 +93,18 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: controller.selectedIndex == 0 ? Color(0xFFEAEFFF) : Colors.transparent,
+                  color:
+                      controller.selectedIndex == 0
+                          ? Color(0xFFEAEFFF)
+                          : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.calendarPlus,
-                  color: controller.selectedIndex == 0 ? Colors.indigo : Colors.grey,
+                  color:
+                      controller.selectedIndex == 0
+                          ? Colors.indigo
+                          : Colors.grey,
                   size: 40,
                 ),
               ),
@@ -111,12 +119,18 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: controller.selectedIndex == 1 ? Colors.indigo.shade50 : Colors.transparent,
+                  color:
+                      controller.selectedIndex == 1
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.shoppingCart,
-                  color: controller.selectedIndex == 1 ? Colors.indigo.shade900 : Colors.grey,
+                  color:
+                      controller.selectedIndex == 1
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
                   size: 40,
                 ),
               ),
@@ -131,12 +145,18 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: controller.selectedIndex == 2 ? Colors.indigo.shade50 : Colors.transparent,
+                  color:
+                      controller.selectedIndex == 2
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.users,
-                  color: controller.selectedIndex == 2 ? Colors.indigo.shade900 : Colors.grey,
+                  color:
+                      controller.selectedIndex == 2
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
                   size: 40,
                 ),
               ),
@@ -151,12 +171,18 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: controller.selectedIndex == 3 ? Colors.indigo.shade50 : Colors.transparent,
+                  color:
+                      controller.selectedIndex == 3
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.settings,
-                  color: controller.selectedIndex == 3 ? Colors.indigo.shade900 : Colors.grey,
+                  color:
+                      controller.selectedIndex == 3
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
                   size: 40,
                 ),
               ),
@@ -171,27 +197,34 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color: controller.selectedIndex == 4 ? Colors.indigo.shade50 : Colors.transparent,
+                  color:
+                      controller.selectedIndex == 4
+                          ? Colors.indigo.shade50
+                          : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.pieChart,
-                  color: controller.selectedIndex == 4 ? Colors.indigo.shade900 : Colors.grey,
+                  color:
+                      controller.selectedIndex == 4
+                          ? Colors.indigo.shade900
+                          : Colors.grey,
                   size: 40,
                 ),
               ),
             ),
           ),
         ],
-        footerBuilder: (context, extended) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: IconButton(
-            onPressed: () {
-              authController.logOut();
-            },
-            icon: const Icon(LucideIcons.logOut, size: 40,),
-          ),
-        ),
+        footerBuilder:
+            (context, extended) => Padding(
+              padding: const EdgeInsets.only(bottom: 50),
+              child: IconButton(
+                onPressed: () {
+                  authController.logOut();
+                },
+                icon: const Icon(LucideIcons.logOut, size: 40),
+              ),
+            ),
       ),
     );
   }

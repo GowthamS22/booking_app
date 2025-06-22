@@ -122,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Container(
                     width: MediaQuery.of(context).size.width / 2.5,
-                    height: MediaQuery.of(context).size.height * .06,
+                    height: MediaQuery.of(context).size.height * .05,
                     //    margin: const EdgeInsets.only(left: 16, top: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -150,12 +150,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       unselectedLabelColor: Colors.grey.shade400,
                       indicatorSize: TabBarIndicatorSize.tab,
                       labelStyle: GoogleFonts.inter(
-                        fontSize: 25,
+                        fontSize: 23,
                         fontWeight: FontWeight.w700,
                         color: Colors.grey.shade50,
                       ),
                       unselectedLabelStyle: GoogleFonts.inter(
-                        fontSize: 25,
+                        fontSize: 23,
                         fontWeight: FontWeight.w500,
                       ),
 
@@ -177,13 +177,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     DateFormat('MMM d, yyyy EEEE').format(DateTime.now()),
                     style: GoogleFonts.inter(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: 23,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   SizedBox(width: 10),
                   CircleAvatar(
-                    radius: 20,
+                    radius: 25,
                     backgroundImage: AssetImage("assets/images/pic/Avatar.png"),
                   ),
                   SizedBox(width: 10),
@@ -191,7 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'Staff Name',
                     style: GoogleFonts.inter(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: 23,
                       fontWeight: FontWeight.w500,
                     ),
                   ),

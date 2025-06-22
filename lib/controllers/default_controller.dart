@@ -271,7 +271,6 @@ class DefaultController extends GetxController
         //   break;
         case 3:
           bookingController.fetchBookings('all');
-          break;
       }
     });
   }

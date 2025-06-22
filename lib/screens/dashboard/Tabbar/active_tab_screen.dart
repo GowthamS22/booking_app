@@ -71,7 +71,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                     Text(
                       "Active Bookings",
                       style: GoogleFonts.inter(
-                        fontSize: 18,
+                        fontSize: 23,
                         color: Colors.black,
                         fontWeight: FontWeight.w700,
                       ),
@@ -79,7 +79,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                     Text(
                       "Ongoing bookings in real-time",
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.grey.shade500,
                         fontWeight: FontWeight.w400,
                       ),
@@ -95,13 +95,13 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                       decoration: InputDecoration(
                         hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
-                          fontSize: 16,
+                          fontSize: 22,
                           color: Colors.grey.shade400,
                           fontWeight: FontWeight.w400,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 6,
+                          vertical: 7,
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -149,13 +149,13 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                     decoration: InputDecoration(
                       hintText: 'All',
                       hintStyle: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.white,
                         fontWeight: FontWeight.w500,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 6,
+                        vertical: 7,
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -177,7 +177,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                       isDense: true,
                     ),
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: 22,
                       color: Colors.grey.shade900,
                       fontWeight: FontWeight.w500,
                     ),
@@ -186,18 +186,18 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
 
                 const SizedBox(width: 10),
                 Container(
-                  height: 44,
-                  width: 44,
+                  height: 48,
+                  width: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey.shade300),
                   ),
-                  child: const Icon(LucideIcons.filter, size: 20),
+                  child: const Icon(LucideIcons.filter, size: 32),
                 ),
                 const SizedBox(width: 10),
                 Container(
-                  height: 44,
+                  height: 48,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -212,11 +212,11 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           });
                         },
                         child: Container(
-                          width: 44,
+                          width: 48,
                           alignment: Alignment.center,
                           child: Icon(
                             LucideIcons.layoutGrid,
-                            size: 20,
+                            size: 32,
                             color:
                                 isGridView
                                     ? Colors.indigo.shade500
@@ -231,7 +231,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           });
                         },
                         child: Container(
-                          width: 44,
+                          width: 48,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             border: Border(
@@ -240,7 +240,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           ),
                           child: Icon(
                             LucideIcons.layoutList,
-                            size: 20,
+                            size: 32,
                             color:
                                 !isGridView
                                     ? Colors.indigo.shade500

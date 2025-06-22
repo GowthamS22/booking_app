@@ -34,6 +34,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   final ScrollController _headerHorizontalController = ScrollController();
   final ScrollController _leftVerticalController = ScrollController();
   DateTime selectedDate = DateTime.now();
+  DateTime? membershipValidityDate;
   DateTime? selectedDateTime;
   bool isDate = false;
   String? selectedMembershipId;
@@ -186,7 +187,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       "Court Availability",
                       style: GoogleFonts.inter(
-                        fontSize: 25,
+                        fontSize: 23,
                         color: Colors.black,
                         fontWeight: FontWeight.w700,
                       ),
@@ -197,7 +198,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       Text(
                         " - ${DateFormat('MMM d, yyyy EEEE').format(selectedDateTime!)}",
                         style: GoogleFonts.inter(
-                          fontSize: 25,
+                          fontSize: 22,
                           color: Colors.indigo.shade500,
                           fontWeight: FontWeight.w700,
                         ),
@@ -379,14 +380,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       onCancel: () {
                         setState(
                           () {},
-                        ); // This will rebuild the parent and hide the buttons
+                        ); // This will force the parent to rebuild and reflect cleared state
                       },
                     );
                   },
                   child: Text(
                     'Book Now',
                     style: GoogleFonts.inter(
-                      fontSize: 25,
+                      fontSize: 23,
                       color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
@@ -412,7 +413,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   child: Text(
                     'Clear Selection',
                     style: GoogleFonts.inter(
-                      fontSize: 25,
+                      fontSize: 23,
                       color: Colors.grey,
                       fontWeight: FontWeight.w500,
                     ),
@@ -533,7 +534,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   'AM',
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                    fontSize: 18,
                                     color: Colors.grey.shade500,
                                   ),
                                 ),
@@ -548,7 +549,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   'PM',
                                   style: GoogleFonts.inter(
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 12,
+                                    fontSize: 18,
                                     color: Colors.grey.shade400,
                                   ),
                                 ),
@@ -606,6 +607,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           isPeak
                                               ? Colors.amber.shade500
                                               : Colors.grey.shade500,
+                                      fontSize: 18,
                                     ),
                                   ),
                                 );
@@ -640,7 +642,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w500,
                                       color: Colors.grey.shade900,
-                                      fontSize: 16,
+                                      fontSize: 18,
                                     ),
                                   ),
                                 );
@@ -847,7 +849,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 );
                                                 controller.fetchBookedSlots();
                                                 fetchSlotInfo();
-                                                setState(() {});
+                                                if (mounted) setState(() {});
                                               } else {
                                                 ScaffoldMessenger.of(
                                                   context,
@@ -1013,7 +1015,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           style: GoogleFonts.inter(
                             fontWeight: FontWeight.w500,
                             color: Colors.grey.shade400,
-                            fontSize: 14,
+                            fontSize: 20,
                           ),
                         ),
                       ),
@@ -1212,29 +1214,25 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     List<BookingInfo> bookings, {
     VoidCallback? onCancel,
   }) async {
-    // courtPrice = bookings.fold(
-    //   0.0,
-    //   (sum, b) =>
-    //       sum +
-    //       b.subSlots.fold(
-    //         0.0,
-    //         (subSum, subSlot) => subSum + (subSlot.price is num)
-    //             ? subSlot.price.toDouble()
-    //             : 0.0,
-    //       ),
-    // );
-
     Color? borderColor;
     Color? backgroundColor;
     Color? textColor;
-    if (membershipPlan.toString().toLowerCase().contains('gold')) {
-      borderColor = Colors.amber.shade500;
-      backgroundColor = Colors.amber.shade50;
-      textColor = Colors.amber.shade800;
-    } else if (membershipPlan.toString().toLowerCase().contains('platinum')) {
-      borderColor = Colors.indigo.shade500;
-      backgroundColor = Colors.indigo.shade50;
-      textColor = Colors.indigo.shade700;
+    if (membershipPlan != null) {
+      if (membershipPlan.toLowerCase().contains('gold') ||
+          membershipPlan.contains('Gold')) {
+        borderColor = Colors.amber.shade500;
+        backgroundColor = Colors.amber.shade50;
+        textColor = Colors.amber.shade800;
+      } else if (membershipPlan.toLowerCase().contains('platinum') ||
+          membershipPlan.contains('Platinum')) {
+        borderColor = Colors.indigo.shade500;
+        backgroundColor = Colors.indigo.shade50;
+        textColor = Colors.indigo.shade700;
+      } else {
+        borderColor = Colors.grey.shade300;
+        backgroundColor = Colors.grey.shade100;
+        textColor = Colors.black;
+      }
     }
 
     if (!mounted) return;
@@ -1303,7 +1301,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     'New Booking',
                                     style: GoogleFonts.inter(
-                                      fontSize: 18,
+                                      fontSize: 22,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1311,7 +1309,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     'Create new booking based on selected courts',
                                     style: GoogleFonts.inter(
-                                      fontSize: 14,
+                                      fontSize: 20,
                                       color: Colors.grey.shade500,
                                       fontWeight: FontWeight.w400,
                                     ),
@@ -1330,7 +1328,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           'd MMM yyyy',
                                         ).format(DateTime.now()),
                                     style: GoogleFonts.inter(
-                                      fontSize: 16,
+                                      fontSize: 20,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -1343,7 +1341,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     //     :
                                     DateFormat('h:mm a').format(DateTime.now()),
                                     style: GoogleFonts.inter(
-                                      fontSize: 14,
+                                      fontSize: 20,
                                       color: Colors.grey.shade500,
                                       fontWeight: FontWeight.w400,
                                     ),
@@ -1374,13 +1372,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           Text(
                                             'Name',
                                             style: GoogleFonts.inter(
-                                              fontSize: 16,
+                                              fontSize: 22,
                                               color: Colors.grey.shade900,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                           const SizedBox(width: 6),
-                                          if (isMembershipApplied) ...[
+                                          if (hasMembership) ...[
                                             Container(
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -1396,9 +1394,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ),
                                               ),
                                               child: Text(
-                                                membershipPlan,
+                                                '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})',
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 12,
+                                                  fontSize: 14,
                                                   fontWeight: FontWeight.w700,
                                                   color: textColor,
                                                 ),
@@ -1448,7 +1446,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
-                                                fontSize: 16,
+                                                fontSize: 18,
                                                 color: Colors.grey.shade800,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -1456,7 +1454,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 isDense: true,
                                                 contentPadding:
                                                     const EdgeInsets.symmetric(
-                                                      vertical: 10,
+                                                      vertical: 12,
                                                       horizontal: 12,
                                                     ),
                                                 border: OutlineInputBorder(
@@ -1508,6 +1506,18 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                             '0',
                                                       )
                                                       : null;
+                                              membershipPlan =
+                                                  hasMembership
+                                                      ? suggestion['membership_plan']
+                                                      : null;
+                                              membershipValidityDate =
+                                                  hasMembership
+                                                      ? DateTime.tryParse(
+                                                        suggestion['validity_end']
+                                                                ?.toString() ??
+                                                            '',
+                                                      )
+                                                      : null;
                                               updateCourtPrice();
                                             });
                                           },
@@ -1526,7 +1536,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       Text(
                                         'Mobile',
                                         style: GoogleFonts.inter(
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           color: Colors.grey.shade900,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -1575,7 +1585,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
-                                                fontSize: 16,
+                                                fontSize: 18,
                                                 color: Colors.grey.shade800,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -1583,7 +1593,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 isDense: true,
                                                 contentPadding:
                                                     const EdgeInsets.symmetric(
-                                                      vertical: 10,
+                                                      vertical: 12,
                                                       horizontal: 12,
                                                     ),
                                                 border: OutlineInputBorder(
@@ -1632,6 +1642,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                             '0',
                                                       )
                                                       : null;
+                                              membershipPlan =
+                                                  hasMembership
+                                                      ? suggestion['membership_plan']
+                                                      : null;
                                               updateCourtPrice();
                                             });
                                           },
@@ -1652,7 +1666,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               Text(
                                 'Booking Information',
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
+                                  fontSize: 22,
                                   color: Colors.black,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1660,7 +1674,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               Text(
                                 'Sport : ${bookings.isNotEmpty ? 'Badminton' : ''}',
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
+                                  fontSize: 22,
                                   color: Colors.black,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1702,7 +1716,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     child: Text(
                                                       booking.courtName,
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 20,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color: Colors.black,
@@ -1723,7 +1737,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                       textAlign:
                                                           TextAlign.right,
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 20,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
@@ -1750,7 +1764,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                               text:
                                                                   "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
                                                               style: GoogleFonts.inter(
-                                                                fontSize: 16,
+                                                                fontSize: 18,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w600,
@@ -1764,7 +1778,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                               text:
                                                                   " (${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
                                                               style: GoogleFonts.inter(
-                                                                fontSize: 14,
+                                                                fontSize: 18,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w500,
@@ -1785,7 +1799,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                         "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
                                                         style:
                                                             GoogleFonts.inter(
-                                                              fontSize: 16,
+                                                              fontSize: 18,
                                                               fontWeight:
                                                                   FontWeight
                                                                       .w600,
@@ -1803,7 +1817,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     child: Text(
                                                       "${booking.subSlots.length * 30}mins",
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 18,
                                                         fontWeight:
                                                             FontWeight.w600,
                                                         color:
@@ -1831,10 +1845,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             ),
                           ),
 
-                          Container(
-                            height: 360,
-                            child: AddonItemsWidget(),
-                          ),
+                          Container(height: 360, child: AddonItemsWidget()),
 
                           SizedBox(height: 10),
                           if (isMembershipApplied) ...[
@@ -1844,7 +1855,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   width: MediaQuery.of(context).size.width / 3,
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
-                                    vertical: 4,
+                                    vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
                                     color: backgroundColor,
@@ -1859,7 +1870,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       Text(
                                         '$membershipPlan Membership',
                                         style: GoogleFonts.inter(
-                                          fontSize: 16,
+                                          fontSize: 23,
                                           color: textColor,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -1868,7 +1879,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       Text(
                                         '\$ ${memberPrice.toStringAsFixed(2)}',
                                         style: GoogleFonts.inter(
-                                          fontSize: 16,
+                                          fontSize: 23,
                                           color: textColor,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -1881,13 +1892,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   onPressed: () {
                                     setState(() {
                                       isMembershipApplied =
-                                          !isMembershipApplied; // or true/false
+                                          !isMembershipApplied;
                                       updateTotalPrice();
                                     });
                                   },
                                   icon: Icon(
                                     LucideIcons.trash2,
-                                    size: 18,
+                                    size: 20,
                                     color: Colors.grey.shade900,
                                   ),
                                 ),
@@ -1913,7 +1924,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     'Total',
                                     style: GoogleFonts.inter(
-                                      fontSize: 15,
+                                      fontSize: 23,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1923,7 +1934,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     '\$ ${courtPrice.toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
-                                      fontSize: 19,
+                                      fontSize: 25,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1932,7 +1943,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     'Total',
                                     style: GoogleFonts.inter(
-                                      fontSize: 15,
+                                      fontSize: 23,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1941,7 +1952,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     '\$ ${courtPrice.toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
-                                      fontSize: 19,
+                                      fontSize: 25,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -1967,7 +1978,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Text(
                                   'Total',
                                   style: GoogleFonts.inter(
-                                    fontSize: 15,
+                                    fontSize: 23,
                                     color: Colors.black,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1976,7 +1987,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Text(
                                   '\$ ${totalPrice.toStringAsFixed(2)}',
                                   style: GoogleFonts.inter(
-                                    fontSize: 19,
+                                    fontSize: 25,
                                     color: Colors.black,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -1996,13 +2007,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       isMembershipApplied = false;
                                       membershipPrice = 0.0;
                                       selectedMembershipId = null;
-                                      setState(() {});
+                                      selectedSlots.clear();
+                                      if (onCancel != null)
+                                        onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
-                                      if (onCancel != null) onCancel();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
+                                      minimumSize: Size.fromHeight(50),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2010,7 +2023,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     child: Text(
                                       "Cancel",
                                       style: GoogleFonts.inter(
-                                        fontSize: 17,
+                                        fontSize: 22,
                                         color: Colors.black,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2057,6 +2070,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
                                       foregroundColor: Colors.white,
+                                      minimumSize: Size.fromHeight(50),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2064,7 +2078,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     child: Text(
                                       "Quick Booking",
                                       style: GoogleFonts.inter(
-                                        fontSize: 17,
+                                        fontSize: 22,
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2088,13 +2102,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       isMembershipApplied = false;
                                       membershipPrice = 0.0;
                                       selectedMembershipId = null;
-                                      setState(() {});
+                                      selectedSlots.clear();
+                                      if (onCancel != null)
+                                        onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
-                                      if (onCancel != null) onCancel();
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
+                                      minimumSize: Size.fromHeight(50),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2102,7 +2118,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     child: Text(
                                       "Cancel",
                                       style: GoogleFonts.inter(
-                                        fontSize: 17,
+                                        fontSize: 23,
                                         color: Colors.black,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2134,16 +2150,43 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 //   ),
                                 // ]
                                 //else ...[
-                                if (!hasMembership && !isMembershipApplied) ...[
+                                if (!hasMembership ||
+                                    (membershipValidityDate != null &&
+                                        membershipValidityDate!
+                                                .difference(DateTime.now())
+                                                .inDays <=
+                                            0)) ...[
                                   Expanded(
                                     child: ElevatedButton(
-                                      onPressed: () {
-                                        Navigator.pop(context);
-                                        openMembershipDrawer(context, bookings);
-                                      },
+                                      onPressed:
+                                          (nameController.text
+                                                      .trim()
+                                                      .isNotEmpty ||
+                                                  mobileController.text
+                                                      .trim()
+                                                      .isNotEmpty)
+                                              ? () {
+                                                Navigator.pop(context);
+                                                openMembershipDrawer(
+                                                  context,
+                                                  bookings,
+                                                  onCancel: null,
+                                                );
+                                              }
+                                              : null, // disables the button if both are empty
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.black,
+                                        backgroundColor:
+                                            (nameController.text
+                                                        .trim()
+                                                        .isNotEmpty ||
+                                                    mobileController.text
+                                                        .trim()
+                                                        .isNotEmpty)
+                                                ? Colors.black
+                                                : Colors
+                                                    .grey, // visually indicate disabled
                                         foregroundColor: Colors.white,
+                                        minimumSize: Size.fromHeight(50),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             10,
@@ -2153,7 +2196,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       child: Text(
                                         "Enroll Membership",
                                         style: GoogleFonts.inter(
-                                          fontSize: 17,
+                                          fontSize: 23,
                                           color: Colors.white,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -2164,7 +2207,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 const SizedBox(width: 8),
                               ],
                             ),
-
+                            const SizedBox(height: 8),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
@@ -2198,6 +2241,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green,
                                   foregroundColor: Colors.white,
+                                  minimumSize: Size.fromHeight(50),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
@@ -2205,7 +2249,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 child: Text(
                                   "Quick Booking",
                                   style: GoogleFonts.inter(
-                                    fontSize: 17,
+                                    fontSize: 23,
                                     color: Colors.white,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -2259,7 +2303,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       "Booking Confirmed",
                       style: GoogleFonts.inter(
-                        fontSize: 18,
+                        fontSize: 25,
                         fontWeight: FontWeight.w700,
                         color: Colors.black,
                       ),
@@ -2268,7 +2312,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       controller.bookingId,
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 23,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -2283,7 +2327,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               customerName.toString(),
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 16,
+                                fontSize: 23,
                                 color: Colors.black,
                               ),
                             ),
@@ -2291,7 +2335,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               mobile,
                               style: GoogleFonts.inter(
                                 color: Colors.grey.shade800,
-                                fontSize: 14,
+                                fontSize: 22,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -2308,7 +2352,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   'Sport',
                                   style: GoogleFonts.inter(
                                     color: Colors.grey.shade800,
-                                    fontSize: 14,
+                                    fontSize: 22,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -2318,7 +2362,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             Text(
                               game,
                               style: GoogleFonts.inter(
-                                fontSize: 16,
+                                fontSize: 22,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black,
                               ),
@@ -2334,7 +2378,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         "Court Information",
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w600,
-                          fontSize: 16,
+                          fontSize: 22,
                           color: Colors.black,
                         ),
                       ),
@@ -2370,7 +2414,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           child: Text(
                                             booking.courtName,
                                             style: GoogleFonts.inter(
-                                              fontSize: 16,
+                                              fontSize: 22,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -2387,7 +2431,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     text:
                                                         "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
                                                     style: GoogleFonts.inter(
-                                                      fontSize: 16,
+                                                      fontSize: 22,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                       color:
@@ -2398,7 +2442,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     text:
                                                         "(${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
                                                     style: GoogleFonts.inter(
-                                                      fontSize: 14,
+                                                      fontSize: 22,
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color:
@@ -2417,7 +2461,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             child: Text(
                                               "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
                                               style: GoogleFonts.inter(
-                                                fontSize: 16,
+                                                fontSize: 22,
                                                 fontWeight: FontWeight.w600,
                                                 color: Colors.green.shade600,
                                               ),
@@ -2429,7 +2473,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           child: Text(
                                             "${booking.subSlots.length * 30}mins",
                                             style: GoogleFonts.inter(
-                                              fontSize: 16,
+                                              fontSize: 22,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.indigo.shade600,
                                             ),
@@ -2447,7 +2491,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             }).toStringAsFixed(2)}",
                                             textAlign: TextAlign.right,
                                             style: GoogleFonts.inter(
-                                              fontSize: 16,
+                                              fontSize: 23,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.grey.shade900,
                                             ),
@@ -2517,6 +2561,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             },
                             style: OutlinedButton.styleFrom(
                               foregroundColor: Colors.black,
+                              minimumSize: Size.fromHeight(50),
                               side: BorderSide(color: Colors.grey.shade400),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
@@ -2526,7 +2571,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               "Pay Later",
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w400,
-                                fontSize: 14,
+                                fontSize: 23,
                                 color: Colors.grey.shade500,
                               ),
                             ),
@@ -2560,6 +2605,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                               foregroundColor: Colors.white,
+                              minimumSize: Size.fromHeight(50),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -2567,7 +2613,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             child: Text(
                               "Pay Now",
                               style: GoogleFonts.inter(
-                                fontSize: 14,
+                                fontSize: 23,
                                 color: Colors.white,
                                 fontWeight: FontWeight.w400,
                               ),
@@ -2647,8 +2693,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   Future<void> openMembershipDrawer(
     BuildContext context,
-    List<BookingInfo> bookings,
-  ) async {
+    List<BookingInfo> bookings, {
+    VoidCallback? onCancel,
+  }) async {
     final plans = controller.membershipPlans;
     String? selectedPlan = plans.first['name'];
     selectedMembershipId = plans.first['id'];
@@ -2682,7 +2729,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           Text(
                             'Membership Plan',
                             style: GoogleFonts.inter(
-                              fontSize: 18,
+                              fontSize: 23,
                               fontWeight: FontWeight.w700,
                               color: Colors.black,
                             ),
@@ -2691,7 +2738,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           Text(
                             'Choose desired membership plan for the customer',
                             style: GoogleFonts.inter(
-                              fontSize: 14,
+                              fontSize: 22,
                               fontWeight: FontWeight.w400,
                               color: Colors.grey.shade500,
                             ),
@@ -2701,7 +2748,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             'Plans',
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                              fontSize: 22,
                               color: Colors.black,
                             ),
                           ),
@@ -2776,7 +2823,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           style: GoogleFonts.inter(
                                             fontWeight: FontWeight.w700,
                                             color: textColor,
-                                            fontSize: 16,
+                                            fontSize: 23,
                                           ),
                                         ),
                                         const Spacer(),
@@ -2785,7 +2832,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           style: GoogleFonts.inter(
                                             color: textColor,
                                             fontWeight: FontWeight.w700,
-                                            fontSize: 16,
+                                            fontSize: 23,
                                           ),
                                         ),
                                         const SizedBox(width: 4),
@@ -2793,7 +2840,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           plan['billing_cycle'],
                                           style: GoogleFonts.inter(
                                             color: textColor,
-                                            fontSize: 14,
+                                            fontSize: 23,
                                             fontWeight: FontWeight.w400,
                                           ),
                                         ),
@@ -2803,7 +2850,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     Text(
                                       plan['description'],
                                       style: GoogleFonts.inter(
-                                        fontSize: 16,
+                                        fontSize: 22,
                                         fontWeight: FontWeight.w500,
                                         color: Colors.black,
                                       ),
@@ -2817,7 +2864,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           children: [
                                             Icon(
                                               LucideIcons.dot,
-                                              size: 20,
+                                              size: 22,
                                               color: Colors.black,
                                             ),
                                             const SizedBox(width: 6),
@@ -2825,7 +2872,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               child: Text(
                                                 highlight,
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 16,
+                                                  fontSize: 22,
                                                   fontWeight: FontWeight.w700,
                                                   color: Colors.black,
                                                 ),
@@ -2845,10 +2892,29 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             children: [
                               Expanded(
                                 child: ElevatedButton(
-                                  onPressed: () => Navigator.pop(context),
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    //openMembershipDrawer call again
+                                    openBookingRightDrawer(
+                                      context,
+                                      '',
+                                      0.0,
+                                      false,
+                                      '',
+                                      bookings,
+                                      onCancel:
+                                          null, // No setState or UI logic here
+                                    );
+                                    // setState(() {
+                                    //   selectedPlan = null;
+                                    //   selectedMembershipId = null;
+                                    //   _selectedPrice = 0.0;
+                                    // });
+                                  },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.grey.shade300,
                                     foregroundColor: Colors.white,
+                                    minimumSize: Size.fromHeight(50),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -2890,11 +2956,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           isApplied,
                                           selectedMembershipId!,
                                           bookings,
-                                          onCancel: () {
-                                            setState(
-                                              () {},
-                                            ); // This will rebuild the parent and hide the buttons
-                                          },
+                                          onCancel:
+                                              null, // No setState or UI logic here
                                         );
                                       }
                                     });
@@ -2902,6 +2965,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.indigo,
                                     foregroundColor: Colors.white,
+                                    minimumSize: Size.fromHeight(50),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),

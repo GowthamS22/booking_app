@@ -22,10 +22,12 @@ class ShoppingScreen extends StatefulWidget {
   State<ShoppingScreen> createState() => _ShoppingScreenState();
 }
 
-class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProviderStateMixin {
-
-  final OrdersListController ordersListController = Get.put(OrdersListController());
-  final CheckoutController checkoutController     = Get.put(CheckoutController());
+class _ShoppingScreenState extends State<ShoppingScreen>
+    with SingleTickerProviderStateMixin {
+  final OrdersListController ordersListController = Get.put(
+    OrdersListController(),
+  );
+  final CheckoutController checkoutController = Get.put(CheckoutController());
 
   // SharedPreferences keys
   static const String _prefsCartKey = 'shopping_cart';
@@ -143,7 +145,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
       final categoriesJson = prefs.getString('categories');
       if (categoriesJson != null) {
         final List<dynamic> categoryData = jsonDecode(categoriesJson);
-        categories = categoryData.map((json) => Category.fromJson(json)).toList();
+        categories =
+            categoryData.map((json) => Category.fromJson(json)).toList();
       }
 
       // Load products
@@ -156,11 +159,10 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
       // Set default selected category
       if (categories.isNotEmpty) {
         selectedCategory = categories.firstWhere(
-              (cat) => cat.name == "Shuttlecock",
+          (cat) => cat.name == "Shuttlecock",
           orElse: () => categories.first,
         );
       }
-
     } catch (e) {
       print('Error loading data: $e');
       // Consider showing an error message to the user
@@ -175,16 +177,23 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
 
   List<Products> get filteredProducts {
     // First filter by category
-    List<Products> filtered = selectedCategory == null
-        ? products
-        : products.where((p) => p.categoryId == selectedCategory!.id).toList();
+    List<Products> filtered =
+        selectedCategory == null
+            ? products
+            : products
+                .where((p) => p.categoryId == selectedCategory!.id)
+                .toList();
 
     // Then filter by search query
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((p) =>
-      p.name.toLowerCase().contains(_searchQuery) ||
-          p.description.toLowerCase().contains(_searchQuery)
-      ).toList();
+      filtered =
+          filtered
+              .where(
+                (p) =>
+                    p.name.toLowerCase().contains(_searchQuery) ||
+                    p.description.toLowerCase().contains(_searchQuery),
+              )
+              .toList();
     }
 
     return filtered;
@@ -223,62 +232,69 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
     });
   }
 
-  double get total => cart.fold(0, (sum, item) => sum + double.parse(item.product.price) * item.quantity);
+  double get total => cart.fold(
+    0,
+    (sum, item) => sum + double.parse(item.product.price) * item.quantity,
+  );
 
   Future<void> _showOrderNotesDialog(BuildContext context) async {
-    final TextEditingController notesController =
-    TextEditingController(text: _orderNotes);
+    final TextEditingController notesController = TextEditingController(
+      text: _orderNotes,
+    );
 
     await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        backgroundColor: Colors.white,
-        title: const Text('Order Notes', style: TextStyle(fontSize: 25),),
-        content: Container(
-          width: 600,
-          child: TextField(
-            controller: notesController,
-            maxLines: 3,
-            decoration: const InputDecoration(
-                hintText: 'Special instructions for the entire order...',
-                border: OutlineInputBorder(),
-                hintStyle: TextStyle(fontSize: 22)
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
-            style: TextStyle(fontSize: 22),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey[200],
-              minimumSize: const Size(200, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            backgroundColor: Colors.white,
+            title: const Text('Order Notes', style: TextStyle(fontSize: 25)),
+            content: Container(
+              width: 600,
+              child: TextField(
+                controller: notesController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: 'Special instructions for the entire order...',
+                  border: OutlineInputBorder(),
+                  hintStyle: TextStyle(fontSize: 22),
+                ),
+                style: TextStyle(fontSize: 22),
               ),
             ),
-            child: const Text('Cancel', style: TextStyle(fontSize: 25),),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _orderNotes = notesController.text;
-                _saveOrderNotesToPrefs();
-              });
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey[200],
-              minimumSize: const Size(200, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  minimumSize: const Size(200, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Cancel', style: TextStyle(fontSize: 25)),
               ),
-            ),
-            child: const Text('Save', style: TextStyle(fontSize: 25)),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _orderNotes = notesController.text;
+                    _saveOrderNotesToPrefs();
+                  });
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  minimumSize: const Size(200, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Save', style: TextStyle(fontSize: 25)),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -301,10 +317,13 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
 
     final prefs = await SharedPreferences.getInstance();
     final sportsWithPlatforms = prefs.getString('sportsWithPlatforms');
-    final List<dynamic> sportsWithPlatformData = jsonDecode(sportsWithPlatforms!);
+    final List<dynamic> sportsWithPlatformData = jsonDecode(
+      sportsWithPlatforms!,
+    );
 
     // Convert to typed list
-    final List<Map<String, dynamic>> sports = sportsWithPlatformData.cast<Map<String, dynamic>>();
+    final List<Map<String, dynamic>> sports =
+        sportsWithPlatformData.cast<Map<String, dynamic>>();
 
     // Track selected sport and platform
     Map<String, dynamic>? selectedSport;
@@ -312,348 +331,464 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.5,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Merge Order',
-                      style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Merge purchase order with booking',
-                      style: TextStyle(color: Colors.grey,fontSize: 22),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Sports Selection
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: sports.map((sport) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 10),
-                            child: ChoiceChip(
-                              labelPadding: EdgeInsets.symmetric(horizontal: 20),
-                              backgroundColor: Colors.white,
-                              label: Text(
-                                sport['sport_name'] ?? 'Unknown Sport',
-                                style: TextStyle(fontSize: 25),
-                              ),
-                              selected: selectedSport == sport,
-                              onSelected: (_) {
-                                setState(() {
-                                  selectedSport = sport;
-                                  selectedPlatform = null;
-                                });
-                                if (selectedPlatform != null) {
-                                  ordersController.fetchBookingsForCourt(
-                                    courtId: selectedPlatform!['id'],
-                                    currentTime: DateTime.now(),
-                                  );
-                                }
-                              },
-                              selectedColor: Palette.newColorbg,
-                              labelStyle: TextStyle(
-                                color: selectedSport == sport
-                                    ? Palette.newColor
-                                    : Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-
-                    // Search Bar
-                    // Platforms Selection (only shown when a sport is selected)
-                    if (selectedSport != null && selectedSport!['platform_status'] != null)
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: (selectedSport!['platform_status'] as List).map((platform) {
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: ChoiceChip(
-                                labelPadding: EdgeInsets.symmetric(horizontal: 20),
-                                backgroundColor: Colors.white,
-                                label: Text(
-                                  '${selectedSport!['platform_name']} ${platform['platform_id']}',
-                                  style: TextStyle(fontSize: 22),
-                                ),
-                                selected: selectedPlatform == platform,
-                                onSelected: (_) {
-                                  setState(() => selectedPlatform = platform);
-                                  ordersController.fetchBookingsForCourt(
-                                    courtId: platform['id'],
-                                    currentTime: DateTime.now(),
-                                  );
-                                },
-                                selectedColor: Colors.blue[100],
-                                labelStyle: TextStyle(
-                                  color: selectedPlatform == platform
-                                      ? Colors.blue
-                                      : Colors.black,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    const SizedBox(height: 25),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      spacing: 30,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setState) {
+              return Dialog(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width * 0.5,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-
-                        // Current Booking Card
-                        Obx(() {
-                          if (ordersController.isBookingLoading.value) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-
-                          if (ordersController.currentBookings.isEmpty) {
-                            return Container(
-                              height: 200,
-                              width: 300,
-                              alignment: AlignmentDirectional.center,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.all(12),
-                              child: const Text('No current booking', style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
-                            );
-                          }
-
-                          return GestureDetector(
-                            onTap: () {
-                              final booking = ordersController.currentBookings.first;
-                              ordersController.selectCurrentBooking(booking);
-                            },
-                            child: Container(
-                              height: 200,
-                              width: 300,
-                              alignment: AlignmentDirectional.center,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: ordersController.selectedCurrentBooking.value != null
-                                      ? Colors.blue
-                                      : Colors.green,
-                                  width: ordersController.selectedCurrentBooking.value != null ? 3 : 1,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Current Booking',
-                                    style: TextStyle(
-                                        color: Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 25
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  ...ordersController.currentBookings.map((booking) {
-                                    final slot = booking.slots.first;
-                                    final customer = booking.customer;
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (customer != null) ...[
-                                          Text('${customer.fullName.toUpperCase()}', style: TextStyle(fontSize: 22)),
-                                        ],
-                                        Text('${selectedSport?['platform_name']} - ${selectedPlatform?['platform_id']}', style: TextStyle(fontSize: 22)),
-                                        Text('${DateFormat('h:mm a').format(slot.startTime)} - ${DateFormat('h:mm a').format(slot.endTime)}', style: TextStyle(fontSize: 22)),
-                                        if (ordersController.selectedCurrentBooking.value != null)
-                                          const Icon(Icons.check_circle, color: Colors.blue, size: 30),
-                                      ],
-                                    );
-                                  }),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-
-                        // Upcoming Booking Card
-                        Obx(() {
-                          if (ordersController.isBookingLoading.value) {
-                            return const SizedBox.shrink();
-                          }
-
-                          if (ordersController.upcomingBookings.isEmpty) {
-                            return Container(
-                              height: 200,
-                              width: 300,
-                              alignment: AlignmentDirectional.center,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.all(12),
-                              child: const Text('No Upcoming booking', style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
-                            );
-                          }
-
-                          return GestureDetector(
-                            onTap: () {
-                              final booking = ordersController.upcomingBookings.first;
-                              ordersController.selectUpcomingBooking(booking);
-                            },
-                            child: Container(
-                              height: 200,
-                              width: 300,
-                              alignment: AlignmentDirectional.center,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: ordersController.selectedUpcomingBooking.value != null
-                                      ? Colors.blue
-                                      : Colors.orange,
-                                  width: ordersController.selectedUpcomingBooking.value != null ? 3 : 1,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Upcoming Booking',
-                                    style: TextStyle(
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 25
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  ...ordersController.upcomingBookings.map((booking) {
-                                    final slot = booking.slots.first;
-                                    final customer = booking.customer;
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (customer != null) ...[
-                                          Text('${customer.fullName.toUpperCase()}', style: TextStyle(fontSize: 22)),
-                                        ],
-                                        Text('${selectedSport?['platform_name']} - ${selectedPlatform?['platform_id']}', style: TextStyle(fontSize: 22)),
-                                        Text('${DateFormat('h:mm a').format(slot.startTime)} - ${DateFormat('h:mm a').format(slot.endTime)}', style: TextStyle(fontSize: 22)),
-                                        if (ordersController.selectedUpcomingBooking.value != null)
-                                          const Icon(Icons.check_circle, color: Colors.blue, size: 30),
-                                      ],
-                                    );
-                                  }),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-
-                      ],
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // Buttons Row
-                    Row(
-                      spacing: 10,
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Palette.white,
-                              minimumSize: const Size(150, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel', style: TextStyle(color: Colors.grey, fontSize: 25),),
+                        const Text(
+                          'Merge Order',
+                          style: TextStyle(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        // Expanded(
-                        //   child: ElevatedButton(
-                        //     onPressed: () {
-                        //       final selectedBooking = ordersController.selectedBooking;
-                        //       if (selectedBooking == null) {
-                        //         showCustomSnackbar('Warning', 'Please select a booking first!', Colors.orange);
-                        //         return;
-                        //       }
-                        //
-                        //       Navigator.pop(context);
-                        //       _checkout();
-                        //     },
-                        //     style: ElevatedButton.styleFrom(
-                        //       backgroundColor: Colors.green,
-                        //       minimumSize: const Size(150, 50),
-                        //       shape: RoundedRectangleBorder(
-                        //         borderRadius: BorderRadius.circular(10),
-                        //       ),
-                        //     ),
-                        //     child: const Text('Pay Now', style: TextStyle(color: Colors.white, fontSize: 25),),
-                        //   ),
-                        // ),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {
-                              final selectedBooking = ordersController.selectedBooking;
-                              if (selectedBooking == null) {
-                                showCustomSnackbar('Warning', 'Please select a booking first!', Colors.orange);
-                                return;
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Merge purchase order with booking',
+                          style: TextStyle(color: Colors.grey, fontSize: 22),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Sports Selection
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children:
+                                sports.map((sport) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 10),
+                                    child: ChoiceChip(
+                                      labelPadding: EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                      ),
+                                      backgroundColor: Colors.white,
+                                      label: Text(
+                                        sport['sport_name'] ?? 'Unknown Sport',
+                                        style: TextStyle(fontSize: 25),
+                                      ),
+                                      selected: selectedSport == sport,
+                                      onSelected: (_) {
+                                        setState(() {
+                                          selectedSport = sport;
+                                          selectedPlatform = null;
+                                        });
+                                        if (selectedPlatform != null) {
+                                          ordersController
+                                              .fetchBookingsForCourt(
+                                                courtId:
+                                                    selectedPlatform!['id'],
+                                                currentTime: DateTime.now(),
+                                              );
+                                        }
+                                      },
+                                      selectedColor: Palette.newColorbg,
+                                      labelStyle: TextStyle(
+                                        color:
+                                            selectedSport == sport
+                                                ? Palette.newColor
+                                                : Colors.black,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+
+                        // Search Bar
+                        // Platforms Selection (only shown when a sport is selected)
+                        if (selectedSport != null &&
+                            selectedSport!['platform_status'] != null)
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children:
+                                  (selectedSport!['platform_status'] as List).map((
+                                    platform,
+                                  ) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 10),
+                                      child: ChoiceChip(
+                                        labelPadding: EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                        ),
+                                        backgroundColor: Colors.white,
+                                        label: Text(
+                                          '${selectedSport!['platform_name']} ${platform['platform_id']}',
+                                          style: TextStyle(fontSize: 22),
+                                        ),
+                                        selected: selectedPlatform == platform,
+                                        onSelected: (_) {
+                                          setState(
+                                            () => selectedPlatform = platform,
+                                          );
+                                          ordersController
+                                              .fetchBookingsForCourt(
+                                                courtId: platform['id'],
+                                                currentTime: DateTime.now(),
+                                              );
+                                        },
+                                        selectedColor: Colors.blue[100],
+                                        labelStyle: TextStyle(
+                                          color:
+                                              selectedPlatform == platform
+                                                  ? Colors.blue
+                                                  : Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                            ),
+                          ),
+                        const SizedBox(height: 25),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          spacing: 30,
+                          children: [
+                            // Current Booking Card
+                            Obx(() {
+                              if (ordersController.isBookingLoading.value) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
                               }
 
-                              checkoutController.createTempOrder(total: total).then((value) async {
-                                final orderId = value['id'];
-                                checkoutController.mergeBookingtoOrder(
-                                  booking_id: selectedBooking.id,
-                                  customer_id: selectedBooking.customer?.id,
-                                  order_id: orderId
+                              if (ordersController.currentBookings.isEmpty) {
+                                return Container(
+                                  height: 200,
+                                  width: 300,
+                                  alignment: AlignmentDirectional.center,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  child: const Text(
+                                    'No current booking',
+                                    style: TextStyle(fontSize: 20),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 );
-                              });
+                              }
 
-                              Navigator.pop(context);
-                              // Add your merge order logic here
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Palette.newColor,
-                              minimumSize: const Size(150, 50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                              return GestureDetector(
+                                onTap: () {
+                                  final booking =
+                                      ordersController.currentBookings.first;
+                                  ordersController.selectCurrentBooking(
+                                    booking,
+                                  );
+                                },
+                                child: Container(
+                                  height: 200,
+                                  width: 300,
+                                  alignment: AlignmentDirectional.center,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color:
+                                          ordersController
+                                                      .selectedCurrentBooking
+                                                      .value !=
+                                                  null
+                                              ? Colors.blue
+                                              : Colors.green,
+                                      width:
+                                          ordersController
+                                                      .selectedCurrentBooking
+                                                      .value !=
+                                                  null
+                                              ? 3
+                                              : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Current Booking',
+                                        style: TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 25,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ...ordersController.currentBookings.map((
+                                        booking,
+                                      ) {
+                                        final slot = booking.slots.first;
+                                        final customer = booking.customer;
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (customer != null) ...[
+                                              Text(
+                                                '${customer.fullName.toUpperCase()}',
+                                                style: TextStyle(fontSize: 22),
+                                              ),
+                                            ],
+                                            Text(
+                                              '${selectedSport?['platform_name']} - ${selectedPlatform?['platform_id']}',
+                                              style: TextStyle(fontSize: 22),
+                                            ),
+                                            Text(
+                                              '${DateFormat('h:mm a').format(slot.startTime)} - ${DateFormat('h:mm a').format(slot.endTime)}',
+                                              style: TextStyle(fontSize: 22),
+                                            ),
+                                            if (ordersController
+                                                    .selectedCurrentBooking
+                                                    .value !=
+                                                null)
+                                              const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.blue,
+                                                size: 30,
+                                              ),
+                                          ],
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+
+                            // Upcoming Booking Card
+                            Obx(() {
+                              if (ordersController.isBookingLoading.value) {
+                                return const SizedBox.shrink();
+                              }
+
+                              if (ordersController.upcomingBookings.isEmpty) {
+                                return Container(
+                                  height: 200,
+                                  width: 300,
+                                  alignment: AlignmentDirectional.center,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  child: const Text(
+                                    'No Upcoming booking',
+                                    style: TextStyle(fontSize: 20),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                );
+                              }
+
+                              return GestureDetector(
+                                onTap: () {
+                                  final booking =
+                                      ordersController.upcomingBookings.first;
+                                  ordersController.selectUpcomingBooking(
+                                    booking,
+                                  );
+                                },
+                                child: Container(
+                                  height: 200,
+                                  width: 300,
+                                  alignment: AlignmentDirectional.center,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color:
+                                          ordersController
+                                                      .selectedUpcomingBooking
+                                                      .value !=
+                                                  null
+                                              ? Colors.blue
+                                              : Colors.orange,
+                                      width:
+                                          ordersController
+                                                      .selectedUpcomingBooking
+                                                      .value !=
+                                                  null
+                                              ? 3
+                                              : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.all(12),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Upcoming Booking',
+                                        style: TextStyle(
+                                          color: Colors.orange,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 25,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ...ordersController.upcomingBookings.map((
+                                        booking,
+                                      ) {
+                                        final slot = booking.slots.first;
+                                        final customer = booking.customer;
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (customer != null) ...[
+                                              Text(
+                                                '${customer.fullName.toUpperCase()}',
+                                                style: TextStyle(fontSize: 22),
+                                              ),
+                                            ],
+                                            Text(
+                                              '${selectedSport?['platform_name']} - ${selectedPlatform?['platform_id']}',
+                                              style: TextStyle(fontSize: 22),
+                                            ),
+                                            Text(
+                                              '${DateFormat('h:mm a').format(slot.startTime)} - ${DateFormat('h:mm a').format(slot.endTime)}',
+                                              style: TextStyle(fontSize: 22),
+                                            ),
+                                            if (ordersController
+                                                    .selectedUpcomingBooking
+                                                    .value !=
+                                                null)
+                                              const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.blue,
+                                                size: 30,
+                                              ),
+                                          ],
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+
+                        const SizedBox(height: 40),
+
+                        // Buttons Row
+                        Row(
+                          spacing: 10,
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.white,
+                                  minimumSize: const Size(150, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 25,
+                                  ),
+                                ),
                               ),
                             ),
-                            child: const Text('Merge Order', style: TextStyle(fontSize: 25, color: Colors.white),),
-                          ),
+                            // Expanded(
+                            //   child: ElevatedButton(
+                            //     onPressed: () {
+                            //       final selectedBooking = ordersController.selectedBooking;
+                            //       if (selectedBooking == null) {
+                            //         showCustomSnackbar('Warning', 'Please select a booking first!', Colors.orange);
+                            //         return;
+                            //       }
+                            //
+                            //       Navigator.pop(context);
+                            //       _checkout();
+                            //     },
+                            //     style: ElevatedButton.styleFrom(
+                            //       backgroundColor: Colors.green,
+                            //       minimumSize: const Size(150, 50),
+                            //       shape: RoundedRectangleBorder(
+                            //         borderRadius: BorderRadius.circular(10),
+                            //       ),
+                            //     ),
+                            //     child: const Text('Pay Now', style: TextStyle(color: Colors.white, fontSize: 25),),
+                            //   ),
+                            // ),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  final selectedBooking =
+                                      ordersController.selectedBooking;
+                                  if (selectedBooking == null) {
+                                    showCustomSnackbar(
+                                      'Warning',
+                                      'Please select a booking first!',
+                                      Colors.orange,
+                                    );
+                                    return;
+                                  }
+
+                                  checkoutController
+                                      .createTempOrder(total: total)
+                                      .then((value) async {
+                                        final orderId = value['id'];
+                                        checkoutController.mergeBookingtoOrder(
+                                          booking_id: selectedBooking.id,
+                                          customer_id:
+                                              selectedBooking.customer?.id,
+                                          order_id: orderId,
+                                        );
+                                      });
+
+                                  Navigator.pop(context);
+                                  // Add your merge order logic here
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.newColor,
+                                  minimumSize: const Size(150, 50),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Merge Order',
+                                  style: TextStyle(
+                                    fontSize: 25,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
     );
   }
 
@@ -674,18 +809,21 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => CheckoutScreen(
-          type: 'Product',
-          customerName: 'System Customer',
-          mobileno: '+61 0000 000 000',
-          selectedDateTime: DateTime.now(),
-          billAmount: total,
-          bookings: [],
-          membershipID: '',
-          membershipName: '',
-          isMembershipApplied: false,
-          membershipPrice: 0.0,
-      )),
+      MaterialPageRoute(
+        builder:
+            (context) => CheckoutScreen(
+              type: 'Product',
+              customerName: 'System Customer',
+              mobileno: '+61 0000 000 000',
+              selectedDateTime: DateTime.now(),
+              billAmount: total,
+              bookings: [],
+              membershipID: '',
+              membershipName: '',
+              isMembershipApplied: false,
+              membershipPrice: 0.0,
+            ),
+      ),
     ).then((_) {
       // After returning from checkout
       _loadCartFromPrefs();
@@ -719,8 +857,18 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
 
   String _getMonthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months[month - 1];
   }
@@ -728,11 +876,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
 
     Widget _buildNewOrderTab() {
       return SafeArea(
@@ -758,40 +903,65 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                         scrollDirection: Axis.horizontal,
                         padding: const EdgeInsets.all(15),
                         child: Row(
-                          children: categories.map((cat) => Padding(
-                            padding: const EdgeInsets.only(right: 15),
-                            child: ChoiceChip(
-                              backgroundColor: Colors.white,
-                              label: Text(cat.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.normal),),
-                              selected: cat == selectedCategory,
-                              onSelected: (_) => setState(() => selectedCategory = cat),
-                              selectedColor: Palette.newColorbg,
-                              labelStyle: TextStyle(
-                                color: cat == selectedCategory ? Palette.newColor : Colors.black,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                side: BorderSide(color: Colors.grey.shade300, width: 2)
-                              ),
-                            ),
-                          )).toList(),
+                          children:
+                              categories
+                                  .map(
+                                    (cat) => Padding(
+                                      padding: const EdgeInsets.only(right: 15),
+                                      child: ChoiceChip(
+                                        backgroundColor: Colors.white,
+                                        label: Text(
+                                          cat.name,
+                                          style: TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.normal,
+                                          ),
+                                        ),
+                                        selected: cat == selectedCategory,
+                                        onSelected:
+                                            (_) => setState(
+                                              () => selectedCategory = cat,
+                                            ),
+                                        selectedColor: Palette.newColorbg,
+                                        labelStyle: TextStyle(
+                                          color:
+                                              cat == selectedCategory
+                                                  ? Palette.newColor
+                                                  : Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                          side: BorderSide(
+                                            color: Colors.grey.shade300,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
                         ),
                       ),
                       // Search Bar
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                         child: TextField(
                           controller: _searchController,
-                          style: TextStyle(
-                            fontSize: 25
-                          ),
+                          style: TextStyle(fontSize: 25),
                           decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35,),
-                            hintText: 'e.g Young Shuttlecock',
-                            hintStyle: TextStyle(
-                              fontSize: 25
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: Colors.grey,
+                              size: 35,
                             ),
+                            hintText: 'e.g Young Shuttlecock',
+                            hintStyle: TextStyle(fontSize: 25),
                             filled: true,
                             fillColor: Colors.white,
                             border: UnderlineInputBorder(
@@ -817,63 +987,76 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                       ),
                       // Product Grid
                       Expanded(
-                        child: filteredProducts.isEmpty
-                            ? const Center(child: Text('No products found'))
-                            : GridView.builder(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: filteredProducts.length,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            crossAxisSpacing: 15,
-                            mainAxisSpacing: 15,
-                          ),
-                          itemBuilder: (_, index) {
-                            final product = filteredProducts[index];
-                            return InkWell(
-                              onTap: () => addToCart(product),
-                              child: Card(
-                                color: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                elevation: 2,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Image.network(
-                                      product.imageUrl.toString(),
-                                      errorBuilder: (context, error, stackTrace) => Image.network(
-                                        'https://placehold.co/150x100/png',
-                                        fit: BoxFit.cover,
+                        child:
+                            filteredProducts.isEmpty
+                                ? const Center(child: Text('No products found'))
+                                : GridView.builder(
+                                  padding: const EdgeInsets.all(12),
+                                  itemCount: filteredProducts.length,
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 4,
+                                        crossAxisSpacing: 15,
+                                        mainAxisSpacing: 15,
                                       ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: Text(
-                                        product.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontSize: 22),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      child: Text(
-                                        '\$${product.price}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 25
+                                  itemBuilder: (_, index) {
+                                    final product = filteredProducts[index];
+                                    return InkWell(
+                                      onTap: () => addToCart(product),
+                                      child: Card(
+                                        color: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
-                                        textAlign: TextAlign.center,
+                                        elevation: 2,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Image.network(
+                                              product.imageUrl.toString(),
+                                              errorBuilder:
+                                                  (
+                                                    context,
+                                                    error,
+                                                    stackTrace,
+                                                  ) => Image.network(
+                                                    'https://placehold.co/150x100/png',
+                                                    fit: BoxFit.cover,
+                                                  ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(8),
+                                              child: Text(
+                                                product.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(fontSize: 22),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                  ),
+                                              child: Text(
+                                                '\$${product.price}',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 25,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    );
+                                  },
                                 ),
-                              ),
-                            );
-                          },
-                        ),
                       ),
                     ],
                   ),
@@ -884,18 +1067,26 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                 flex: 2,
                 child: Container(
                   decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(left: BorderSide(color: Colors.grey.shade300)),
-                      borderRadius: BorderRadius.circular(10)
+                    color: Colors.white,
+                    border: Border(
+                      left: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   child: Column(
                     children: [
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: 5),
                         child: Text(
-                            'Order #$_tempOrderId',
-                            style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)
+                          'Order #$_tempOrderId',
+                          style: TextStyle(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                       const Divider(color: Colors.grey),
@@ -911,47 +1102,76 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                               background: Container(
                                 color: Colors.red,
                                 alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: const Text('Delete', style: TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold),),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                ),
+                                child: const Text(
+                                  'Delete',
+                                  style: TextStyle(
+                                    fontSize: 22,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                              onDismissed: (_) => setState(() {
-                                cart.remove(item);
-                                _saveCartToPrefs();
-                              }),
+                              onDismissed:
+                                  (_) => setState(() {
+                                    cart.remove(item);
+                                    _saveCartToPrefs();
+                                  }),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 10,
+                                ),
                                 child: Row(
                                   spacing: 20,
                                   children: [
                                     // Product Name
                                     Expanded(
                                       child: Text(
-                                          item.product.name,
-                                          style: const TextStyle(
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.bold
-                                          ),
-                                          overflow: TextOverflow.ellipsis
+                                        item.product.name,
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                     // Quantity with Border
                                     Container(
-                                      width: MediaQuery.of(context).size.width / 14,
+                                      width:
+                                          MediaQuery.of(context).size.width /
+                                          14,
                                       decoration: BoxDecoration(
-                                        border: Border.all(color: Colors.grey.shade400),
+                                        border: Border.all(
+                                          color: Colors.grey.shade400,
+                                        ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           IconButton(
                                             onPressed: () => decrementQty(item),
-                                            icon: const Icon(Icons.remove, size: 25),
+                                            icon: const Icon(
+                                              Icons.remove,
+                                              size: 25,
+                                            ),
                                           ),
-                                          Text('${item.quantity}', style: const TextStyle(fontSize: 25)),
+                                          Text(
+                                            '${item.quantity}',
+                                            style: const TextStyle(
+                                              fontSize: 25,
+                                            ),
+                                          ),
                                           IconButton(
                                             onPressed: () => incrementQty(item),
-                                            icon: const Icon(Icons.add, size: 25),
+                                            icon: const Icon(
+                                              Icons.add,
+                                              size: 25,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -960,22 +1180,24 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                                     Container(
                                       width: 110,
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
                                         children: [
                                           Padding(
-                                            padding: const EdgeInsets.only(left: 8.0),
+                                            padding: const EdgeInsets.only(
+                                              left: 8.0,
+                                            ),
                                             child: Text(
                                               '\$${(double.parse(item.product.price) * item.quantity).toStringAsFixed(2)}',
                                               style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 25
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 25,
                                               ),
                                             ),
-                                          )
+                                          ),
                                         ],
                                       ),
                                     ),
-
                                   ],
                                 ),
                               ),
@@ -1000,8 +1222,18 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                               child: const Row(
                                 spacing: 10,
                                 children: [
-                                  Icon(Icons.edit, size: 20,color: Colors.grey,),
-                                  Text('Add Notes',style: TextStyle(color: Colors.grey, fontSize: 25))
+                                  Icon(
+                                    Icons.edit,
+                                    size: 20,
+                                    color: Colors.grey,
+                                  ),
+                                  Text(
+                                    'Add Notes',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 25,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -1021,50 +1253,74 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                                 ),
                               ),
                               child: const Text(
-                                  'Clear All',
-                                  style: TextStyle(color: Colors.grey, fontSize: 25)
+                                'Clear All',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 25,
+                                ),
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),
-                      const Divider( color: Colors.grey, thickness: 1,),
+                      const Divider(color: Colors.grey, thickness: 1),
                       // Total
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                                'Total',
-                                style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold)
+                              'Total',
+                              style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             Text(
-                                '\$${total.toStringAsFixed(2)}',
-                                style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)
+                              '\$${total.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                                'GST Incl.',
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.normal)
+                              'GST Incl.',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.normal,
+                              ),
                             ),
                             Text(
-                                '\$${(0.1 * total).toStringAsFixed(2)}',
-                                style: const TextStyle(fontSize: 25, fontWeight: FontWeight.bold)
+                              '\$${(0.1 * total).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       // Buttons
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 0,
+                          vertical: 8,
+                        ),
                         child: Row(
                           children: [
                             Expanded(
@@ -1078,8 +1334,11 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                                   ),
                                 ),
                                 child: const Text(
-                                    'Cancel',
-                                    style: TextStyle(color: Colors.grey, fontSize: 25)
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.grey,
+                                    fontSize: 25,
+                                  ),
                                 ),
                               ),
                             ),
@@ -1095,15 +1354,21 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                                   ),
                                 ),
                                 child: const Text(
-                                    'Check Out',
-                                    style: TextStyle(color: Colors.white, fontSize: 25)
+                                  'Check Out',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 25,
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: cart.isEmpty ? null : () => _showMergeDialog(context),
+                                onPressed:
+                                    cart.isEmpty
+                                        ? null
+                                        : () => _showMergeDialog(context),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Palette.newColorbg,
                                   minimumSize: const Size(150, 60),
@@ -1111,7 +1376,11 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                                child: const Icon(Icons.call_merge, color: Palette.newColor, size: 45),
+                                child: const Icon(
+                                  Icons.call_merge,
+                                  color: Palette.newColor,
+                                  size: 45,
+                                ),
                               ),
                             ),
                           ],
@@ -1129,8 +1398,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
 
     Widget _buildAllOrdersTab() {
       return Obx(() {
-
-        if (ordersListController.isLoading && ordersListController.orders.isEmpty) {
+        if (ordersListController.isLoading &&
+            ordersListController.orders.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -1170,7 +1439,10 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                     children: [
                       Text(
                         'All Orders',
-                        style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1189,8 +1461,13 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                               hintText: 'e.g John',
                               hintStyle: TextStyle(fontSize: 22),
                               prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 0,
+                                horizontal: 16,
+                              ),
                               fillColor: Colors.white,
                               filled: true,
                             ),
@@ -1220,10 +1497,18 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                     scrollDirection: Axis.vertical,
                     child: DataTable(
                       columnSpacing: 24,
-                      dataRowHeight: 80, // Set your desired row height here (default is 56)
-                      headingRowHeight: 60, // Optional: adjust header row height
-                      headingRowColor: MaterialStateColor.resolveWith((states) => Colors.black),
-                      headingTextStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 22),
+                      dataRowHeight:
+                          80, // Set your desired row height here (default is 56)
+                      headingRowHeight:
+                          60, // Optional: adjust header row height
+                      headingRowColor: MaterialStateColor.resolveWith(
+                        (states) => Colors.black,
+                      ),
+                      headingTextStyle: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                      ),
                       columns: const [
                         DataColumn(label: Text('Order Id')),
                         DataColumn(label: Text('Name & Mobile No.')),
@@ -1232,104 +1517,148 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                         DataColumn(label: Text('Amount (\$)')),
                         DataColumn(label: Text('Order Status')),
                       ],
-                      rows: ordersListController.orders.map((order) {
-                        return DataRow(
-                          onSelectChanged: (_) {
-                            // Add navigation to order details if needed
-                          },
-                          cells: [
-                            DataCell(
-                              SizedBox(
-                                height: 80, // Match this with dataRowHeight
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('#${order.tokenNumber}', style: TextStyle(fontSize: 22),),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                height: 80,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('order.customerName', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 22)),
-                                    Text('order.mobileNo', style: TextStyle(color: Colors.grey[600], fontSize: 22)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                height: 80,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('${order.createdAt?.day} ${_getMonthName(order.createdAt!.month)} ${order.createdAt?.year}', style: TextStyle(fontSize: 22),),
-                                    Text('${order.createdAt?.hour}:${order.createdAt?.minute.toString().padLeft(2, '0')}',
-                                        style: TextStyle(color: Colors.grey[600], fontSize: 22)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                height: 80,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    order.cartItems!.map((item) => item.product.name).join(' \n '),
-                                    maxLines: 2, // Increased from 1 to show more items
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 22),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                height: 80,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text('\$${order.billDetails?.billAmount!.toStringAsFixed(2)}', style: TextStyle(fontSize: 22),),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              SizedBox(
-                                height: 80,
-                                child: DropdownButton<String>(
-                                  value: order.orderStatus,
-                                  items: ['Pending', 'Paid', 'Cancelled', 'Completed']
-                                      .map((status) => DropdownMenuItem(
-                                    value: status,
-                                    child: Text(
-                                      status,
-                                      style: TextStyle(
-                                        color: status == 'Paid'
-                                            ? Colors.green
-                                            : status == 'Cancelled'
-                                            ? Colors.red
-                                            : Colors.orange,
-                                        fontSize: 22
+                      rows:
+                          ordersListController.orders.map((order) {
+                            return DataRow(
+                              onSelectChanged: (_) {
+                                // Add navigation to order details if needed
+                              },
+                              cells: [
+                                DataCell(
+                                  SizedBox(
+                                    height: 80, // Match this with dataRowHeight
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '#${order.tokenNumber}',
+                                        style: TextStyle(fontSize: 22),
                                       ),
                                     ),
-                                  ))
-                                      .toList(),
-                                  onChanged: (newStatus) {
-                                    if (newStatus != null) {
-                                      //ordersController.updateOrderStatus(order.id, newStatus);
-                                    }
-                                  },
-                                  underline: Container(),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
+                                DataCell(
+                                  SizedBox(
+                                    height: 80,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'order.customerName',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                            fontSize: 22,
+                                          ),
+                                        ),
+                                        Text(
+                                          'order.mobileNo',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 22,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    height: 80,
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${order.createdAt?.day} ${_getMonthName(order.createdAt!.month)} ${order.createdAt?.year}',
+                                          style: TextStyle(fontSize: 22),
+                                        ),
+                                        Text(
+                                          '${order.createdAt?.hour}:${order.createdAt?.minute.toString().padLeft(2, '0')}',
+                                          style: TextStyle(
+                                            color: Colors.grey[600],
+                                            fontSize: 22,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    height: 80,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        order.cartItems!
+                                            .map((item) => item.product.name)
+                                            .join(' \n '),
+                                        maxLines:
+                                            2, // Increased from 1 to show more items
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 22),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    height: 80,
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        '\$${order.billDetails?.billAmount!.toStringAsFixed(2)}',
+                                        style: TextStyle(fontSize: 22),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  SizedBox(
+                                    height: 80,
+                                    child: DropdownButton<String>(
+                                      value: order.orderStatus,
+                                      items:
+                                          [
+                                                'Pending',
+                                                'Paid',
+                                                'Cancelled',
+                                                'Completed',
+                                              ]
+                                              .map(
+                                                (status) => DropdownMenuItem(
+                                                  value: status,
+                                                  child: Text(
+                                                    status,
+                                                    style: TextStyle(
+                                                      color:
+                                                          status == 'Paid'
+                                                              ? Colors.green
+                                                              : status ==
+                                                                  'Cancelled'
+                                                              ? Colors.red
+                                                              : Colors.orange,
+                                                      fontSize: 22,
+                                                    ),
+                                                  ),
+                                                ),
+                                              )
+                                              .toList(),
+                                      onChanged: (newStatus) {
+                                        if (newStatus != null) {
+                                          //ordersController.updateOrderStatus(order.id, newStatus);
+                                        }
+                                      },
+                                      underline: Container(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                     ),
                   ),
                 ),
@@ -1337,10 +1666,8 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
             ],
           ),
         );
-      },);
+      });
     }
-
-
 
     return Scaffold(
       backgroundColor: Colors.grey[200],
@@ -1387,10 +1714,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                 ),
                 dividerColor: Colors.transparent,
                 overlayColor: WidgetStateProperty.all(Colors.transparent),
-                tabs: const [
-                  Tab(text: 'New Order'),
-                  Tab(text: 'All Orders'),
-                ],
+                tabs: const [Tab(text: 'New Order'), Tab(text: 'All Orders')],
               ),
             ),
           ),
@@ -1404,7 +1728,7 @@ class _ShoppingScreenState extends State<ShoppingScreen> with SingleTickerProvid
                 _buildAllOrdersTab(),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
