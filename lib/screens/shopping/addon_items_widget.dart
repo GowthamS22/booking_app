@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/controllers/PosOrderController.dart';
 import 'package:booking_app/models/category.dart';
 import 'package:booking_app/models/products.dart';
@@ -178,6 +179,221 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
     await prefs.setString(_prefsCartKey, cartJson);
   }
 
+  Future<void> _showProductsListDialog(BuildContext context) async {
+    // Create local TextEditingController for the dialog
+    final dialogSearchController = TextEditingController();
+    String dialogSearchQuery = '';
+    Category? dialogSelectedCategory = selectedCategory;
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: '',
+      barrierColor: Colors.transparent,
+      transitionDuration: Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Local function to filter products
+            List<Products> getDialogFilteredProducts() {
+              // First filter by category
+              List<Products> filtered = dialogSelectedCategory == null
+                  ? products
+                  : products.where((p) => p.categoryId == dialogSelectedCategory!.id).toList();
+
+              // Then filter by search query
+              if (dialogSearchQuery.isNotEmpty) {
+                filtered = filtered.where((p) =>
+                p.name.toLowerCase().contains(dialogSearchQuery.toLowerCase()) ||
+                    (p.description?.toLowerCase().contains(dialogSearchQuery.toLowerCase()) ?? false)
+                ).toList();
+              }
+
+              return filtered;
+            }
+
+            return Stack(
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  behavior: HitTestBehavior.translucent,
+                  child: Container(color: Colors.transparent),
+                ),
+                SlideTransition(
+                  position: Tween<Offset>(
+                    begin: Offset(-1, 0),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOut,
+                  )),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.58,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 10,
+                            spreadRadius: 2,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Categories Row
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.all(15),
+                            child: Row(
+                              children: categories.map((cat) => Padding(
+                                padding: const EdgeInsets.only(right: 15),
+                                child: ChoiceChip(
+                                  backgroundColor: Colors.white,
+                                  label: Text(cat.name, style: TextStyle(fontSize: 22, fontWeight: FontWeight.normal)),
+                                  selected: cat == dialogSelectedCategory,
+                                  onSelected: (_) => setState(() {
+                                    dialogSelectedCategory = cat;
+                                    // Also update the parent widget's selected category
+                                    selectedCategory = cat;
+                                  }),
+                                  selectedColor: Palette.newColorbg,
+                                  labelStyle: TextStyle(
+                                    color: cat == dialogSelectedCategory ? Palette.newColor : Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                      side: BorderSide(color: Colors.grey.shade300, width: 2)
+                                  ),
+                                ),
+                              )).toList(),
+                            ),
+                          ),
+
+                          // Search Bar
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            child: TextField(
+                              controller: dialogSearchController,
+                              onChanged: (value) {
+                                setState(() {
+                                  dialogSearchQuery = value;
+                                });
+                              },
+                              style: TextStyle(fontSize: 25),
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35),
+                                hintText: 'e.g Young Shuttlecock',
+                                hintStyle: TextStyle(fontSize: 25),
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.blue,
+                                    width: 2.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Products Grid
+                          Expanded(
+                            child: getDialogFilteredProducts().isEmpty
+                                ? const Center(child: Text('No products found'))
+                                : GridView.builder(
+                              padding: const EdgeInsets.all(12),
+                              itemCount: getDialogFilteredProducts().length,
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 15,
+                                mainAxisSpacing: 15,
+                              ),
+                              itemBuilder: (_, index) {
+                                final product = getDialogFilteredProducts()[index];
+                                return InkWell(
+                                  onTap: () {
+                                    addToCart(product);
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: Card(
+                                    color: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    elevation: 2,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          child: Image.network(
+                                            product.imageUrl.toString(),
+                                            errorBuilder: (context, error, stackTrace) => Image.network(
+                                              'https://placehold.co/150x100/png',
+                                              fit: BoxFit.cover,
+                                            ),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.all(8),
+                                          child: Text(
+                                            product.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(fontSize: 22),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                                          child: Text(
+                                            '\$${product.price}',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 25
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // Clean up the controller when the dialog is disposed
+    dialogSearchController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,9 +406,7 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
             children: [
               const Text("Need Accessories?", style: TextStyle(fontSize: 25),),
               ElevatedButton(
-                onPressed: () {
-
-                },
+                onPressed: () => _showProductsListDialog(context),
                 child: const Text("View More", style: TextStyle(fontSize: 22, color: Colors.black54),),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[200],
