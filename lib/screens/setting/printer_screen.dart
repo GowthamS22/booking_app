@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:booking_app/config/palette.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -27,7 +28,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
       backgroundColor: Colors.grey.shade100,
 
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(20.0),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -41,7 +42,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                         'Settings',
                         style: GoogleFonts.inter(
                           color: Colors.black,
-                          fontSize: 16,
+                          fontSize: 25,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -49,7 +50,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                         'Customize display, order flow, and printer functions',
                         style: GoogleFonts.inter(
                           color: Colors.grey.shade500,
-                          fontSize: 14,
+                          fontSize: 22,
                           fontWeight: FontWeight.w400,
                         ),
                       ),
@@ -58,7 +59,11 @@ class _PrinterScreenState extends State<PrinterScreen> {
                   Spacer(),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo.shade500,
+                      backgroundColor: Palette.newColor,
+                      minimumSize: const Size(150, 60),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     onPressed: () {
                       printerController.updateSupabasePrinters();
@@ -67,14 +72,15 @@ class _PrinterScreenState extends State<PrinterScreen> {
                       'Update',
                       style: GoogleFonts.inter(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 25,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
               ),
-              Divider(color: Colors.grey.shade300),
+              SizedBox(height: 10),
+              Divider(color: Colors.grey.shade400),
               SizedBox(height: 10),
               Card(
                 color: Colors.white,
@@ -95,7 +101,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w700,
                               color: Colors.black,
-                              fontSize: 16,
+                              fontSize: 25,
                             ),
                           ),
 
@@ -106,30 +112,22 @@ class _PrinterScreenState extends State<PrinterScreen> {
                             },
                             icon: Icon(
                               LucideIcons.fingerprint,
-                              size: 18,
+                              size: 30,
                             ), // lucide fingerprint icon
                             label: Text(
                               'Scan',
                               style: GoogleFonts.inter(
                                 color: Colors.indigo.shade500,
-                                fontSize: 16,
+                                fontSize: 25,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-
                             style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.indigo.shade500,
-                              backgroundColor:
-                                  Colors.indigo.shade50, // Button fill
-                              side: BorderSide(
-                                color: Colors.indigo.shade500,
-                              ), // Border color
+                              backgroundColor: Palette.newColorbg,
+                              minimumSize: const Size(150, 60),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(color: Palette.newColor)
                               ),
                             ),
                           ),
@@ -156,7 +154,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                         'Printer Name',
                                         style: GoogleFonts.inter(
                                           color: Colors.grey.shade900,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -169,7 +167,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                         'IP Address',
                                         style: GoogleFonts.inter(
                                           color: Colors.grey.shade900,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -182,7 +180,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                         'PORT',
                                         style: GoogleFonts.inter(
                                           color: Colors.grey.shade900,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -195,7 +193,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                         'Action',
                                         style: GoogleFonts.inter(
                                           color: Colors.grey.shade900,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -237,7 +235,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                             printer['name'],
                                                             style: GoogleFonts.inter(
                                                               color: Colors.grey.shade900,
-                                                              fontSize: 16,
+                                                              fontSize: 22,
                                                               fontWeight: FontWeight.w400,
                                                             ),
                                                           ),
@@ -260,8 +258,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                               color:Colors.grey.shade300,
                                                                             ),
                                                                           ),
-                                                                          contentPadding: EdgeInsets.symmetric( horizontal: 8, vertical: 3,),
+                                                                          contentPadding: EdgeInsets.symmetric( horizontal: 10, vertical: 10,),
                                                                         ),
+                                                                        style: TextStyle(fontSize: 22),
                                                                       ),
                                                                     ),
                                                                   )
@@ -270,7 +269,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                       printer['ip'],
                                                                       style: GoogleFonts.inter(
                                                                         color: Colors.grey.shade900,
-                                                                        fontSize: 16,
+                                                                        fontSize: 22,
                                                                         fontWeight: FontWeight.w400,
                                                                       ),
                                                                     ),
@@ -296,10 +295,11 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                             ),
                                                                           ),
                                                                           contentPadding: EdgeInsets.symmetric(
-                                                                            horizontal: 8,
-                                                                            vertical: 3,
+                                                                            horizontal: 10,
+                                                                            vertical: 10,
                                                                           ),
                                                                         ),
+                                                                        style: TextStyle(fontSize: 22),
                                                                       ),
                                                                     ),
                                                                   )
@@ -307,7 +307,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                     child: Text(
                                                                       printer['port'],
                                                                       style: GoogleFonts.inter(color: Colors.grey.shade900,
-                                                                        fontSize: 16,
+                                                                        fontSize: 22,
                                                                         fontWeight: FontWeight.w400,
                                                                       ),
                                                                     ),
@@ -322,7 +322,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                             IconButton(
                                                               icon: Icon(
                                                                 printer['isEditing'].value ? LucideIcons.save : LucideIcons.pencil,
-                                                                size: 20,
+                                                                size: 30,
                                                                 color: Colors.black87,
                                                               ),
                                                               onPressed: () {
@@ -336,27 +336,28 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                                                   printerController.toggleEdit(index,);
                                                                 }
                                                               },
-                                                              style: IconButton.styleFrom(
-                                                                backgroundColor: Colors.grey.shade200,
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: Palette.newColorbg,
+                                                                minimumSize: const Size(70, 60),
                                                                 shape: RoundedRectangleBorder(
-                                                                  side: BorderSide(
-                                                                    color: Colors.grey.shade200,
-                                                                  ),
-                                                                  borderRadius: BorderRadius.circular(6,),
+                                                                  borderRadius: BorderRadius.circular(10),
+                                                                  side: BorderSide(color: Palette.newColor)
                                                                 ),
                                                               ),
                                                             ),
                                                             const SizedBox(width: 8,),
                                                             IconButton(
-                                                              icon: Icon(LucideIcons.trash2,size: 20,color:Colors.white,),
+                                                              icon: Icon(LucideIcons.trash2,size: 30,color:Colors.white,),
                                                               onPressed: () {
                                                                 print(index);
                                                                 printerController.deletePrinter(index,);
                                                               },
-                                                              style: IconButton.styleFrom(
-                                                                backgroundColor: Colors.red.shade600,
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor: Colors.red,
+                                                                minimumSize: const Size(70, 60),
                                                                 shape: RoundedRectangleBorder(
-                                                                  borderRadius: BorderRadius.circular(6,),
+                                                                    borderRadius: BorderRadius.circular(10),
+                                                                    side: BorderSide(color: Colors.red)
                                                                 ),
                                                               ),
                                                             ),
@@ -383,7 +384,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                   Text(
                                     '0 of 5 row(s) selected.',
                                     style: GoogleFonts.inter(
-                                      fontSize: 14,
+                                      fontSize: 22,
                                       color: Colors.grey.shade500,
                                       fontWeight: FontWeight.w400,
                                     ),
@@ -401,7 +402,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                         child: Text(
                                           'Previous',
                                           style: GoogleFonts.inter(
-                                            fontSize: 14,
+                                            fontSize: 22,
                                             color: Colors.grey.shade500,
                                             fontWeight: FontWeight.w400,
                                           ),
@@ -419,7 +420,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                         child: Text(
                                           'Next',
                                           style: GoogleFonts.inter(
-                                            fontSize: 14,
+                                            fontSize: 22,
                                             color: Colors.grey.shade500,
                                             fontWeight: FontWeight.w400,
                                           ),
@@ -452,7 +453,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                     Text(
                       'Printer Test',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.black,
                         fontWeight: FontWeight.w500,
                       ),
@@ -461,27 +462,21 @@ class _PrinterScreenState extends State<PrinterScreen> {
                       onPressed: () {
                         printerController.testPrintOnAllPrinters();
                       },
-                      icon: Icon(LucideIcons.printer, size: 18),
+                      icon: Icon(LucideIcons.printer, size: 30),
                       label: Text(
                         'Test Printer',
                         style: GoogleFonts.inter(
-                          fontSize: 16,
+                          fontSize: 22,
                           color: Colors.indigo.shade500,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.indigo.shade500, // Text/Icon color
-                        backgroundColor: Colors.indigo.shade50, // Light purple fill
-                        side: BorderSide(
-                          color: Colors.indigo.shade500,
-                        ), // Border
+                        backgroundColor: Palette.newColorbg,
+                        minimumSize: const Size(150, 60),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Palette.newColor)
                         ),
                       ),
                     ),
