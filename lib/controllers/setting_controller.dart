@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/models/booking_model.dart';
@@ -175,8 +176,12 @@ print(response);
           'printer': printersJson
         })
         .eq('shortcode', centerSlug.toString())
-        .select('printer')
+        .select('*')
         .single();
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setString('storeDetails', jsonEncode(response));
+
     showCustomSnackbar('Success', 'Printers Updated Successfully', Colors.green);
     update(); // Add this to ensure UI updates after DB update
   }

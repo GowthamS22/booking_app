@@ -1,6 +1,7 @@
 // ignore_for_file: unnecessary_null_comparison
 
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
+import 'package:booking_app/screens/shopping/addon_items_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1828,6 +1829,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ),
                               ),
                             ),
+                          ),
+
+                          Container(
+                            height: 360,
+                            child: AddonItemsWidget(),
                           ),
 
                           SizedBox(height: 10),
