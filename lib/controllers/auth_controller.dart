@@ -259,8 +259,10 @@ class AuthController extends GetxController {
     final data = response as List;
 
     if (data.isNotEmpty) {
+      startLoading.value = false;
       return false;
     } else {
+      startLoading.value = false;
       return true;
     }
   }
