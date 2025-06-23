@@ -2024,6 +2024,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       "Cancel",
                                       style: GoogleFonts.inter(
                                         fontSize: 22,
+
                                         color: Colors.black,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2079,6 +2080,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       "Quick Booking",
                                       style: GoogleFonts.inter(
                                         fontSize: 22,
+
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2091,6 +2093,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             // Bottom Row
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
+                              spacing: 20,
                               children: [
                                 Expanded(
                                   child: ElevatedButton(
@@ -2119,14 +2122,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       "Cancel",
                                       style: GoogleFonts.inter(
                                         fontSize: 23,
+
                                         color: Colors.black,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-
                                 // if (isMembershipApplied) ...[
                                 //   Expanded(
                                 //     child: ElevatedButton(
@@ -2185,6 +2187,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ? Colors.black
                                                 : Colors
                                                     .grey, // visually indicate disabled
+
                                         foregroundColor: Colors.white,
                                         minimumSize: Size.fromHeight(50),
                                         shape: RoundedRectangleBorder(
@@ -2204,55 +2207,51 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                 ],
-                                const SizedBox(width: 8),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  if (_formKey.currentState!.validate()) {
-                                    Navigator.pop(context);
-                                    controller.getUserDatabyMobile(
-                                      mobileController.text,
-                                    );
-                                    showBookingConfirmationDialog(
-                                      context,
-                                      nameController.text,
-                                      mobileController.text,
-                                      controller.selectedCourt.toString(),
-                                      totalPrice,
-                                      selectedDateTime ?? DateTime.now(),
-                                      bookings,
-                                      membershipId,
-                                      membershipPlan,
-                                      isMembershipApplied,
-                                      memberPrice,
-                                    );
-                                  } else {
-                                    showCustomSnackbar(
-                                      'Error :',
-                                      'Please enter name & mobile for bookingslots',
-                                      Colors.redAccent,
-                                    );
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: Size.fromHeight(50),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (_formKey.currentState!.validate()) {
+                                  Navigator.pop(context);
+                                  controller.getUserDatabyMobile(
+                                    mobileController.text,
+                                  );
+                                  showBookingConfirmationDialog(
+                                    context,
+                                    nameController.text,
+                                    mobileController.text,
+                                    controller.selectedCourt.toString(),
+                                    totalPrice,
+                                    selectedDateTime ?? DateTime.now(),
+                                    bookings,
+                                    membershipId,
+                                    membershipPlan,
+                                    isMembershipApplied,
+                                    memberPrice,
+                                  );
+                                } else {
+                                  showCustomSnackbar(
+                                    'Error :',
+                                    'Please enter name & mobile for bookingslots',
+                                    Colors.redAccent,
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                minimumSize: Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text(
-                                  "Quick Booking",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 23,
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                              ),
+                              child: Text(
+                                "Quick Booking",
+                                style: GoogleFonts.inter(
+                                  fontSize: 23,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
