@@ -181,7 +181,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
                 Row(
                   children: [
                     Text(
@@ -516,7 +516,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     // AM/PM Header
                     Positioned(
                       top: 0,
-                      left: 100,
+                      left: 150,
                       right: 0,
                       height: 20,
                       child: SingleChildScrollView(
@@ -562,7 +562,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     // Top Time Slot Header
                     Positioned(
                       top: 20, // Adjusted position (SizedBox 16 + AM/PM 20)
-                      left: 100,
+                      left: 150,
                       right: 0,
                       height: 50,
                       child: SingleChildScrollView(
@@ -623,14 +623,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       top: 70,
                       left: 0,
                       bottom: 0,
-                      width: 100,
+                      width: 150,
                       child: SingleChildScrollView(
                         controller: _leftVerticalController,
                         child: Column(
                           children:
                               sortedCourts.map((court) {
                                 return Container(
-                                  width: 100,
+                                  width: 150,
                                   height: 58,
                                   alignment: Alignment.centerLeft,
                                   padding: const EdgeInsets.symmetric(
@@ -653,7 +653,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
                     Positioned(
                       top: 70, // Adjusted position
-                      left: 100,
+                      left: 150,
                       right: 0,
                       bottom: 0,
                       child: SingleChildScrollView(
@@ -1004,7 +1004,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Positioned(
                       top: 0,
                       left: 0,
-                      width: 100,
+                      width: 150,
                       height: 70,
                       child: Container(
                         color: Colors.white,
