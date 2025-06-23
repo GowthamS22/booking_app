@@ -234,7 +234,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: Palette.newColor),
                 ),
                 child: Icon(Icons.date_range_sharp, size: 35),
               ),
@@ -290,6 +290,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ? Colors.indigo.shade500
                                   : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: isSelected ? Colors.grey.shade200 : Palette.newColor,)
                         ),
                         child: Image.asset(
                           item['name'] == 'Badminton'
@@ -309,8 +310,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
             if (controller.selectedCourtSlots.isNotEmpty) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: 30,
+                  vertical: 15,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.indigo.shade500,
@@ -398,16 +399,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   ),
                 ),
               ),
-              SizedBox(width: 10),
+              SizedBox(width: 20),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: 30,
+                  vertical: 15,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: Palette.newColor),
                 ),
                 child: GestureDetector(
                   onTap: () {
@@ -646,7 +647,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: GoogleFonts.inter(
                                       fontWeight: FontWeight.w500,
                                       color: Colors.grey.shade900,
-                                      fontSize: 18,
+                                      fontSize: 22,
                                     ),
                                   ),
                                 );
@@ -1099,6 +1100,37 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       initialDate: selectedDateTime ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
+        builder: (BuildContext context, Widget? child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              // Main dialog styling
+              dialogTheme: DialogTheme(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                elevation: 4,
+                backgroundColor: Colors.white,
+              ),
+              colorScheme: ColorScheme.light(
+                primary: Colors.blue, // Header color
+                onPrimary: Colors.white, // Header text color
+                surface: Colors.white, // Calendar background
+                onSurface: Colors.black, // Default text color
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+            ),
+            child: MediaQuery(
+              // Overall scaling
+              data: MediaQuery.of(context).copyWith(
+                textScaleFactor: 1.7, // Slightly reduced from 1.9 for better proportions
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20), // Add padding around the picker
+                child: child!,
+              ),
+            ),
+          );
+        }
     );
 
     if (pickedDate == null) return;
@@ -2027,6 +2059,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           SizedBox(height: 10),
                           if (isMembershipApplied) ...[
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Container(
                                   width: MediaQuery.of(context).size.width / 3,
@@ -2064,7 +2097,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ],
                                   ),
                                 ),
-                                SizedBox(width: 5),
                                 IconButton(
                                   onPressed: () {
                                     setState(() {
@@ -2075,25 +2107,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   },
                                   icon: Icon(
                                     LucideIcons.trash2,
-                                    size: 20,
+                                    size: 30,
                                     color: Colors.grey.shade900,
                                   ),
                                 ),
                               ],
                             ),
                           ] else ...[
-                            // Spacer(),
                             Divider(color: Colors.grey.shade300),
                             Row(
                               children: [
-                                // Text(
-                                //   'Add Membership and pay ${55} and save ${25}',
-                                //   style: GoogleFonts.inter(
-                                //     fontSize: 15,
-                                //     color: Colors.black,
-                                //     fontWeight: FontWeight.w600,
-                                //   ),
-                                // ),
                                 Spacer(),
                                 if (hasMembership &&
                                     memberPeakPrice != null &&
@@ -2101,21 +2124,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   Text(
                                     'Total',
                                     style: GoogleFonts.inter(
-                                      fontSize: 23,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-
-                                  SizedBox(width: 8),
-                                  Text(
-                                    '\$ ${courtPrice.toStringAsFixed(2)}',
-                                    style: GoogleFonts.inter(
                                       fontSize: 25,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  SizedBox(width: 8),
+                                  Obx(() => Text(
+                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 25,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),),
                                 ] else ...[
                                   Text(
                                     'Total',
@@ -2126,14 +2148,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Text(
-                                    '\$ ${courtPrice.toStringAsFixed(2)}',
+                                  Obx(() => Text(
+                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
                                       fontSize: 25,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
-                                  ),
+                                  ),),
                                 ],
                               ],
                             ),
@@ -2143,14 +2165,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             Divider(color: Colors.grey.shade300),
                             Row(
                               children: [
-                                // Text(
-                                //   'Membership price updated!!',
-                                //   style: GoogleFonts.inter(
-                                //     fontSize: 12,
-                                //     color: Colors.green.shade500,
-                                //     fontWeight: FontWeight.w500,
-                                //   ),
-                                // ),
                                 Spacer(),
                                 Text(
                                   'Total',
@@ -2161,14 +2175,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                 ),
                                 SizedBox(width: 8),
-                                Text(
-                                  '\$ ${totalPrice.toStringAsFixed(2)}',
+                                Obx(() => Text(
+                                  '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
                                   style: GoogleFonts.inter(
                                     fontSize: 25,
                                     color: Colors.black,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                ),
+                                ),),
                               ],
                             ),
                             Row(
@@ -2185,8 +2199,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       membershipPrice = 0.0;
                                       selectedMembershipId = null;
                                       selectedSlots.clear();
-                                      if (onCancel != null)
-                                        onCancel(); // notify parent to refresh
+                                      cartController.clearCart();
+                                      if (onCancel != null) onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -2283,8 +2297,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       membershipPrice = 0.0;
                                       selectedMembershipId = null;
                                       selectedSlots.clear();
-                                      if (onCancel != null)
-                                        onCancel(); // notify parent to refresh
+                                      cartController.clearCart();
+                                      if (onCancel != null) onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -2472,7 +2486,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
+                constraints: const BoxConstraints(maxWidth: 700),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
