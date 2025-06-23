@@ -1,17 +1,13 @@
+// lib/widgets/addon_items_widget.dart
 import 'dart:convert';
 import 'dart:math';
-
 import 'package:booking_app/config/palette.dart';
-import 'package:booking_app/controllers/PosOrderController.dart';
+import 'package:booking_app/controllers/cart_controller.dart';
 import 'package:booking_app/models/category.dart';
 import 'package:booking_app/models/products.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-void main() {
-  runApp(const MaterialApp(home: AddonItemsWidget()));
-}
 
 class AddonItemsWidget extends StatefulWidget {
   const AddonItemsWidget({Key? key}) : super(key: key);
@@ -21,20 +17,19 @@ class AddonItemsWidget extends StatefulWidget {
 }
 
 class _AddonItemsWidgetState extends State<AddonItemsWidget> {
-
-  static const String _prefsCartKey = 'shopping_cart';
   static const String _prefsOrderNotesKey = 'order_notes';
   static const String _prefsOrderIdKey = 'order_id';
 
   List<Category> categories = [];
-  List<Products> products   = [];
+  List<Products> products = [];
   Category? selectedCategory;
-  List<CartItem> cart = [];
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   bool isLoading = true;
   String _orderNotes = '';
   String _tempOrderId = '';
+
+  final CartController cartController = Get.find<CartController>();
 
   Future<void> _loadData() async {
     try {
@@ -61,10 +56,8 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
           orElse: () => categories.first,
         );
       }
-
     } catch (e) {
       print('Error loading data: $e');
-      // Consider showing an error message to the user
     }
   }
 
@@ -88,27 +81,12 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
   @override
   void initState() {
     super.initState();
-    _clearPrefsData();
-    _clearExistingOrderData();
     _loadData().then((_) async {
       await _loadOrderIdFromPrefs();
       await _loadOrderNotesFromPrefs();
-      await _loadCartFromPrefs();
       setState(() => isLoading = false);
     });
     _searchController.addListener(_onSearchChanged);
-  }
-
-  Future<void> _clearPrefsData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsCartKey);
-    await prefs.remove(_prefsOrderNotesKey);
-    await prefs.remove(_prefsOrderIdKey);
-  }
-
-  void _clearExistingOrderData() {
-    final orderController = Get.find<PosOrderController>();
-    orderController.clearOrder();
   }
 
   Future<void> _loadOrderIdFromPrefs() async {
@@ -143,49 +121,18 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
     });
   }
 
-  Future<void> _loadCartFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cartJson = prefs.getString(_prefsCartKey);
-    if (cartJson != null) {
-      final List<dynamic> cartData = jsonDecode(cartJson);
-      setState(() {
-        cart = cartData.map((json) => CartItem.fromJson(json)).toList();
-      });
-    }
-  }
-
   void _onSearchChanged() {
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
     });
   }
 
-  void addToCart(Products product) {
-    final index = cart.indexWhere((e) => e.product.id == product.id);
-    setState(() {
-      if (index != -1) {
-        cart[index].quantity++;
-        cart[index].updateAppliedPrice();
-      } else {
-        cart.add(CartItem(product: product));
-      }
-      _saveCartToPrefs();
-    });
-  }
-
-  Future<void> _saveCartToPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final cartJson = jsonEncode(cart.map((item) => item.toJson()).toList());
-    await prefs.setString(_prefsCartKey, cartJson);
-  }
-
-  Future<void> _showProductsListDialog(BuildContext context) async {
-    // Create local TextEditingController for the dialog
+  void _showProductsListDialog(BuildContext context) {
     final dialogSearchController = TextEditingController();
     String dialogSearchQuery = '';
     Category? dialogSelectedCategory = selectedCategory;
 
-    await showGeneralDialog(
+    showGeneralDialog(
       context: context,
       barrierDismissible: true,
       barrierLabel: '',
@@ -194,19 +141,16 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
       pageBuilder: (context, animation, secondaryAnimation) {
         return StatefulBuilder(
           builder: (context, setState) {
-            // Local function to filter products
             List<Products> getDialogFilteredProducts() {
-              // First filter by category
               List<Products> filtered = dialogSelectedCategory == null
                   ? products
                   : products.where((p) => p.categoryId == dialogSelectedCategory!.id).toList();
 
-              // Then filter by search query
               if (dialogSearchQuery.isNotEmpty) {
                 filtered = filtered.where((p) =>
                 p.name.toLowerCase().contains(dialogSearchQuery.toLowerCase()) ||
-                    (p.description?.toLowerCase().contains(dialogSearchQuery.toLowerCase()) ?? false)
-                ).toList();
+                    (p.description?.toLowerCase().contains(dialogSearchQuery.toLowerCase()) ?? false))
+                    .toList();
               }
 
               return filtered;
@@ -243,8 +187,9 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
                         ],
                       ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Categories Row
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             padding: const EdgeInsets.all(15),
@@ -257,7 +202,6 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
                                   selected: cat == dialogSelectedCategory,
                                   onSelected: (_) => setState(() {
                                     dialogSelectedCategory = cat;
-                                    // Also update the parent widget's selected category
                                     selectedCategory = cat;
                                   }),
                                   selectedColor: Palette.newColorbg,
@@ -273,47 +217,31 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
                               )).toList(),
                             ),
                           ),
-
-                          // Search Bar
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            child: TextField(
-                              controller: dialogSearchController,
-                              onChanged: (value) {
-                                setState(() {
-                                  dialogSearchQuery = value;
-                                });
-                              },
-                              style: TextStyle(fontSize: 25),
-                              decoration: InputDecoration(
-                                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35),
-                                hintText: 'e.g Young Shuttlecock',
-                                hintStyle: TextStyle(fontSize: 25),
-                                filled: true,
-                                fillColor: Colors.white,
-                                border: UnderlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                    width: 1.0,
-                                  ),
-                                ),
-                                enabledBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
-                                    width: 1.0,
-                                  ),
-                                ),
-                                focusedBorder: UnderlineInputBorder(
-                                  borderSide: BorderSide(
-                                    color: Colors.blue,
-                                    width: 2.0,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Products Grid
+                          // Padding(
+                          //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          //   child: TextField(
+                          //     controller: dialogSearchController,
+                          //     onChanged: (value) {
+                          //       setState(() {
+                          //         dialogSearchQuery = value;
+                          //       });
+                          //     },
+                          //     style: TextStyle(fontSize: 25),
+                          //     decoration: InputDecoration(
+                          //       prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35),
+                          //       hintText: 'e.g Young Shuttlecock',
+                          //       hintStyle: TextStyle(fontSize: 25),
+                          //       filled: true,
+                          //       fillColor: Colors.white,
+                          //       border: UnderlineInputBorder(
+                          //         borderSide: BorderSide(
+                          //           color: Colors.grey.shade300,
+                          //           width: 1.0,
+                          //         ),
+                          //       ),
+                          //     ),
+                          //   ),
+                          // ),
                           Expanded(
                             child: getDialogFilteredProducts().isEmpty
                                 ? const Center(child: Text('No products found'))
@@ -329,8 +257,8 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
                                 final product = getDialogFilteredProducts()[index];
                                 return InkWell(
                                   onTap: () {
-                                    addToCart(product);
-                                    Navigator.of(context).pop();
+                                    cartController.addToCart(product);
+                                    //Navigator.of(context).pop();
                                   },
                                   child: Card(
                                     color: Colors.white,
@@ -390,7 +318,6 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
       },
     );
 
-    // Clean up the controller when the dialog is disposed
     dialogSearchController.dispose();
   }
 
@@ -404,13 +331,13 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Need Accessories?", style: TextStyle(fontSize: 25),),
+              const Text("Need Accessories?", style: TextStyle(fontSize: 22)),
               ElevatedButton(
                 onPressed: () => _showProductsListDialog(context),
-                child: const Text("View More", style: TextStyle(fontSize: 22, color: Colors.black54),),
+                child: const Text("View More", style: TextStyle(fontSize: 22, color: Colors.black54)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[200],
-                  minimumSize: const Size(200, 55),
+                  minimumSize: const Size(150, 50),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -418,7 +345,7 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
               ),
             ],
           ),
-          SizedBox(height: 10,),
+          const SizedBox(height: 10),
           SizedBox(
             height: 280,
             child: ListView.builder(
@@ -435,7 +362,7 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
                       color: Colors.white
                   ),
                   child: InkWell(
-                    onTap: () => addToCart(product),
+                    onTap: () => cartController.addToCart(product),
                     child: Card(
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
@@ -486,5 +413,3 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
     );
   }
 }
-
-

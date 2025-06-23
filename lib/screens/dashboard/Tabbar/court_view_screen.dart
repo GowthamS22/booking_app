@@ -1,7 +1,9 @@
 // ignore_for_file: unnecessary_null_comparison
 
+import 'package:booking_app/controllers/cart_controller.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:booking_app/screens/shopping/addon_items_widget.dart';
+import 'package:booking_app/screens/shopping/cart_items.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -171,6 +173,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   bool isSameDate(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
+
+  final CartController cartController = Get.find<CartController>();
 
   @override
   Widget build(BuildContext context) {
@@ -1694,158 +1698,213 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               ),
                               child: SingleChildScrollView(
                                 child: Column(
-                                  children: List.generate(bookings.length, (
-                                    index,
-                                  ) {
-                                    final booking = bookings[index];
-                                    final isLast = index == bookings.length - 1;
+                                  children: [
+                                    Column(
+                                      children: List.generate(bookings.length, (
+                                          index,
+                                          ) {
+                                        final booking = bookings[index];
+                                        final isLast = index == bookings.length - 1;
 
-                                    return Column(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8.0,
-                                            vertical: 12,
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Text(
-                                                      booking.courtName,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 20,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color: Colors.black,
-                                                      ),
-                                                    ),
-                                                  ),
-
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Text(
-                                                      "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
-                                                        if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-                                                          return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
-                                                        } else {
-                                                          return sum + subSlot.price;
-                                                        }
-                                                      }).toStringAsFixed(2)}",
-                                                      textAlign:
-                                                          TextAlign.right,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 20,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color:
-                                                            Colors
-                                                                .grey
-                                                                .shade900,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
+                                        return Column(
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 15.0,
+                                                vertical: 12,
                                               ),
-                                              SizedBox(height: 5),
-                                              Row(
+                                              child: Column(
                                                 children: [
-                                                  if (booking.subSlots.any(
-                                                    (subSlot) => subSlot.isPeak,
-                                                  )) ...[
-                                                    Expanded(
-                                                      flex: 4,
-                                                      child: Text.rich(
-                                                        TextSpan(
-                                                          children: [
-                                                            TextSpan(
-                                                              text:
-                                                                  "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-                                                              style: GoogleFonts.inter(
-                                                                fontSize: 18,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    Colors
-                                                                        .green
-                                                                        .shade600,
-                                                              ),
-                                                            ),
-                                                            TextSpan(
-                                                              text:
-                                                                  " (${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
-                                                              style: GoogleFonts.inter(
-                                                                fontSize: 18,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                                color:
-                                                                    Colors
-                                                                        .orange
-                                                                        .shade700,
-                                                              ),
-                                                            ),
-                                                          ],
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Text(
+                                                          booking.courtName,
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Colors.black,
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  ] else ...[
-                                                    Expanded(
-                                                      flex: 4,
-                                                      child: Text(
-                                                        "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 18,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color:
-                                                                  Colors
-                                                                      .green
-                                                                      .shade600,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                  ],
 
-                                                  Expanded(
-                                                    flex: 3,
-                                                    child: Text(
-                                                      "${booking.subSlots.length * 30}mins",
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 18,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        color:
-                                                            Colors
-                                                                .indigo
-                                                                .shade500,
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Text(
+                                                          "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
+                                                            if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+                                                              return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
+                                                            } else {
+                                                              return sum + subSlot.price;
+                                                            }
+                                                          }).toStringAsFixed(2)}",
+                                                          textAlign: TextAlign.right,
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Colors.grey.shade900,
+                                                          ),
+                                                        ),
                                                       ),
-                                                    ),
+                                                    ],
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  ),
+                                                  SizedBox(height: 5),
+                                                  Row(
+                                                    children: [
+                                                      if (booking.subSlots.any(
+                                                            (subSlot) => subSlot.isPeak,
+                                                      )) ...[
+                                                        Expanded(
+                                                          flex: 4,
+                                                          child: Text.rich(
+                                                            TextSpan(
+                                                              children: [
+                                                                TextSpan(
+                                                                  text: "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 22,
+                                                                    fontWeight: FontWeight.w600,
+                                                                    color: Colors.green.shade600,
+                                                                  ),
+                                                                ),
+                                                                TextSpan(
+                                                                  text: " (${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
+                                                                  style: GoogleFonts.inter(
+                                                                    fontSize: 22,
+                                                                    fontWeight: FontWeight.w500,
+                                                                    color: Colors.orange.shade700,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ] else ...[
+                                                        Expanded(
+                                                          flex: 4,
+                                                          child: Text("${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                            style:
+                                                            GoogleFonts.inter(
+                                                              fontSize: 22,
+                                                              fontWeight: FontWeight.w600,
+                                                              color: Colors.green.shade600,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Text(
+                                                          "${booking.subSlots.length * 30}mins",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Colors.indigo.shade500,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
                                                 ],
                                               ),
-                                            ],
+                                            ),
+                                            if (!isLast)
+                                              Divider(
+                                                height: 2,
+                                                color: Colors.grey.shade300,
+                                              ),// bottom line for each row
+                                          ],
+                                        );
+                                      }),
+                                    ),
+                                    Obx(() => ListView.builder(
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemCount: cartController.cartItems.length,
+                                      itemBuilder: (_, index) {
+                                        final item = cartController.cartItems[index];
+                                        return Dismissible(
+                                          key: ValueKey(item.product.id),
+                                          direction: DismissDirection.endToStart,
+                                          background: Container(
+                                            color: Colors.red,
+                                            alignment: Alignment.centerRight,
+                                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                                            child: const Text('Delete', style: TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold)),
                                           ),
-                                        ),
-                                        if (!isLast)
-                                          Divider(
-                                            height: 2,
-                                            color: Colors.grey.shade300,
-                                          ), // bottom line for each row
-                                      ],
-                                    );
-                                  }),
+                                          onDismissed: (_) => cartController.removeItem(item),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                      item.product.name,
+                                                      style: const TextStyle(
+                                                          fontSize: 22,
+                                                          fontWeight: FontWeight.bold
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis
+                                                  ),
+                                                ),
+                                                Container(
+                                                  width: MediaQuery.of(context).size.width / 14,
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: Colors.grey.shade400),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      IconButton(
+                                                        onPressed: () => cartController.decrementQty(item),
+                                                        icon: const Icon(Icons.remove, size: 25),
+                                                      ),
+                                                      Obx(() => Text('${item.quantity.value}', style: const TextStyle(fontSize: 22))),
+                                                      IconButton(
+                                                        onPressed: () => cartController.incrementQty(item),
+                                                        icon: const Icon(Icons.add, size: 25),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Container(
+                                                  width: 110,
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.end,
+                                                    children: [
+                                                      Obx(() => Padding(
+                                                        padding: const EdgeInsets.only(left: 8.0),
+                                                        child: Text(
+                                                          '\$${item.appliedPrice.value.toStringAsFixed(2)}',
+                                                          style: const TextStyle(
+                                                              fontWeight: FontWeight.bold,
+                                                              fontSize: 22
+                                                          ),
+                                                        ),
+                                                      ))
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
 
-                          Container(height: 360, child: AddonItemsWidget()),
+                          Container(
+                            height: 360,
+                            child: AddonItemsWidget(),
+                          ),
 
                           SizedBox(height: 10),
                           if (isMembershipApplied) ...[
