@@ -142,7 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       //isScrollable: true,
                       indicator: BoxDecoration(
                         color: Colors.indigo.shade500,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                       indicatorPadding: EdgeInsets.all(4),
                       // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
