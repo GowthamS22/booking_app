@@ -545,15 +545,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
 
-                            Text(
-                              '\$ ${widget.membershipPrice!.toStringAsFixed(2)}' ??
-                                  '',
-                              style: GoogleFonts.inter(
-                                fontSize: 23,
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                            // Text(
+                            //   membershipValidityDate != null
+                            //       ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
+                            //       : '$membershipPlan : (No Validity Info)',
+                            //   style: GoogleFonts.inter(
+                            //     fontSize: 14,
+                            //     fontWeight: FontWeight.w700,
+                            //     color: textColor,
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),
@@ -1838,7 +1839,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   //           );
   //         }),
   //       ],
-  //     ],
+  //     ),
   //   );
   // }
   Widget _buildAmountSelector() {

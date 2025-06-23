@@ -1382,6 +1382,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 6),
+
                                           if (hasMembership) ...[
                                             Container(
                                               padding:
@@ -1398,7 +1399,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ),
                                               ),
                                               child: Text(
-                                                '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})',
+                                                membershipValidityDate != null
+                                                    ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
+                                                    : '$membershipPlan : (No Validity Info)',
                                                 style: GoogleFonts.inter(
                                                   fontSize: 14,
                                                   fontWeight: FontWeight.w700,
@@ -1650,6 +1653,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   hasMembership
                                                       ? suggestion['membership_plan']
                                                       : null;
+
+                                              membershipValidityDate =
+                                                  hasMembership
+                                                      ? DateTime.tryParse(
+                                                        suggestion['validity_end']
+                                                                ?.toString() ??
+                                                            '',
+                                                      )
+                                                      : null;
                                               updateCourtPrice();
                                             });
                                           },
@@ -1701,18 +1713,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   children: [
                                     Column(
                                       children: List.generate(bookings.length, (
-                                          index,
-                                          ) {
+                                        index,
+                                      ) {
                                         final booking = bookings[index];
-                                        final isLast = index == bookings.length - 1;
+                                        final isLast =
+                                            index == bookings.length - 1;
 
                                         return Column(
                                           children: [
                                             Padding(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 15.0,
-                                                vertical: 12,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 15.0,
+                                                    vertical: 12,
+                                                  ),
                                               child: Column(
                                                 children: [
                                                   Row(
@@ -1721,11 +1735,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                         flex: 2,
                                                         child: Text(
                                                           booking.courtName,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 22,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: Colors.black,
-                                                          ),
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                                fontSize: 22,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color:
+                                                                    Colors
+                                                                        .black,
+                                                              ),
                                                         ),
                                                       ),
 
@@ -1739,22 +1758,32 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                               return sum + subSlot.price;
                                                             }
                                                           }).toStringAsFixed(2)}",
-                                                          textAlign: TextAlign.right,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 22,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: Colors.grey.shade900,
-                                                          ),
+                                                          textAlign:
+                                                              TextAlign.right,
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                                fontSize: 22,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color:
+                                                                    Colors
+                                                                        .grey
+                                                                        .shade900,
+                                                              ),
                                                         ),
                                                       ),
                                                     ],
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                   ),
                                                   SizedBox(height: 5),
                                                   Row(
                                                     children: [
                                                       if (booking.subSlots.any(
-                                                            (subSlot) => subSlot.isPeak,
+                                                        (subSlot) =>
+                                                            subSlot.isPeak,
                                                       )) ...[
                                                         Expanded(
                                                           flex: 4,
@@ -1762,19 +1791,33 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                             TextSpan(
                                                               children: [
                                                                 TextSpan(
-                                                                  text: "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                                  text:
+                                                                      "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
                                                                   style: GoogleFonts.inter(
-                                                                    fontSize: 22,
-                                                                    fontWeight: FontWeight.w600,
-                                                                    color: Colors.green.shade600,
+                                                                    fontSize:
+                                                                        22,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color:
+                                                                        Colors
+                                                                            .green
+                                                                            .shade600,
                                                                   ),
                                                                 ),
                                                                 TextSpan(
-                                                                  text: " (${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
+                                                                  text:
+                                                                      " (${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
                                                                   style: GoogleFonts.inter(
-                                                                    fontSize: 22,
-                                                                    fontWeight: FontWeight.w500,
-                                                                    color: Colors.orange.shade700,
+                                                                    fontSize:
+                                                                        22,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w500,
+                                                                    color:
+                                                                        Colors
+                                                                            .orange
+                                                                            .shade700,
                                                                   ),
                                                                 ),
                                                               ],
@@ -1784,12 +1827,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                       ] else ...[
                                                         Expanded(
                                                           flex: 4,
-                                                          child: Text("${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-                                                            style:
-                                                            GoogleFonts.inter(
+                                                          child: Text(
+                                                            "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                            style: GoogleFonts.inter(
                                                               fontSize: 22,
-                                                              fontWeight: FontWeight.w600,
-                                                              color: Colors.green.shade600,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color:
+                                                                  Colors
+                                                                      .green
+                                                                      .shade600,
                                                             ),
                                                           ),
                                                         ),
@@ -1799,11 +1847,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                         flex: 2,
                                                         child: Text(
                                                           "${booking.subSlots.length * 30}mins",
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 22,
-                                                            fontWeight: FontWeight.w600,
-                                                            color: Colors.indigo.shade500,
-                                                          ),
+                                                          style:
+                                                              GoogleFonts.inter(
+                                                                fontSize: 22,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color:
+                                                                    Colors
+                                                                        .indigo
+                                                                        .shade500,
+                                                              ),
                                                         ),
                                                       ),
                                                     ],
@@ -1815,96 +1869,160 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               Divider(
                                                 height: 2,
                                                 color: Colors.grey.shade300,
-                                              ),// bottom line for each row
+                                              ), // bottom line for each row
                                           ],
                                         );
                                       }),
                                     ),
-                                    Obx(() => ListView.builder(
-                                      shrinkWrap: true,
-                                      physics: NeverScrollableScrollPhysics(),
-                                      itemCount: cartController.cartItems.length,
-                                      itemBuilder: (_, index) {
-                                        final item = cartController.cartItems[index];
-                                        return Dismissible(
-                                          key: ValueKey(item.product.id),
-                                          direction: DismissDirection.endToStart,
-                                          background: Container(
-                                            color: Colors.red,
-                                            alignment: Alignment.centerRight,
-                                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                                            child: const Text('Delete', style: TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.bold)),
-                                          ),
-                                          onDismissed: (_) => cartController.removeItem(item),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
+                                    Obx(
+                                      () => ListView.builder(
+                                        shrinkWrap: true,
+                                        physics: NeverScrollableScrollPhysics(),
+                                        itemCount:
+                                            cartController.cartItems.length,
+                                        itemBuilder: (_, index) {
+                                          final item =
+                                              cartController.cartItems[index];
+                                          return Dismissible(
+                                            key: ValueKey(item.product.id),
+                                            direction:
+                                                DismissDirection.endToStart,
+                                            background: Container(
+                                              color: Colors.red,
+                                              alignment: Alignment.centerRight,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 20,
+                                                  ),
+                                              child: const Text(
+                                                'Delete',
+                                                style: TextStyle(
+                                                  fontSize: 22,
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                            onDismissed:
+                                                (_) => cartController
+                                                    .removeItem(item),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 15,
+                                                    vertical: 10,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
                                                       item.product.name,
                                                       style: const TextStyle(
-                                                          fontSize: 22,
-                                                          fontWeight: FontWeight.bold
+                                                        fontSize: 22,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
-                                                      overflow: TextOverflow.ellipsis
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
                                                   ),
-                                                ),
-                                                Container(
-                                                  width: MediaQuery.of(context).size.width / 14,
-                                                  decoration: BoxDecoration(
-                                                    border: Border.all(color: Colors.grey.shade400),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      IconButton(
-                                                        onPressed: () => cartController.decrementQty(item),
-                                                        icon: const Icon(Icons.remove, size: 25),
+                                                  Container(
+                                                    width:
+                                                        MediaQuery.of(
+                                                          context,
+                                                        ).size.width /
+                                                        14,
+                                                    decoration: BoxDecoration(
+                                                      border: Border.all(
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade400,
                                                       ),
-                                                      Obx(() => Text('${item.quantity.value}', style: const TextStyle(fontSize: 22))),
-                                                      IconButton(
-                                                        onPressed: () => cartController.incrementQty(item),
-                                                        icon: const Icon(Icons.add, size: 25),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Container(
-                                                  width: 110,
-                                                  child: Row(
-                                                    mainAxisAlignment: MainAxisAlignment.end,
-                                                    children: [
-                                                      Obx(() => Padding(
-                                                        padding: const EdgeInsets.only(left: 8.0),
-                                                        child: Text(
-                                                          '\$${item.appliedPrice.value.toStringAsFixed(2)}',
-                                                          style: const TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                              fontSize: 22
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
+                                                      children: [
+                                                        IconButton(
+                                                          onPressed:
+                                                              () => cartController
+                                                                  .decrementQty(
+                                                                    item,
+                                                                  ),
+                                                          icon: const Icon(
+                                                            Icons.remove,
+                                                            size: 25,
                                                           ),
                                                         ),
-                                                      ))
-                                                    ],
+                                                        Obx(
+                                                          () => Text(
+                                                            '${item.quantity.value}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 22,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                        IconButton(
+                                                          onPressed:
+                                                              () => cartController
+                                                                  .incrementQty(
+                                                                    item,
+                                                                  ),
+                                                          icon: const Icon(
+                                                            Icons.add,
+                                                            size: 25,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                              ],
+                                                  Container(
+                                                    width: 110,
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment.end,
+                                                      children: [
+                                                        Obx(
+                                                          () => Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  left: 8.0,
+                                                                ),
+                                                            child: Text(
+                                                              '\$${item.appliedPrice.value.toStringAsFixed(2)}',
+                                                              style: const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                fontSize: 22,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                        );
-                                      },
-                                    )),
+                                          );
+                                        },
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
                             ),
                           ),
 
-                          Container(
-                            height: 360,
-                            child: AddonItemsWidget(),
-                          ),
+                          Container(height: 360, child: AddonItemsWidget()),
 
                           SizedBox(height: 10),
                           if (isMembershipApplied) ...[

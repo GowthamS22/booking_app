@@ -269,7 +269,16 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                 final bookings = bookingController.bookings;
 
                 if (bookings.isEmpty) {
-                  return const Center(child: Text("No bookings available."));
+                  return Center(
+                    child: Text(
+                      "No bookings available.",
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  );
                 }
 
                 return isGridView
