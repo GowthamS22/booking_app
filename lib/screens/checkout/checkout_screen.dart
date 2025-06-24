@@ -111,6 +111,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool isDiscountApplied = false;
   TextEditingController discountController = TextEditingController();
 
+  double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
+
   @override
   void initState() {
     _loadCartItems(); // Add this line
@@ -1302,192 +1304,221 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   ),
                                                 );
                                           } else if (widget.type == 'New') {
-                                            if (controller.userData.value.id !=
-                                                null) {
-                                              populateCartWithSubSlots(
-                                                widget.bookings,
-                                              );
-                                              await checkoutController
-                                                  .processFinalCheckout(
-                                                    userId:
-                                                        controller
-                                                            .userData
-                                                            .value
-                                                            .id,
-                                                    name:
-                                                        controller
-                                                            .nameController
-                                                            .text,
-                                                    email:
-                                                        controller
-                                                            .userData
-                                                            .value
-                                                            .email,
-                                                    mobile:
-                                                        controller
-                                                            .userData
-                                                            .value
-                                                            .mobile,
+
+                                            final prefs = await SharedPreferences.getInstance();
+                                            String? paymentDevices = prefs.getString('paymentDevices');
+                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
+
+                                            double? itemSubTotal  = cartItemsTotal;
+                                            double? itemTotal     = cartItemsTotal - discountAmount;
+                                            double? bookingTotal  = widget.billAmount - itemTotal;
+                                            double? overallTotal  = itemTotal + bookingTotal;
+
+                                            String? orderId = '';
+                                            //double? total   = 0;
+
+                                            //Create order if the cart items are exist
+                                            if(cartItems.length > 0) {
+                                              await checkoutController.createTempOrder(total:(itemTotal)!,).then((value) {
+                                                orderId = value['id'];
+                                                //total = value['total'];
+                                              },);
+                                            }
+
+                                            if (selectedMethod == 'EFTPOS') {
+                                              final total = overallTotal;
+                                              try {
+                                                  await paymentController.processPayment(
+                                                    context: context,
+                                                    amount: total,
+                                                    reference: controller.bookingId,
+                                                    apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                                    merchantId: paymentDeviceData['merchant_id'],
+                                                    terminalId: paymentDeviceData['terminal_id'],
+                                                    integrationKey: paymentDeviceData['integration_key'],
+                                                    posProductVendor: paymentDeviceData['product_vendor'],
+                                                    posProductName: paymentDeviceData['product_name'],
+                                                    posProductVersion: paymentDeviceData['product_version'],
+                                                  ).then((value) async {
+
+                                                    if (controller.userData.value.id != null) {
+
+                                                      populateCartWithSubSlots(widget.bookings,);
+                                                      await checkoutController.processFinalCheckout(
+                                                        userId: controller.userData.value.id,
+                                                        name: controller.nameController.text,
+                                                        email: controller.userData.value.email,
+                                                        mobile: controller.userData.value.mobile,
+                                                        paymentType: selectedMethod,
+                                                        promoCode: promoCodeController.text,
+                                                        notes: notesController.text,
+                                                        paid: totalPaid,
+                                                        balance: double.parse(balanceAmountController.text,),
+                                                        bookingId: controller.bookingId,
+                                                        isMembershipApplied: widget.isMembershipApplied,
+                                                        membershipId:widget.membershipID,
+                                                        printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
+                                                        orderId: orderId,
+                                                      );
+
+                                                    } else {
+
+                                                      await checkoutController.registerUser(
+                                                        mobile: widget.mobileno,
+                                                        firstName: widget.customerName,
+                                                        membershipId: widget.membershipID,
+                                                      ).then((value) {
+                                                        populateCartWithSubSlots(widget.bookings,);
+                                                        checkoutController.processFinalCheckout(
+                                                          userId: checkoutController.userData.value.id,
+                                                          name: controller.nameController.text,
+                                                          email: controller.userData.value.email,
+                                                          mobile: controller.userData.value.mobile,
+                                                          paymentType: selectedMethod,
+                                                          promoCode: promoCodeController.text,
+                                                          notes: notesController.text,
+                                                          paid: totalPaid,
+                                                          balance: double.parse(balanceAmountController.text,),
+                                                          bookingId: controller.bookingId,
+                                                          isMembershipApplied: widget.isMembershipApplied,
+                                                          membershipId: widget.membershipID,
+                                                          printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
+                                                          orderId: orderId,
+                                                        );
+                                                      });
+                                                    }
+
+                                                    if(orderId!=null && orderId!='') {
+                                                      checkoutController.productsPayment(
+                                                        order_id: orderId,
+                                                        price: itemSubTotal,
+                                                        taxes: (itemTotal) * 0.1,
+                                                        surcharge: 0,
+                                                        discount: discountAmount,
+                                                        billAmount: itemTotal,
+                                                        paidAmount: totalPaid,
+                                                        balanceAmount: double.parse(balanceAmountController.text,),
+                                                        paymentType: selectedMethod,
+                                                        paymentNotes: notesController.text,
+                                                        receiptToggle: receiptToggle,
+                                                        printBoth: true,
+                                                      );
+                                                    }
+
+                                                  });
+                                              } catch (e) {
+                                                Get.snackbar(
+                                                  'Error',
+                                                  paymentController.paymentError.value,
+                                                  backgroundColor: Colors.red,
+                                                );
+                                              }
+
+                                            } else {
+
+                                              if (controller.userData.value.id != null) {
+                                                populateCartWithSubSlots(widget.bookings,);
+                                                await checkoutController.processFinalCheckout(
+                                                  userId: controller.userData.value.id,
+                                                  name: controller.nameController.text,
+                                                  email: controller.userData.value.email,
+                                                  mobile: controller.userData.value.mobile,
+                                                  paymentType: selectedMethod,
+                                                  promoCode: promoCodeController.text,
+                                                  notes: notesController.text,
+                                                  paid: totalPaid,
+                                                  balance: double.parse(balanceAmountController.text,),
+                                                  bookingId: controller.bookingId,
+                                                  isMembershipApplied: widget.isMembershipApplied,
+                                                  membershipId:widget.membershipID,
+                                                  printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
+                                                  orderId: orderId,
+                                                );
+                                              } else {
+                                                await checkoutController.registerUser(
+                                                  mobile: widget.mobileno,
+                                                  firstName: widget.customerName,
+                                                  membershipId: widget.membershipID,
+                                                ).then((value) {
+                                                  populateCartWithSubSlots(widget.bookings,);
+                                                  checkoutController.processFinalCheckout(
+                                                    userId: checkoutController.userData.value.id,
+                                                    name: controller.nameController.text,
+                                                    email: controller.userData.value.email,
+                                                    mobile: controller.userData.value.mobile,
                                                     paymentType: selectedMethod,
-                                                    promoCode:
-                                                        promoCodeController
-                                                            .text,
+                                                    promoCode: promoCodeController.text,
                                                     notes: notesController.text,
                                                     paid: totalPaid,
-                                                    balance: double.parse(
-                                                      balanceAmountController
-                                                          .text,
-                                                    ),
-                                                    bookingId:
-                                                        controller.bookingId,
-                                                    isMembershipApplied:
-                                                        widget
-                                                            .isMembershipApplied,
-                                                    membershipId:
-                                                        widget.membershipID,
+                                                    balance: double.parse(balanceAmountController.text,),
+                                                    bookingId: controller.bookingId,
+                                                    isMembershipApplied: widget.isMembershipApplied,
+                                                    membershipId: widget.membershipID,
+                                                    printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
+                                                    orderId: orderId,
                                                   );
-                                            } else {
-                                              await checkoutController
-                                                  .registerUser(
-                                                    mobile: widget.mobileno,
-                                                    firstName:
-                                                        widget.customerName,
-                                                    membershipId:
-                                                        widget.membershipID,
-                                                  )
-                                                  .then((value) {
-                                                    populateCartWithSubSlots(
-                                                      widget.bookings,
-                                                    );
-                                                    checkoutController
-                                                        .processFinalCheckout(
-                                                          userId:
-                                                              checkoutController
-                                                                  .userData
-                                                                  .value
-                                                                  .id,
-                                                          name:
-                                                              controller
-                                                                  .nameController
-                                                                  .text,
-                                                          email:
-                                                              controller
-                                                                  .userData
-                                                                  .value
-                                                                  .email,
-                                                          mobile:
-                                                              controller
-                                                                  .userData
-                                                                  .value
-                                                                  .mobile,
-                                                          paymentType:
-                                                              selectedMethod,
-                                                          promoCode:
-                                                              promoCodeController
-                                                                  .text,
-                                                          notes:
-                                                              notesController
-                                                                  .text,
-                                                          paid: totalPaid,
-                                                          balance: double.parse(
-                                                            balanceAmountController
-                                                                .text,
-                                                          ),
-                                                          bookingId:
-                                                              controller
-                                                                  .bookingId,
-                                                          isMembershipApplied:
-                                                              widget
-                                                                  .isMembershipApplied,
-                                                          membershipId:
-                                                              widget
-                                                                  .membershipID,
-                                                        );
-                                                  });
-                                            }
-                                          } else if (widget.type == 'Product') {
-                                            final prefs =
-                                                await SharedPreferences.getInstance();
-                                            String? paymentDevices = prefs
-                                                .getString('paymentDevices');
-                                            final Map<String, dynamic>
-                                            paymentDeviceData = jsonDecode(
-                                              paymentDevices!,
-                                            );
+                                                });
+                                              }
 
-                                            checkoutController
-                                                .createTempOrder(
-                                                  total:
-                                                      (widget.billAmount -
-                                                          discountAmount)!,
-                                                )
-                                                .then((value) async {
+                                              if(orderId!=null && orderId!='') {
+                                                checkoutController.productsPayment(
+                                                  order_id: orderId,
+                                                  price: itemSubTotal,
+                                                  taxes: (itemTotal) * 0.1,
+                                                  surcharge: 0,
+                                                  discount: discountAmount,
+                                                  billAmount: itemTotal,
+                                                  paidAmount: totalPaid,
+                                                  balanceAmount: double.parse(balanceAmountController.text,),
+                                                  paymentType: selectedMethod,
+                                                  paymentNotes: notesController.text,
+                                                  receiptToggle: receiptToggle,
+                                                  printBoth: true,
+                                                );
+                                              }
+
+                                            }
+
+                                          } else if (widget.type == 'Product') {
+
+                                            final prefs = await SharedPreferences.getInstance();
+                                            String? paymentDevices = prefs.getString('paymentDevices');
+                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
+
+                                            checkoutController.createTempOrder(total:(widget.billAmount - discountAmount)!,).then((value) async {
                                                   final orderId = value['id'];
                                                   final total = value['total'];
-                                                  if (selectedMethod ==
-                                                      'EFTPOS') {
+                                                  if (selectedMethod == 'EFTPOS') {
                                                     try {
-                                                      await paymentController
-                                                          .processPayment(
+                                                      await paymentController.processPayment(
                                                             context: context,
                                                             amount: total,
                                                             reference: orderId,
-                                                            apiKey:
-                                                                paymentDeviceData['api_key'], // Get from secure storage
-                                                            merchantId:
-                                                                paymentDeviceData['merchant_id'],
-                                                            terminalId:
-                                                                paymentDeviceData['terminal_id'],
-                                                            integrationKey:
-                                                                paymentDeviceData['integration_key'],
-                                                            posProductVendor:
-                                                                paymentDeviceData['product_vendor'],
-                                                            posProductName:
-                                                                paymentDeviceData['product_name'],
-                                                            posProductVersion:
-                                                                paymentDeviceData['product_version'],
-                                                          )
-                                                          .then((value) {
+                                                            apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                                            merchantId: paymentDeviceData['merchant_id'],
+                                                            terminalId: paymentDeviceData['terminal_id'],
+                                                            integrationKey: paymentDeviceData['integration_key'],
+                                                            posProductVendor: paymentDeviceData['product_vendor'],
+                                                            posProductName: paymentDeviceData['product_name'],
+                                                            posProductVersion: paymentDeviceData['product_version'],
+                                                          ).then((value) {
                                                             checkoutController.productsPayment(
                                                               order_id: orderId,
-                                                              price:
-                                                                  widget
-                                                                      .billAmount -
-                                                                  discountAmount,
-                                                              taxes:
-                                                                  (widget.billAmount -
-                                                                      discountAmount) *
-                                                                  0.1,
+                                                              price: widget.billAmount - discountAmount,
+                                                              taxes: (widget.billAmount - discountAmount) * 0.1,
                                                               surcharge: 0,
-                                                              discount:
-                                                                  discountAmount,
-                                                              billAmount:
-                                                                  widget
-                                                                      .billAmount,
-                                                              paidAmount:
-                                                                  totalPaid,
-                                                              balanceAmount:
-                                                                  double.parse(
-                                                                    balanceAmountController
-                                                                        .text,
-                                                                  ),
-                                                              paymentType:
-                                                                  selectedMethod,
-                                                              paymentNotes:
-                                                                  notesController
-                                                                      .text,
-                                                              paymentResponse:
-                                                                  value
-                                                                      .toString(),
-                                                              receiptToggle:
-                                                                  receiptToggle,
+                                                              discount: discountAmount,
+                                                              billAmount: widget.billAmount,
+                                                              paidAmount: totalPaid,
+                                                              balanceAmount: double.parse(balanceAmountController.text,),
+                                                              paymentType: selectedMethod,
+                                                              paymentNotes: notesController.text,
+                                                              paymentResponse: value.toString(),
+                                                              receiptToggle: receiptToggle,
                                                             );
                                                           });
 
-                                                      if (paymentController
-                                                              .paymentStatus
-                                                              .value ==
-                                                          'Payment successful') {
+                                                      if (paymentController.paymentStatus.value == 'Payment successful') {
                                                         print(
                                                           'Payment Successful via Tyro',
                                                         );
@@ -1495,43 +1526,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     } catch (e) {
                                                       Get.snackbar(
                                                         'Error',
-                                                        paymentController
-                                                            .paymentError
-                                                            .value,
-                                                        backgroundColor:
-                                                            Colors.red,
+                                                        paymentController.paymentError.value,
+                                                        backgroundColor: Colors.red,
                                                       );
                                                     }
                                                   } else {
                                                     checkoutController.productsPayment(
                                                       order_id: orderId,
-                                                      price:
-                                                          widget.billAmount -
-                                                          discountAmount,
-                                                      taxes:
-                                                          (widget.billAmount -
-                                                              discountAmount) *
-                                                          0.1,
+                                                      price: widget.billAmount - discountAmount,
+                                                      taxes: (widget.billAmount - discountAmount) * 0.1,
                                                       surcharge: 0,
-                                                      discount: 0,
-                                                      billAmount:
-                                                          widget.billAmount -
-                                                          discountAmount,
+                                                      discount: discountAmount,
+                                                      billAmount: widget.billAmount - discountAmount,
                                                       paidAmount: totalPaid,
-                                                      balanceAmount: double.parse(
-                                                        balanceAmountController
-                                                            .text,
-                                                      ),
-                                                      paymentType:
-                                                          selectedMethod,
-                                                      paymentNotes:
-                                                          notesController.text,
-                                                      receiptToggle:
-                                                          receiptToggle,
+                                                      balanceAmount: double.parse(balanceAmountController.text,),
+                                                      paymentType: selectedMethod,
+                                                      paymentNotes: notesController.text,
+                                                      receiptToggle: receiptToggle,
                                                     );
                                                   }
                                                 });
                                           }
+                                          //Checkout End
+
                                         } catch (e) {
                                           showCustomSnackbar(
                                             'Error',
@@ -1540,9 +1557,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           );
                                         } finally {
                                           setState(() {
-                                            checkoutController
-                                                .checkoutPayBtn
-                                                .value = false;
+                                            checkoutController.checkoutPayBtn.value = false;
                                           });
                                         }
                                       } else {
