@@ -458,10 +458,10 @@ Future<void> openExtendedbookingRightDrawer(
 
                     /// Booking Details
                     Text(
-                      // "Booking Details",
-                      "Booking Details : ${booking.id}",
+                      "Booking Details",
+                      //"Booking Details : ${booking.id}",
                       style: GoogleFonts.inter(
-                        fontSize: 12,
+                        fontSize: 22,
                         color: Colors.black,
                         fontWeight: FontWeight.w600,
                       ),
@@ -684,13 +684,15 @@ Future<void> openExtendedbookingRightDrawer(
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Obx(() => ListView.builder(
-                      itemCount: controller.bookedSlots.length,
-                      itemBuilder: (context, index) {
-                        final booking = controller.bookedSlots[index];
-                        // ... build your booking item ...
-                      },
-                    )),
+                    Obx(
+                      () => ListView.builder(
+                        itemCount: controller.bookedSlots.length,
+                        itemBuilder: (context, index) {
+                          final booking = controller.bookedSlots[index];
+                          // ... build your booking item ...
+                        },
+                      ),
+                    ),
                     Spacer(),
                     ElevatedButton(
                       onPressed: () {
