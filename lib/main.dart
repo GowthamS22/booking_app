@@ -22,9 +22,8 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   SharedPreferences preferences = await SharedPreferences.getInstance();
   await Supabase.initialize(
-    url: 'https://idtzbhdgpiirgjjugxfc.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlkdHpiaGRncGlpcmdqanVneGZjIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDg2MzUyMiwiZXhwIjoyMDYwNDM5NTIyfQ.iIeI6EYpO0S2R5jVZnou5xRFEzg_QoGzICS938-MKzw',
+    url: 'https://vtqqavkfkwbmtnyhunwh.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ0cXFhdmtma3dibXRueWh1bndoIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MDc0NzE2MiwiZXhwIjoyMDY2MzIzMTYyfQ.-HWmlBsWK7luHN0b13iqGEw276hoXoeQ61nlVnjrGNQ',
     authOptions: const FlutterAuthClientOptions(autoRefreshToken: false),
   );
   //Initialize Firebase

@@ -164,10 +164,14 @@ class NewBookingController extends GetxController {
   }
 
   Future<void> fetchUserMobile() async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+
     isLoading.value = true;
 
     final response = await supabase
-        .schema('s22_prod_schema')
+        .schema('${centerSlug}_prod_schema')
         .from('customers')
         .select('''
           mobile, 
@@ -184,13 +188,7 @@ class NewBookingController extends GetxController {
           )
         ''');
 
-    // Generate booking ID
-    final existingBookings = await supabase
-        .schema('s22_prod_schema')
-        .from('bookings')
-        .select('id');
-    final int numberOfBookings = existingBookings.length + 1;
-    bookingId = '"BCK-2025-${numberOfBookings.toString().padLeft(3, '0')}';
+    bookingId = 'BCK-2025-TMP';
 
     if (response != null) {
       userList.clear();
@@ -219,6 +217,55 @@ class NewBookingController extends GetxController {
 
     isLoading.value = false;
     update();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserSuggestions(String query) async {
+    if (query.isEmpty) return [];
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('customers')
+        .select('''
+        mobile,
+        first_name,
+        membershipplan_id,
+        created_at,
+        membershipplan (
+          name,
+          price,
+          billing_cycle,
+          peak_price,
+          non_peak_price,
+          validity
+        )
+      ''')
+        .or('first_name.ilike.%$query%,mobile.ilike.%$query%') // Dynamic search on name or mobile
+        .limit(10); // Pagination or limit to reduce data size
+
+    return response.map((user) {
+      final plan = user['membershipplan'];
+      DateTime? startDate = DateTime.tryParse(user['created_at']);
+      DateTime? endDate;
+      if (startDate != null && plan != null && plan['validity'] != null) {
+        endDate = startDate.add(Duration(days: plan['validity']));
+      }
+
+      return {
+        'name': user['first_name'] ?? '',
+        'mobile': user['mobile'] ?? '',
+        'membership_plan': plan?['name'] ?? '',
+        'price': plan?['price']?.toString() ?? '',
+        'billing_cycle': plan?['billing_cycle'] ?? '',
+        'peak_price': plan?['peak_price']?.toString() ?? '',
+        'non_peak_price': plan?['non_peak_price']?.toString() ?? '',
+        'validity_start': startDate?.toIso8601String() ?? '',
+        'validity_end': endDate?.toIso8601String() ?? '',
+        'membershipplan_id': user['membershipplan_id'] ?? '',
+      };
+    }).toList();
   }
 
   Future<void> getUserDatabyMobile(String mobile) async {
@@ -1700,9 +1747,12 @@ class NewBookingController extends GetxController {
     String? paymentType,
     String? bookingId,
   }) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
     try {
       // Step 1: Validate slot availability
-      print('cartItems:$cartItems');
       bool isValid = await bulkValidateSlots(selectedBSlots: cartItems);
       if (!isValid) {
         showCustomSnackbar(
@@ -1716,26 +1766,18 @@ class NewBookingController extends GetxController {
         return;
       }
       // Step 2: Generate a unique booking ID
-      // final existingBookings = await supabase
-      //     .schema('s22_prod_schema')
-      //     .from('bookings')
-      //     .select('id');
-      // final int numberOfBookings = existingBookings.length + 1;
-      // final String bookingId =
-      //     'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
+      final bookingNumber = await getNextBookingNumber();
 
       // Step 3: Insert booking record
       print('cartItems before booking insert: $cartItems');
+
       final bookingInsertResponse =
           await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('bookings')
               .insert({
-                'booking_no': bookingId,
+                'booking_no': 'BCK-2025-${bookingNumber}',
                 'customer_id': userData.value.id.toString(),
-                //'name': name,
-                // 'mobile': mobile,
-                //'email': email,
                 'surcharge': 0.0,
                 'grand_total': grandtotalPrice,
                 'notes': notes,
@@ -1755,6 +1797,7 @@ class NewBookingController extends GetxController {
               })
               .select()
               .single();
+
       final insertedBookingId = bookingInsertResponse['id'];
 
       // Step 4: Insert booking slots
@@ -1784,10 +1827,10 @@ class NewBookingController extends GetxController {
 
       try {
         await supabase
-            .schema('s22_prod_schema')
+            .schema('${centerSlug}_prod_schema')
             .from('booking_slots')
             .insert(slotData);
-        print('Booking slots inserted successfully.');
+
       } catch (error) {
         print('Error inserting booking slots: $error');
       }
@@ -1808,6 +1851,17 @@ class NewBookingController extends GetxController {
       print('Error : $e');
       showCustomSnackbar('Failed', e.toString(), Palette.dangerTxt);
     }
+  }
+
+  Future<int> getNextBookingNumber() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .rpc('increment_booking_counter')
+        .select()
+        .single();
+    return response['current_token'] as int;
   }
 
   // Future<void> processCheckout({

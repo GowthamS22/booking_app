@@ -1478,16 +1478,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             Map<String, dynamic>
                                         >(
                                           controller: nameController,
-                                          suggestionsCallback: (pattern) {
-                                            if (pattern.isEmpty) return [];
-                                            return controller.userList.where((user,) {
-                                              return user['name']!
-                                                  .toLowerCase()
-                                                  .contains(
-                                                pattern.toLowerCase(),
-                                              );
-                                            }).toList();
+                                          suggestionsCallback: (pattern) async {
+                                              return await controller.fetchUserSuggestions(pattern);
                                           },
+                                          // suggestionsCallback: (pattern) {
+                                          //   if (pattern.isEmpty) return [];
+                                          //   return controller.userList.where((user,) {
+                                          //     return user['name']!
+                                          //         .toLowerCase()
+                                          //         .contains(
+                                          //       pattern.toLowerCase(),
+                                          //     );
+                                          //   }).toList();
+                                          // },
                                           builder: (context, _, focusNode) {
                                             return TextFormField(
                                               controller: nameController,
@@ -1609,18 +1612,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             Map<String, dynamic>
                                         >(
                                           controller: mobileController,
-                                          suggestionsCallback: (pattern) {
-                                            if (pattern.isEmpty) return [];
-                                            return controller.userList.where((
-                                                user,
-                                                ) {
-                                              return user['mobile']!
-                                                  .toLowerCase()
-                                                  .contains(
-                                                pattern.toLowerCase(),
-                                              );
-                                            }).toList();
+                                          suggestionsCallback: (pattern) async {
+                                            return await controller.fetchUserSuggestions(pattern);
                                           },
+                                          // suggestionsCallback: (pattern) {
+                                          //   if (pattern.isEmpty) return [];
+                                          //   return controller.userList.where((
+                                          //       user,
+                                          //       ) {
+                                          //     return user['mobile']!
+                                          //         .toLowerCase()
+                                          //         .contains(
+                                          //       pattern.toLowerCase(),
+                                          //     );
+                                          //   }).toList();
+                                          // },
                                           builder: (context, _, focusNode) {
                                             return TextFormField(
                                               controller: mobileController,

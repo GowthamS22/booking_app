@@ -1254,54 +1254,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                                         try {
                                           // Continue with existing payment processing
-                                          if (widget.type == 'Membership') {
-                                            await checkoutController.makeMembershipPayment(
-                                              userId:
-                                                  customerController
-                                                      .selectedPlan[0]['userId'],
-                                              userMembershipId:
-                                                  customerController
-                                                      .selectedPlan[0]['userMembershipId'],
-                                              paymentType: selectedMethod,
-                                              promoCode:
-                                                  promoCodeController.text,
-                                              notes: notesController.text,
-                                              total: double.parse(
-                                                customerController
-                                                    .selectedPlan[0]['price']
-                                                    .toString(),
-                                              ),
-                                              paid: totalPaid,
-                                              balance: double.parse(
-                                                balanceAmountController.text,
-                                              ),
-                                              //membershipId: widget.membershipID,
-                                            );
-                                          } else if (widget.type ==
-                                              'ExistingBooking') {
-                                            populateCartWithSubSlots(
-                                              widget.bookings,
-                                            );
-                                            await checkoutController
-                                                .makeBookingPayment(
-                                                  bookingSlots:
-                                                      defaultController
-                                                          .actionBookingSlots
-                                                          .where(
-                                                            (slot) =>
-                                                                slot.paymentStatus !=
-                                                                "Paid",
-                                                          )
-                                                          .toList(),
+                                          if (widget.type == 'ExistingBooking') {
+                                            populateCartWithSubSlots(widget.bookings,);
+                                            await checkoutController.makeBookingPayment(
+                                                  bookingSlots: defaultController.actionBookingSlots.where((slot) => slot.paymentStatus != "Paid",).toList(),
                                                   paymentType: selectedMethod,
-                                                  promoCode:
-                                                      promoCodeController.text,
+                                                  promoCode: promoCodeController.text,
                                                   notes: notesController.text,
                                                   paid: totalPaid,
-                                                  balance: double.parse(
-                                                    balanceAmountController
-                                                        .text,
-                                                  ),
+                                                  balance: double.parse(balanceAmountController.text,),
                                                 );
                                           } else if (widget.type == 'New') {
 
@@ -1330,7 +1291,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                               try {
                                                   await paymentController.processPayment(
                                                     context: context,
-                                                    amount: total,
+                                                    amount: total.toDouble(),
                                                     reference: controller.bookingId,
                                                     apiKey: paymentDeviceData['api_key'], // Get from secure storage
                                                     merchantId: paymentDeviceData['merchant_id'],
@@ -1490,9 +1451,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   final total = value['total'];
                                                   if (selectedMethod == 'EFTPOS') {
                                                     try {
+                                                      // print(orderId);
+                                                      // print(total);
+                                                      // print(paymentDeviceData);
                                                       await paymentController.processPayment(
                                                             context: context,
-                                                            amount: total,
+                                                            amount: total.toDouble(),
                                                             reference: orderId,
                                                             apiKey: paymentDeviceData['api_key'], // Get from secure storage
                                                             merchantId: paymentDeviceData['merchant_id'],
