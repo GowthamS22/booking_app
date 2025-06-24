@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 class Booking {
   String? id;
   String? bookingNo;
@@ -60,6 +62,10 @@ class BookingModel {
   final String? paymentStatus;
   final String? sportname;
   final String? platformId;
+  final String? bookingStatus;
+  final bool? isExtendedBooking;
+  final String? startTimeFormattedRaw;
+  final String? endTimeFormattedRaw;
 
   BookingModel({
     this.bookingNo,
@@ -72,6 +78,10 @@ class BookingModel {
     this.paymentStatus,
     this.sportname,
     this.platformId,
+    this.bookingStatus,
+    this.isExtendedBooking,
+    this.startTimeFormattedRaw,
+    this.endTimeFormattedRaw,
   });
 
   factory BookingModel.fromJson(Map<String, dynamic> json) {
@@ -97,10 +107,22 @@ class BookingModel {
       endTime:
           json['end_time'] != null ? DateTime.tryParse(json['end_time']) : null,
       paymentStatus: booking?['payment_status'] as String?,
-      sportname: sports?['sport_name'] as String,
+      sportname: sports?['sport_name'] as String?,
       platformId: platformId,
+      bookingStatus: json['status'] as String?,
+      isExtendedBooking: json['is_extended_booking'] as bool ?? false,
+      startTimeFormattedRaw: json['start_time_formatted'],
+      endTimeFormattedRaw: json['end_time_formatted'],
     );
   }
+  // Add these computed getters:
+  DateTime get startDateTime => startTime!;
+  DateTime get endDateTime => endTime!;
+
+  String get startTimeFormatted => DateFormat('hh:mm a').format(startDateTime);
+  String get endTimeFormatted => DateFormat('hh:mm a').format(endDateTime);
+  String get bookingDateFormatted =>
+      DateFormat('dd MMMM yyyy').format(startDateTime);
 }
 
 class BookingPayments {

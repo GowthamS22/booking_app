@@ -3,14 +3,17 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:get/get.dart';
 
 import '../../models/booking_model.dart';
+import '../../controllers/new_booking_controller.dart';
 
 Widget bookingDetailRow(IconData icon, String label, String value) {
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Icon(icon, size: 20, color: Colors.grey[600]),
+      Icon(icon, size: 28, color: Colors.grey[600]),
       const SizedBox(width: 6),
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -18,7 +21,7 @@ Widget bookingDetailRow(IconData icon, String label, String value) {
           Text(
             label,
             style: GoogleFonts.inter(
-              fontSize: 16,
+              fontSize: 22,
               color: Colors.grey.shade500,
               fontWeight: FontWeight.w600,
             ),
@@ -27,7 +30,7 @@ Widget bookingDetailRow(IconData icon, String label, String value) {
           Text(
             value,
             style: GoogleFonts.inter(
-              fontSize: 16,
+              fontSize: 22,
               color: Colors.black,
               fontWeight: FontWeight.w600,
             ),
@@ -214,7 +217,7 @@ Future<void> openExtendedbookingRightDrawer(
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning, color: Colors.red.shade600, size: 20),
+                    Icon(Icons.warning, color: Colors.red.shade600, size: 28),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -222,7 +225,7 @@ Future<void> openExtendedbookingRightDrawer(
                         style: GoogleFonts.inter(
                           color: Colors.red.shade600,
                           fontWeight: FontWeight.w500,
-                          fontSize: 14,
+                          fontSize: 22,
                         ),
                       ),
                     ),
@@ -247,6 +250,7 @@ Future<void> openExtendedbookingRightDrawer(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.grey.shade300,
                           foregroundColor: Colors.white,
+                          minimumSize: Size.fromHeight(50),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -254,7 +258,7 @@ Future<void> openExtendedbookingRightDrawer(
                         child: Text(
                           "Cancel",
                           style: GoogleFonts.inter(
-                            fontSize: 17,
+                            fontSize: 22,
                             color: Colors.black,
                             fontWeight: FontWeight.w600,
                           ),
@@ -275,6 +279,7 @@ Future<void> openExtendedbookingRightDrawer(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.indigo.shade500,
                           foregroundColor: Colors.white,
+                          minimumSize: Size.fromHeight(50),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -282,7 +287,7 @@ Future<void> openExtendedbookingRightDrawer(
                         child: Text(
                           "Confirm",
                           style: GoogleFonts.inter(
-                            fontSize: 17,
+                            fontSize: 22,
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
@@ -319,14 +324,14 @@ Future<void> openExtendedbookingRightDrawer(
                             ),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 18,
-                              vertical: 12,
+                              vertical: 15,
                             ),
                           ),
                           child: Text(
                             "$d mins",
                             style: GoogleFonts.inter(
                               fontWeight: FontWeight.w500,
-                              fontSize: 16,
+                              fontSize: 22,
                             ),
                           ),
                         );
@@ -367,7 +372,7 @@ Future<void> openExtendedbookingRightDrawer(
                             Text(
                               booking.name ?? 'N/A',
                               style: GoogleFonts.inter(
-                                fontSize: 18,
+                                fontSize: 23,
                                 color: Colors.black,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -375,7 +380,7 @@ Future<void> openExtendedbookingRightDrawer(
                             Text(
                               booking.mobile ?? 'N/A',
                               style: GoogleFonts.inter(
-                                fontSize: 16,
+                                fontSize: 22,
                                 color: Colors.grey.shade500,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -388,7 +393,7 @@ Future<void> openExtendedbookingRightDrawer(
                               TextSpan(
                                 text: 'Remaining Time\n',
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
+                                  fontSize: 23,
                                   color: Colors.grey.shade500,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -399,7 +404,7 @@ Future<void> openExtendedbookingRightDrawer(
                                         ? formatRemainingTime(booking.endTime!)
                                         : 'N/A',
                                 style: GoogleFonts.inter(
-                                  fontSize: 18,
+                                  fontSize: 22,
                                   color: Colors.black,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -410,12 +415,16 @@ Future<void> openExtendedbookingRightDrawer(
                         ),
                         GestureDetector(
                           onTap: () {
-                            showCancelBookingDialog(context);
+                            showNoShowDialog(
+                              context,
+                              booking.bookingId ?? '',
+                              controller,
+                            );
                           },
                           child: Container(
                             padding: EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 6,
+                              vertical: 7,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.red.shade100,
@@ -428,7 +437,7 @@ Future<void> openExtendedbookingRightDrawer(
                                 Text(
                                   'No show',
                                   style: GoogleFonts.inter(
-                                    fontSize: 16,
+                                    fontSize: 22,
                                     color: Colors.red.shade500,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -437,7 +446,7 @@ Future<void> openExtendedbookingRightDrawer(
                                 Icon(
                                   LucideIcons.userX,
                                   color: Colors.red,
-                                  size: 18,
+                                  size: 23,
                                 ),
                               ],
                             ),
@@ -449,10 +458,10 @@ Future<void> openExtendedbookingRightDrawer(
 
                     /// Booking Details
                     Text(
-                      "Booking Details",
-                      // "Booking Details : ${booking.id}",
+                      // "Booking Details",
+                      "Booking Details : ${booking.id}",
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 12,
                         color: Colors.black,
                         fontWeight: FontWeight.w600,
                       ),
@@ -460,7 +469,7 @@ Future<void> openExtendedbookingRightDrawer(
                     Text(
                       "Current booking informations",
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 22,
                         color: Colors.black,
                         fontWeight: FontWeight.w400,
                       ),
@@ -478,7 +487,7 @@ Future<void> openExtendedbookingRightDrawer(
                           Text(
                             "Booking ${booking.bookingNo ?? 'N/A'}",
                             style: GoogleFonts.inter(
-                              fontSize: 16,
+                              fontSize: 22,
                               color: Colors.black,
                               fontWeight: FontWeight.w600,
                             ),
@@ -646,7 +655,7 @@ Future<void> openExtendedbookingRightDrawer(
                                       'Extend Time',
                                       style: GoogleFonts.inter(
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 16,
+                                        fontSize: 23,
                                         color: Colors.indigo.shade500,
                                       ),
                                     ),
@@ -661,7 +670,7 @@ Future<void> openExtendedbookingRightDrawer(
                     Text(
                       "Purchase Details",
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 23,
                         color: Colors.black,
                         fontWeight: FontWeight.w600,
                       ),
@@ -669,71 +678,45 @@ Future<void> openExtendedbookingRightDrawer(
                     Text(
                       "Current purchase order informations",
                       style: GoogleFonts.inter(
-                        fontSize: 14,
+                        fontSize: 22,
                         color: Colors.black,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Center(
-                      child: Text(
-                        'No order history',
-                        style: GoogleFonts.inter(
-                          color: Colors.grey.shade400,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
+                    Obx(() => ListView.builder(
+                      itemCount: controller.bookedSlots.length,
+                      itemBuilder: (context, index) {
+                        final booking = controller.bookedSlots[index];
+                        // ... build your booking item ...
+                      },
+                    )),
+                    Spacer(),
+                    ElevatedButton(
+                      onPressed: () {
+                        showCancelDialog(
+                          context,
+                          booking.bookingId ?? '',
+                          controller as NewBookingController,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade50,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Colors.red.shade300),
                         ),
                       ),
-                    ),
-                    Spacer(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () {},
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey.shade300,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text(
-                              "Cancel",
-                              style: GoogleFonts.inter(
-                                fontSize: 17,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
+                      child: Text(
+                        "Cancel Booking",
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.red.shade500,
+                          fontWeight: FontWeight.w600,
                         ),
-
-                        const SizedBox(width: 8),
-                        if (booking.paymentStatus != 'Paid')
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {},
-
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: Text(
-                                "Pay Now",
-                                style: GoogleFonts.inter(
-                                  fontSize: 17,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -746,93 +729,200 @@ Future<void> openExtendedbookingRightDrawer(
   );
 }
 
-void showCancelBookingDialog(BuildContext context) {
+void showCancelDialog(
+  BuildContext context,
+  String bookingId,
+  NewBookingController controller,
+) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (context) {
-      return AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Are you sure?',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
+    builder:
+        (_) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.all(20),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Cancel Booking?',
+                style: GoogleFonts.inter(
+                  fontSize: 23,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'This action will cancel the booking and\n'
-              'free up the court for others. The\n'
-              'customer will not be charged.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 30),
+              Text(
+                'Are you sure you want to cancel this booking?',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  color: Colors.grey.shade500,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black,
-                      backgroundColor: Colors.grey.shade50,
-                      side: BorderSide(color: Colors.grey.shade400),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey.shade300),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size.fromHeight(50),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade500,
+                      child: Text(
+                        'No',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Add cancellation logic here
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade500,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await controller.cancelBooking(bookingId);
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade500,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size.fromHeight(50),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: Text(
-                      'Yes',
-                      style: GoogleFonts.inter(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                      child: Text(
+                        'Yes',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Reason for cancellation',
+                  hintStyle: GoogleFonts.inter(
+                    color: Colors.grey[500],
+                    fontSize: 20,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
-      );
-    },
+  );
+}
+
+void showNoShowDialog(
+  BuildContext context,
+  String bookingId,
+  NewBookingController controller,
+) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder:
+        (_) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          contentPadding: const EdgeInsets.all(20),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Are you sure?',
+                style: GoogleFonts.inter(
+                  fontSize: 23,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 30),
+              Text(
+                'This action will cancel the booking and \nfree up the court for others. \nThe customer will not be charged.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 22,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade100,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size.fromHeight(50),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        await controller.markNoShow(bookingId);
+                        Navigator.of(context).pop();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade500,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size.fromHeight(50),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        'Yes',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
   );
 }
 
@@ -854,7 +944,7 @@ void showCourtUnavailableDialog(
             Text(
               'Court Unavailable for Extension',
               style: GoogleFonts.inter(
-                fontSize: 18,
+                fontSize: 23,
                 fontWeight: FontWeight.w700,
                 color: Colors.black,
               ),
@@ -866,7 +956,7 @@ void showCourtUnavailableDialog(
               'or move the \n customer to another available court.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 14,
+                fontSize: 22,
                 color: Colors.grey.shade500,
                 fontWeight: FontWeight.w500,
               ),
@@ -882,6 +972,7 @@ void showCourtUnavailableDialog(
                       foregroundColor: Colors.black,
                       backgroundColor: Colors.grey.shade50,
                       side: BorderSide(color: Colors.grey.shade200),
+                      minimumSize: Size.fromHeight(50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
@@ -891,7 +982,7 @@ void showCourtUnavailableDialog(
                       'Cancel',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w500,
-                        fontSize: 15,
+                        fontSize: 22,
                         color: Colors.grey.shade500,
                       ),
                     ),
@@ -912,13 +1003,14 @@ void showCourtUnavailableDialog(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
+                      minimumSize: Size.fromHeight(50),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                     child: Text(
                       'End Session',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w500,
-                        fontSize: 15,
+                        fontSize: 22,
                         color: Colors.red.shade500,
                       ),
                     ),
@@ -942,6 +1034,7 @@ void showCourtUnavailableDialog(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
+                        minimumSize: Size.fromHeight(50),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                       ),
                       child: Text(
@@ -949,7 +1042,7 @@ void showCourtUnavailableDialog(
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           fontWeight: FontWeight.w500,
-                          fontSize: 15,
+                          fontSize: 22,
                           color: Colors.white,
                         ),
                       ),
@@ -1298,10 +1391,10 @@ void showCourtAvailableDialog(
                                     decoration: BoxDecoration(
                                       color:
                                           isSelected
-                                              ? Colors.grey.shade500
-                                              : Colors.grey.shade50,
+                                              ? Colors.green.shade500
+                                              : Colors.green.shade50,
                                       border: Border.all(
-                                        color: Colors.grey.shade300,
+                                        color: Colors.green.shade300,
                                       ),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -1311,7 +1404,7 @@ void showCourtAvailableDialog(
                                         color:
                                             isSelected
                                                 ? Colors.white
-                                                : Colors.grey.shade500,
+                                                : Colors.green.shade500,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 15,
                                       ),
@@ -1352,10 +1445,10 @@ void showCourtAvailableDialog(
                                       decoration: BoxDecoration(
                                         color:
                                             isSelected
-                                                ? Colors.grey.shade500
-                                                : Colors.grey.shade50,
+                                                ? Colors.green.shade500
+                                                : Colors.green.shade50,
                                         border: Border.all(
-                                          color: Colors.grey.shade300,
+                                          color: Colors.green.shade300,
                                         ),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -1365,7 +1458,7 @@ void showCourtAvailableDialog(
                                           color:
                                               isSelected
                                                   ? Colors.white
-                                                  : Colors.grey.shade500,
+                                                  : Colors.green.shade500,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 15,
                                         ),
@@ -1403,10 +1496,10 @@ void showCourtAvailableDialog(
                                       decoration: BoxDecoration(
                                         color:
                                             isSelected
-                                                ? Colors.grey.shade500
-                                                : Colors.grey.shade50,
+                                                ? Colors.green.shade500
+                                                : Colors.green.shade50,
                                         border: Border.all(
-                                          color: Colors.grey.shade300,
+                                          color: Colors.green.shade300,
                                         ),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -1416,7 +1509,7 @@ void showCourtAvailableDialog(
                                           color:
                                               isSelected
                                                   ? Colors.white
-                                                  : Colors.grey.shade500,
+                                                  : Colors.green.shade500,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 15,
                                         ),
@@ -1440,7 +1533,7 @@ void showCourtAvailableDialog(
                           "Select Slot",
                           style: GoogleFonts.inter(
                             color: Colors.black,
-                            fontSize: 16,
+                            fontSize: 22,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1459,7 +1552,7 @@ void showCourtAvailableDialog(
                               Icon(
                                 Icons.info,
                                 color: Colors.orange.shade600,
-                                size: 20,
+                                size: 28,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -1468,7 +1561,7 @@ void showCourtAvailableDialog(
                                   style: GoogleFonts.inter(
                                     color: Colors.orange.shade600,
                                     fontWeight: FontWeight.w500,
-                                    fontSize: 14,
+                                    fontSize: 22,
                                   ),
                                 ),
                               ),
@@ -1541,13 +1634,14 @@ void showCourtAvailableDialog(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
+                              minimumSize: Size.fromHeight(50),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                             child: Text(
                               'Cancel',
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w500,
-                                fontSize: 16,
+                                fontSize: 22,
                                 color: Colors.grey.shade500,
                               ),
                             ),
@@ -1575,6 +1669,7 @@ void showCourtAvailableDialog(
                                       ? Colors.green.shade500
                                       : Colors.grey.shade300,
                               padding: const EdgeInsets.symmetric(vertical: 10),
+                              minimumSize: Size.fromHeight(50),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -1587,7 +1682,7 @@ void showCourtAvailableDialog(
                                             availableSlots.isNotEmpty
                                         ? Colors.white
                                         : Colors.grey.shade500,
-                                fontSize: 16,
+                                fontSize: 22,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

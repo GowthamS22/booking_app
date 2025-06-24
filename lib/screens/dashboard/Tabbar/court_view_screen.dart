@@ -290,7 +290,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ? Colors.indigo.shade500
                                   : Colors.grey.shade200,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: isSelected ? Colors.grey.shade200 : Palette.newColor,)
+                          border: Border.all(
+                            color:
+                                isSelected
+                                    ? Colors.grey.shade200
+                                    : Palette.newColor,
+                          ),
                         ),
                         child: Image.asset(
                           item['name'] == 'Badminton'
@@ -442,7 +447,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       'Loading courts and time slots...',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -458,14 +463,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   children: [
                     Icon(
                       Icons.sports_tennis,
-                      size: 48,
+                      size: 60,
                       color: Colors.grey.shade400,
                     ),
                     SizedBox(height: 16),
                     Text(
                       'No courts or time slots available',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -831,42 +836,43 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 'Merged booking: start=$mergedStart, end=$mergedEnd',
                                               );
 
-                                              // Your existing logic for extension drawer
-                                              final isCurrentUser =
-                                                  bookingSlot.name ==
-                                                  currentUser;
-                                              final hasMembership =
-                                                  (bookingSlot.membershipPlanId ??
-                                                          '')
-                                                      .isNotEmpty;
-                                              if (isCurrentUser &&
-                                                  hasMembership) {
-                                                openExtendedbookingRightDrawer(
-                                                  context,
-                                                  bookingSlot,
-                                                  mergedStartTime: mergedStart,
-                                                  mergedEndTime: mergedEnd,
-                                                  controller: controller,
-                                                  updateTotalPrice:
-                                                      () => totalPrice,
-                                                  onMembershipApplied:
-                                                      (price, isApplied) {},
-                                                );
-                                                controller.fetchBookedSlots();
-                                                fetchSlotInfo();
-                                                if (mounted) setState(() {});
-                                              } else {
-                                                ScaffoldMessenger.of(
-                                                  context,
-                                                ).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text(
-                                                      'Only your own bookings with membership can be extended.',
-                                                    ),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
+                                              // // Your existing logic for extension drawer
+                                              // final isCurrentUser =
+                                              //     bookingSlot.name ==
+                                              //     currentUser;
+                                              // final hasMembership =
+                                              //     (bookingSlot.membershipPlanId ??
+                                              //             '')
+                                              //         .isNotEmpty;
+                                              // if (isCurrentUser &&
+                                              //     hasMembership) {
+                                              openExtendedbookingRightDrawer(
+                                                context,
+                                                bookingSlot,
+                                                mergedStartTime: mergedStart,
+                                                mergedEndTime: mergedEnd,
+                                                controller: controller,
+                                                updateTotalPrice:
+                                                    () => totalPrice,
+                                                onMembershipApplied:
+                                                    (price, isApplied) {},
+                                              );
+                                              controller.fetchBookedSlots();
+                                              fetchSlotInfo();
+                                              if (mounted) setState(() {});
+                                              // }
+                                              // else {
+                                              //   ScaffoldMessenger.of(
+                                              //     context,
+                                              //   ).showSnackBar(
+                                              //     SnackBar(
+                                              //       content: Text(
+                                              //         'Only your own bookings with membership can be extended.',
+                                              //       ),
+                                              //       backgroundColor: Colors.red,
+                                              //     ),
+                                              //   );
+                                              // }
                                             }
                                           },
                                           child: Container(
@@ -1100,37 +1106,41 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       initialDate: selectedDateTime ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-        builder: (BuildContext context, Widget? child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              // Main dialog styling
-              dialogTheme: DialogTheme(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 4,
-                backgroundColor: Colors.white,
-              ),
-              colorScheme: ColorScheme.light(
-                primary: Colors.blue, // Header color
-                onPrimary: Colors.white, // Header text color
-                surface: Colors.white, // Calendar background
-                onSurface: Colors.black, // Default text color
-              ),
-              materialTapTargetSize: MaterialTapTargetSize.padded,
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            // Main dialog styling
+            // dialogTheme: DialogTheme(
+            //   shape: RoundedRectangleBorder(
+            //     borderRadius: BorderRadius.circular(16),
+            //   ),
+            //   elevation: 4,
+            //   backgroundColor: Colors.white,
+            // ),
+            colorScheme: ColorScheme.light(
+              primary: Colors.blue, // Header color
+              onPrimary: Colors.white, // Header text color
+              surface: Colors.white, // Calendar background
+              onSurface: Colors.black, // Default text color
             ),
-            child: MediaQuery(
-              // Overall scaling
-              data: MediaQuery.of(context).copyWith(
-                textScaleFactor: 1.7, // Slightly reduced from 1.9 for better proportions
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20), // Add padding around the picker
-                child: child!,
-              ),
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+          ),
+          child: MediaQuery(
+            // Overall scaling
+            data: MediaQuery.of(context).copyWith(
+              textScaleFactor:
+                  1.7, // Slightly reduced from 1.9 for better proportions
             ),
-          );
-        }
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 20,
+              ), // Add padding around the picker
+              child: child!,
+            ),
+          ),
+        );
+      },
     );
 
     if (pickedDate == null) return;
@@ -1762,6 +1772,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               child: Column(
                                                 children: [
                                                   Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
                                                     children: [
                                                       Expanded(
                                                         flex: 2,
@@ -1806,9 +1819,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                         ),
                                                       ),
                                                     ],
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
                                                   ),
                                                   SizedBox(height: 5),
                                                   Row(
@@ -2130,14 +2140,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Obx(() => Text(
-                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 25,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
+                                  Obx(
+                                    () => Text(
+                                      '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 25,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),),
+                                  ),
                                 ] else ...[
                                   Text(
                                     'Total',
@@ -2148,19 +2160,26 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Obx(() => Text(
-                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 25,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
+                                  Obx(
+                                    () => Text(
+                                      '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 25,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),),
+                                  ),
                                 ],
                               ],
                             ),
                           ],
-                          if (isMembershipApplied) ...[
+                          if (isMembershipApplied &&
+                              membershipValidityDate != null &&
+                              membershipValidityDate!
+                                      .difference(DateTime.now())
+                                      .inDays >
+                                  0) ...[
                             //Spacer(),
                             Divider(color: Colors.grey.shade300),
                             Row(
@@ -2175,14 +2194,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                 ),
                                 SizedBox(width: 8),
-                                Obx(() => Text(
-                                  '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 25,
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w600,
+                                Obx(
+                                  () => Text(
+                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 25,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),),
+                                ),
                               ],
                             ),
                             Row(
@@ -2200,7 +2221,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       selectedMembershipId = null;
                                       selectedSlots.clear();
                                       cartController.clearCart();
-                                      if (onCancel != null) onCancel(); // notify parent to refresh
+                                      if (onCancel != null)
+                                        onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -2298,7 +2320,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       selectedMembershipId = null;
                                       selectedSlots.clear();
                                       cartController.clearCart();
-                                      if (onCancel != null) onCancel(); // notify parent to refresh
+                                      if (onCancel != null)
+                                        onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -2716,12 +2739,26 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   name: controller.nameController.text,
                                   email: controller.userData.value.email,
                                   mobile: controller.userData.value.mobile,
+                                  bookingId: controller.bookingId,
+
                                   paymentType:
                                       'Pending', // Set payment type as Pending
                                   promoCode: '',
                                   notes:
                                       'Payment pending - Pay Later option selected',
                                 );
+                                // // After booking, clear slots and reset form
+                                // controller.clearSelectedSlots();
+                                // nameController.clear();
+                                // mobileController.clear();
+                                // hasMembership = false;
+                                // isMembershipApplied = false;
+                                // membershipPrice = 0.0;
+                                // selectedMembershipId = null;
+                                // selectedSlots.clear();
+                                // cartController.clearCart();
+                                // if (Navigator.canPop(context))
+                                Navigator.pop(context);
                               } else {
                                 // Create new user and then create booking with pending payment
                                 controller
@@ -2745,8 +2782,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         promoCode: '',
                                         notes:
                                             'Payment pending - Pay Later option selected',
+                                        bookingId: controller.bookingId,
                                       );
                                     });
+                                // // After booking, clear slots and reset form
+                                // controller.clearSelectedSlots();
+                                // nameController.clear();
+                                // mobileController.clear();
+                                // hasMembership = false;
+                                // isMembershipApplied = false;
+                                // membershipPrice = 0.0;
+                                // selectedMembershipId = null;
+                                // selectedSlots.clear();
+                                // cartController.clearCart();
+                                // if (Navigator.canPop(context))
+                                //   Navigator.pop(context);
                               }
                             },
                             style: OutlinedButton.styleFrom(
@@ -2857,7 +2907,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           repeatId: null,
           repeatGroupId: null,
           status: 'Selected',
-          bookingId: bookings.first.bookingId,
+          bookingId: '',
           paymentStatus: 'CASH',
           name: nameController.text,
           mobile: mobileController.text,
@@ -2865,6 +2915,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           updatedAt: DateTime.now(),
           updatedBy: authController.userId.toString(),
           userId: authController.userId.toString(),
+          bookingNo: controller.bookingId,
         );
         controller.cartItems.add(individualSlot);
       }
