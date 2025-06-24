@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'package:get/get.dart';
 import 'package:booking_app/controllers/order_controller.dart';
-import 'package:booking_app/models/booking_model.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../config/constants.dart';
 
@@ -70,17 +69,17 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "All Bookings",
+                      "Upcoming Bookings",
                       style: GoogleFonts.inter(
-                        fontSize: 18,
+                        fontSize: 23,
                         color: Colors.black,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     Text(
-                      "Complete list of all booked slots",
+                      "Bookings scheduled to being soon",
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.grey.shade500,
                         fontWeight: FontWeight.w400,
                       ),
@@ -97,13 +96,13 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                       decoration: InputDecoration(
                         hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
-                          fontSize: 16,
+                          fontSize: 22,
                           color: Colors.grey.shade400,
                           fontWeight: FontWeight.w400,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 6,
+                          vertical: 7,
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -151,13 +150,13 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                     decoration: InputDecoration(
                       hintText: 'All',
                       hintStyle: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.white,
                         fontWeight: FontWeight.w500,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 8,
-                        vertical: 6,
+                        vertical: 7,
                       ),
                       filled: true,
                       fillColor: Colors.white,
@@ -179,11 +178,22 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                       isDense: true,
                     ),
                     style: GoogleFonts.inter(
-                      fontSize: 16,
+                      fontSize: 22,
                       color: Colors.grey.shade900,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  height: 44,
+                  width: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: const Icon(LucideIcons.filter, size: 20),
                 ),
                 const SizedBox(width: 10),
               ],
@@ -204,109 +214,105 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                 final bookings = bookingController.bookings;
 
                 if (bookings.isEmpty) {
-                  return const Center(child: Text("No bookings available."));
+                  return Center(
+                    child: Text(
+                      "No bookings available.",
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  );
                 }
 
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Column(
-                    children: [
-                      // Custom Header Row
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Customer & Mobile',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Sport & Court',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Date & Time',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Remaining',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  'Amount (\$)',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'Booking Status',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                return Column(
+                  children: [
+                    // Custom Header Row
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 15,
+                        horizontal: 16,
                       ),
-                      const SizedBox(height: 8),
-                      Container(
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Cust.Name & Mobile',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Sport & Court',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Timing',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Amount (\$)',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                'Booking Status',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -357,7 +363,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                   Text(
                                                     booking.customerName!,
                                                     style: GoogleFonts.inter(
-                                                      fontSize: 16,
+                                                      fontSize: 22,
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color:
@@ -365,19 +371,21 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                     ),
                                                   ),
                                                   const SizedBox(width: 4),
-
-                                                  const Icon(
-                                                    Icons.repeat,
-                                                    size: 16,
-                                                    color: Colors.purple,
-                                                  ),
+                                                  if (booking
+                                                          .isExtendedBooking ==
+                                                      true)
+                                                    const Icon(
+                                                      Icons.repeat,
+                                                      size: 30,
+                                                      color: Colors.purple,
+                                                    ),
                                                 ],
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
                                                 booking.customerMobile!,
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 16,
+                                                  fontSize: 22,
                                                   fontWeight: FontWeight.w500,
                                                   color: Colors.grey.shade500,
                                                 ),
@@ -395,15 +403,23 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                               Text(
                                                 booking.sportname!,
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 16,
+                                                  fontSize: 22,
                                                   fontWeight: FontWeight.w500,
                                                   color: Colors.grey.shade900,
                                                 ),
                                               ),
+                                              // Text(
+                                              //   booking.bookingNo! ?? '',
+                                              //   style: GoogleFonts.inter(
+                                              //     fontSize: 22,
+                                              //     fontWeight: FontWeight.w500,
+                                              //     color: Colors.grey.shade500,
+                                              //   ),
+                                              // ),
                                               Text(
                                                 '${booking.courtName}${booking.platformId}',
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 16,
+                                                  fontSize: 22,
                                                   fontWeight: FontWeight.w500,
                                                   color: Colors.grey.shade500,
                                                 ),
@@ -417,97 +433,41 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.center,
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
                                             children: [
                                               Text(
-                                                DateFormat(
-                                                  'dd MMM, yyyy',
-                                                ).format(DateTime.now()),
+                                                booking.bookingDateFormatted,
+                                                //   DateFormat(
+                                                //     'dd MMMM yyyy',
+                                                //   ).format(
+                                                //  booking.bookingDateFormatted,
+                                                //   ),
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 16,
+                                                  fontSize: 22,
                                                   fontWeight: FontWeight.w500,
-                                                  color: Colors.grey.shade900,
+                                                  color: Colors.black,
                                                 ),
                                               ),
-                                              Text(
-                                                '${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.grey.shade500,
+                                              Center(
+                                                child: Text(
+                                                  '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
+                                                  //'${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.grey.shade500,
+                                                  ),
                                                 ),
                                               ),
-                                              // Text(
-                                              //   '${DateFormat('hh:mm a').format(booking.extraStart)} - ${DateFormat('hh:mm a').format(booking.extraEnd)}',
-                                              //   style: GoogleFonts.inter(fontSize: 12, color: Colors.blue),
-                                              // ),
                                             ],
                                           ),
                                         ),
 
-                                        // Remaining Time
-                                        Expanded(
-                                          child: Align(
-                                            alignment: Alignment.center,
-                                            child: Chip(
-                                              label: Text(
-                                                '${remaining > 0 ? remaining : 0} mins',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w500,
-                                                  color:
-                                                      remaining <= 0
-                                                          ? Colors.red.shade500
-                                                          : remaining <= 15
-                                                          ? Colors
-                                                              .orange
-                                                              .shade500
-                                                          : Colors
-                                                              .green
-                                                              .shade500,
-                                                ),
-                                              ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  20,
-                                                ), // Adjust the radius as needed
-                                                side: BorderSide(
-                                                  color:
-                                                      remaining <= 0
-                                                          ? Colors.red.shade500
-                                                          : remaining <= 15
-                                                          ? Colors
-                                                              .orange
-                                                              .shade500
-                                                          : Colors
-                                                              .green
-                                                              .shade500,
-                                                ),
-                                              ),
-                                              backgroundColor:
-                                                  remaining <= 0
-                                                      ? Colors.red.shade50
-                                                      : remaining <= 15
-                                                      ? Colors.orange.shade50
-                                                      : Colors.green.shade50,
-                                              labelStyle: GoogleFonts.inter(
-                                                color:
-                                                    remaining <= 0
-                                                        ? Colors.red.shade500
-                                                        : remaining <= 15
-                                                        ? Colors.orange.shade500
-                                                        : Colors.green.shade500,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
                                         Expanded(
                                           child: Center(
                                             child: Text(
                                               "\$ ${b.grandTotal!.toStringAsFixed(2)}",
                                               style: GoogleFonts.inter(
-                                                fontSize: 16,
+                                                fontSize: 23,
                                                 fontWeight: FontWeight.w500,
                                                 color: Colors.grey.shade900,
                                               ),
@@ -519,45 +479,42 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                           child: Align(
                                             alignment: Alignment.center,
                                             child: Chip(
-                                              label:
-                                                  b.paymentStatus != 'Paid'
-                                                      ? Text(
-                                                        "Pay",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                      )
-                                                      : Text(
-                                                        "Paid",
-                                                        style:
-                                                            GoogleFonts.inter(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                            ),
-                                                      ),
+                                              label: Text(
+                                                (booking.bookingStatus
+                                                            ?.toLowerCase() ==
+                                                        'booked')
+                                                    ? (booking.paymentStatus
+                                                                ?.toLowerCase() ==
+                                                            'paid'
+                                                        ? 'Paid'
+                                                        : 'Pending')
+                                                    : (booking.bookingStatus ??
+                                                        ''),
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: getStatusTextColor(
+                                                    booking.bookingStatus,
+                                                  ),
+                                                ),
+                                              ),
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  20,
-                                                ), // Adjust the radius as needed
+                                                borderRadius:
+                                                    BorderRadius.circular(15),
                                                 side: BorderSide(
-                                                  color: Colors.green.shade500,
+                                                  color: getStatusBorderColor(
+                                                    booking.bookingStatus,
+                                                  ),
                                                 ),
                                               ),
                                               backgroundColor:
-                                                  b.paymentStatus != 'Paid'
-                                                      ? Colors.green.shade50
-                                                      : Colors.green.shade500,
+                                                  getStatusBackgroundColor(
+                                                    booking.bookingStatus,
+                                                  ),
                                               labelStyle: GoogleFonts.inter(
-                                                color:
-                                                    b.paymentStatus == 'Paid'
-                                                        ? Colors.white
-                                                        : Colors.green.shade500,
+                                                color: getStatusTextColor(
+                                                  booking.bookingStatus,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -574,8 +531,8 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 );
               }),
             ),
@@ -583,5 +540,44 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
         );
       },
     );
+  }
+
+  Color getStatusBorderColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'booked':
+        return Colors.green.shade500;
+      case 'no show':
+        return Colors.grey.shade500;
+      case 'cancelled':
+        return Colors.red.shade500;
+      default:
+        return Colors.grey.shade300;
+    }
+  }
+
+  Color getStatusBackgroundColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'booked':
+        return Colors.green.shade50;
+      case 'no show':
+        return Colors.grey.shade100;
+      case 'cancelled':
+        return Colors.red.shade50;
+      default:
+        return Colors.grey.shade50;
+    }
+  }
+
+  Color getStatusTextColor(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'booked':
+        return Colors.green.shade500;
+      case 'no show':
+        return Colors.grey.shade700;
+      case 'cancelled':
+        return Colors.red.shade500;
+      default:
+        return Colors.grey.shade500;
+    }
   }
 }

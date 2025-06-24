@@ -479,7 +479,6 @@ class NewBookingController extends GetxController {
         //     '  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice',
         //   );
         // }
-
         for (var court in courtList) {
           slots.add({
             'courtId': court['id'],
@@ -844,6 +843,53 @@ class NewBookingController extends GetxController {
     }
   }
 
+  Future<void> cancelBooking(String bookingId) async {
+    try {
+      await Supabase.instance.client
+          .schema('s22_prod_schema')
+          .from('bookings')
+          .update({'is_cancelled': true})
+          .eq('id', bookingId);
+      await Supabase.instance.client
+          .schema('s22_prod_schema')
+          .from('booking_slots')
+          .update({'status': 'Cancelled'})
+          .eq('booking_id', bookingId);
+      showCustomSnackbar(
+        'Success',
+        'Booking cancelled successfully',
+        Colors.green,
+      );
+      update();
+      await fetchBookedSlots();
+    } catch (e) {
+      showCustomSnackbar('Error', 'Failed to cancel booking: $e', Colors.red);
+      //Get.snackbar('Error', 'Failed to cancel booking: $e');
+    }
+  }
+
+  Future<void> markNoShow(String bookingId) async {
+    try {
+      await Supabase.instance.client
+          .schema('s22_prod_schema')
+          .from('bookings')
+          .update({'is_showoff': true})
+          .eq('id', bookingId);
+      await Supabase.instance.client
+          .schema('s22_prod_schema')
+          .from('booking_slots')
+          .update({'status': 'No Show'})
+          .eq('booking_id', bookingId);
+      showCustomSnackbar('Success', 'Booking marked as No Show', Colors.green);
+      update();
+      await fetchBookedSlots();
+      // Get.snackbar('Success', 'Booking marked as No Show');
+    } catch (e) {
+      showCustomSnackbar('Error', 'Failed to mark as No Show: $e', Colors.red);
+      //Get.snackbar('Error', 'Failed to mark as No Show: $e');
+    }
+  }
+
   Future<void> fetchBookedSlots() async {
     final startOfDay = DateTime(
       selectedDate.year,
@@ -871,6 +917,8 @@ class NewBookingController extends GetxController {
         booking_no,
         total,
         payment_status,
+        is_cancelled,
+        is_showoff,
         customers (
           user_id,
           first_name,
@@ -889,6 +937,8 @@ class NewBookingController extends GetxController {
     ''')
           .eq('service_id', selectedServiceId)
           .eq('status', 'Booked')
+          .eq('bookings.is_cancelled', false)
+          .eq('bookings.is_showoff', false)
           .gte('start_time', startOfDay.toIso8601String())
           .lt('start_time', endOfDay.toIso8601String())
           .order('start_time', ascending: true);
@@ -1652,6 +1702,7 @@ class NewBookingController extends GetxController {
   }) async {
     try {
       // Step 1: Validate slot availability
+      print('cartItems:$cartItems');
       bool isValid = await bulkValidateSlots(selectedBSlots: cartItems);
       if (!isValid) {
         showCustomSnackbar(
@@ -1664,7 +1715,6 @@ class NewBookingController extends GetxController {
         update();
         return;
       }
-
       // Step 2: Generate a unique booking ID
       // final existingBookings = await supabase
       //     .schema('s22_prod_schema')
@@ -1675,6 +1725,7 @@ class NewBookingController extends GetxController {
       //     'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
 
       // Step 3: Insert booking record
+      print('cartItems before booking insert: $cartItems');
       final bookingInsertResponse =
           await supabase
               .schema('s22_prod_schema')
@@ -1704,13 +1755,12 @@ class NewBookingController extends GetxController {
               })
               .select()
               .single();
-      print("bookingInsertResponse : $bookingInsertResponse");
-      print("bookingInsertResponseID : ${bookingInsertResponse['id']}");
       final insertedBookingId = bookingInsertResponse['id'];
 
       // Step 4: Insert booking slots
       List<Map<String, dynamic>> slotData =
           cartItems.map((slot) {
+            print('Debug - Processing slot: ${slot.service} ${slot.court}');
             return {
               'booking_id': insertedBookingId,
               'service_id': slot.serviceId,
@@ -1731,7 +1781,7 @@ class NewBookingController extends GetxController {
               'updated_at': DateTime.now().toIso8601String(),
             };
           }).toList();
-      print('slotData: $slotData');
+
       try {
         await supabase
             .schema('s22_prod_schema')
@@ -1742,7 +1792,7 @@ class NewBookingController extends GetxController {
         print('Error inserting booking slots: $error');
       }
 
-      // Post-insertion operations
+      // Now clear cart and navigate
       cartItems.clear();
       confirmBtn.value = false;
       showBookingSuccessAlert();
@@ -2311,7 +2361,10 @@ class NewBookingController extends GetxController {
   Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
     int matchingSlotCount = 0;
 
-    for (var item in selectedBSlots!) {
+    // Defensive copy of the list
+    final List<BookingSlot> slotsToValidate = [...?selectedBSlots];
+
+    for (final item in slotsToValidate) {
       final response = await supabase
           .schema('s22_prod_schema')
           .from('booking_slots')
@@ -2321,11 +2374,40 @@ class NewBookingController extends GetxController {
           .eq('start_time', item.startTime!.toIso8601String())
           .eq('status', 'Booked');
 
-      matchingSlotCount += (response as List).length;
+      // Ensure response is a list
+      if (response is List) {
+        matchingSlotCount += response.length;
+      } else {
+        print('Unexpected response: $response');
+      }
     }
 
     return matchingSlotCount == 0;
   }
+
+  // Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
+  //   int matchingSlotCount = 0;
+
+  //   // Create a safe copy of the list to prevent concurrent modification
+  //   final List<BookingSlot> slotsToValidate = List<BookingSlot>.from(
+  //     selectedBSlots ?? [],
+  //   );
+
+  //   for (var item in slotsToValidate) {
+  //     final response = await supabase
+  //         .schema('s22_prod_schema')
+  //         .from('booking_slots')
+  //         .select('id')
+  //         .eq('service_id', item.serviceId!)
+  //         .eq('court_id', item.courtId!)
+  //         .eq('start_time', item.startTime!.toIso8601String())
+  //         .eq('status', 'Booked');
+
+  //     matchingSlotCount += (response as List).length;
+  //   }
+
+  //   return matchingSlotCount == 0;
+  // }
 
   Future<void> changeCourt({String? subBookingId, String? courtId}) async {
     try {

@@ -384,11 +384,14 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                                       ),
                                                       const SizedBox(width: 4),
 
-                                                      const Icon(
-                                                        Icons.repeat,
-                                                        size: 22,
-                                                        color: Colors.purple,
-                                                      ),
+                                                      if (booking
+                                                              .isExtendedBooking ==
+                                                          true)
+                                                        const Icon(
+                                                          Icons.repeat,
+                                                          size: 30,
+                                                          color: Colors.purple,
+                                                        ),
                                                     ],
                                                   ),
                                                   const SizedBox(height: 4),
@@ -422,6 +425,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                                           Colors.grey.shade900,
                                                     ),
                                                   ),
+
                                                   Text(
                                                     '${booking.courtName}${booking.platformId}',
                                                     style: GoogleFonts.inter(
@@ -438,15 +442,41 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
 
                                             // Date & Time
                                             Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  '${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 22,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: Colors.grey.shade500,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
+                                                children: [
+                                                  Text(
+                                                    booking
+                                                        .bookingDateFormatted,
+                                                    //   DateFormat(
+                                                    //     'dd MMMM yyyy',
+                                                    //   ).format(
+                                                    //  booking.bookingDateFormatted,
+                                                    //   ),
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 22,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: Colors.black,
+                                                    ),
                                                   ),
-                                                ),
+                                                  Center(
+                                                    child: Text(
+                                                      '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
+                                                      //'${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 22,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color:
+                                                            Colors
+                                                                .grey
+                                                                .shade500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
 
@@ -455,7 +485,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                                 child: Text(
                                                   "\$ ${b.grandTotal!.toStringAsFixed(2)}",
                                                   style: GoogleFonts.inter(
-                                                    fontSize: 22,
+                                                    fontSize: 23,
                                                     fontWeight: FontWeight.w500,
                                                     color: Colors.grey.shade900,
                                                   ),
@@ -470,7 +500,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                                   label: Text(
                                                     "Call",
                                                     style: GoogleFonts.inter(
-                                                      fontSize: 16,
+                                                      fontSize: 23,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),

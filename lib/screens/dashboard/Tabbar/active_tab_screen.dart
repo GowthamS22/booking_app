@@ -301,7 +301,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           //       builder:
                           //           (_) => BookingDetailsDialog(booking: b),
                           //     ),
-                          child: bookingsCard(booking: b),
+                          // child: bookingsCard(booking: b),
                         );
                       },
                     )
@@ -331,7 +331,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                         'Customer & Mobile',
                                         style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -344,7 +344,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                         'Sport & Court',
                                         style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -357,7 +357,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                         'Date & Time',
                                         style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -370,7 +370,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                         'Remaining',
                                         style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -383,7 +383,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                         'Amount (\$)',
                                         style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -395,7 +395,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                         '',
                                         style: GoogleFonts.inter(
                                           color: Colors.white,
-                                          fontSize: 16,
+                                          fontSize: 22,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -463,7 +463,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                           booking.customerName!,
                                                           style:
                                                               GoogleFonts.inter(
-                                                                fontSize: 16,
+                                                                fontSize: 22,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w500,
@@ -477,18 +477,22 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                           width: 4,
                                                         ),
 
-                                                        const Icon(
-                                                          Icons.repeat,
-                                                          size: 16,
-                                                          color: Colors.purple,
-                                                        ),
+                                                        if (booking
+                                                                .isExtendedBooking ==
+                                                            true)
+                                                          const Icon(
+                                                            Icons.repeat,
+                                                            size: 30,
+                                                            color:
+                                                                Colors.purple,
+                                                          ),
                                                       ],
                                                     ),
                                                     const SizedBox(height: 4),
                                                     Text(
                                                       booking.customerMobile!,
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color:
@@ -510,7 +514,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                     Text(
                                                       booking.sportname!,
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color:
@@ -522,7 +526,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                     Text(
                                                       '${booking.courtName}${booking.platformId}',
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color:
@@ -548,7 +552,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                         'dd MMM, yyyy',
                                                       ).format(DateTime.now()),
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color:
@@ -560,7 +564,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                     Text(
                                                       '${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color:
@@ -585,7 +589,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                     label: Text(
                                                       '${remaining > 0 ? remaining : 0} mins',
                                                       style: GoogleFonts.inter(
-                                                        fontSize: 16,
+                                                        fontSize: 22,
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color:
@@ -658,7 +662,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                   child: Text(
                                                     "\$ ${b.grandTotal!.toStringAsFixed(2)}",
                                                     style: GoogleFonts.inter(
-                                                      fontSize: 16,
+                                                      fontSize: 22,
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color:
@@ -678,7 +682,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                             ? Text(
                                                               "Pay",
                                                               style: GoogleFonts.inter(
-                                                                fontSize: 16,
+                                                                fontSize: 22,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w500,
@@ -687,7 +691,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                             : Text(
                                                               "Paid",
                                                               style: GoogleFonts.inter(
-                                                                fontSize: 16,
+                                                                fontSize: 22,
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w600,
@@ -751,76 +755,111 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
     );
   }
 
-  Color getProgressColor(int duration) {
-    if (duration <= 30) return Colors.pinkAccent.shade400;
-    if (duration <= 59) return Colors.orange.shade400;
-    return Colors.red.shade400;
+  Color _getProgressColor(int remaining) {
+    if (remaining <= 5) return Colors.red;
+    if (remaining <= 15) return Colors.orange;
+    return Colors.green;
   }
 
   Widget bookingsCard({required BookingModel booking}) {
-    final duration = booking.endTime!.difference(booking.startTime!).inMinutes;
+    final totalDuration =
+        booking.endTime!.difference(booking.startTime!).inMinutes;
+
+    final now = DateTime.now();
+    final elapsed =
+        now.isBefore(booking.startTime!)
+            ? 0
+            : now.isAfter(booking.endTime!)
+            ? totalDuration
+            : now.difference(booking.startTime!).inMinutes;
+
+    final remaining = (totalDuration - elapsed).clamp(0, totalDuration);
+    final progress = (elapsed / totalDuration).clamp(0.0, 1.0);
+
+    final Color progressColor = _getProgressColor(remaining);
+
     return Container(
+      width: 180,
+      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Stack(
-            alignment: Alignment.center,
+            alignment: Alignment.topRight,
             children: [
               SizedBox(
-                height: MediaQuery.of(context).size.height * 0.15,
-                width: MediaQuery.of(context).size.width * 0.10,
-                child: CircularProgressIndicator(
-                  value: duration / 60, // adjust denominator as needed
-                  color: getProgressColor(duration),
-                  // value: 0.5, // Default progress
-                  // color: Colors.blue.shade400,
-                  strokeWidth: 10,
-                  backgroundColor: Colors.grey.shade200,
+                height: 100,
+                width: 100,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress,
+                      color: progressColor,
+                      strokeWidth: 10,
+                      backgroundColor: Colors.grey.shade200,
+                    ),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "${remaining.toString().padLeft(2, '0')}:00",
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          "mins",
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 10),
-              Text(
-                "${duration.toString().padLeft(2, '0')}:00\nmins",
-                style: GoogleFonts.inter(
-                  fontSize: 15,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
+              const Padding(
+                padding: EdgeInsets.all(4.0),
+                child: Icon(Icons.attach_money, color: Colors.red, size: 20),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+
+          const SizedBox(height: 12),
+
           Text(
             booking.customerName ?? '',
             style: GoogleFonts.inter(
-              fontSize: 17,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
               color: Colors.black,
-              fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            booking.courtName ?? '',
-            style: GoogleFonts.inter(fontSize: 15, color: Colors.grey),
             textAlign: TextAlign.center,
           ),
+
           const SizedBox(height: 6),
+
           Text(
-            '${booking.startTime!.hour}:${booking.startTime!.minute.toString().padLeft(2, '0')} - ${booking.endTime!.hour}:${booking.endTime!.minute.toString().padLeft(2, '0')}',
-            style: GoogleFonts.inter(fontSize: 15, color: Colors.grey),
+            '${booking.sportname ?? ''} - ${booking.courtName ?? ''}',
+            style: GoogleFonts.inter(fontSize: 13, color: Colors.grey[600]),
+            textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            '${DateFormat('hh:mm a').format(booking.startTime!)} - ${DateFormat('hh:mm a').format(booking.endTime!)}',
+            style: GoogleFonts.inter(fontSize: 13, color: Colors.blue),
           ),
         ],
       ),
