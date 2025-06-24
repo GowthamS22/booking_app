@@ -152,21 +152,14 @@ class CheckoutController extends GetxController {
             .eq('id', userId);
       }
 
-      // // Step 2: Generate a unique booking ID
-      // final existingBookings = await supabase
-      //     .schema('s22_prod_schema')
-      //     .from('bookings')
-      //     .select('id');
-      // final int numberOfBookings = existingBookings.length + 1;
-      // final String bookingId =
-      //     'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
+      final bookingNumber = await getNextBookingNumber();
 
       // Insert Booking
       final bookingResponse = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('bookings')
               .insert({
-                'booking_no': bookingId,
+                'booking_no': 'BCK-2025-${bookingNumber}',
                 'customer_id': userId,
                 'sub_total': subTotal,
                 'surcharge': 0.0,
@@ -601,6 +594,17 @@ class CheckoutController extends GetxController {
       print('Error during printing: $e');
     }
 
+  }
+
+  Future<int> getNextBookingNumber() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .rpc('increment_booking_counter')
+        .select()
+        .single();
+    return response['current_token'] as int;
   }
 
   // Helper function to merge consecutive time slots for the same court and sport

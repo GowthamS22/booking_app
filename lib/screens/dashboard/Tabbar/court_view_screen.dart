@@ -2135,7 +2135,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                   SizedBox(width: 8),
                                   Obx(() => Text(
-                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                    '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
                                       fontSize: 25,
                                       color: Colors.black,
@@ -2153,7 +2153,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                   SizedBox(width: 8),
                                   Obx(() => Text(
-                                    '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                    '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
                                     style: GoogleFonts.inter(
                                       fontSize: 25,
                                       color: Colors.black,
@@ -2180,7 +2180,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ),
                                 SizedBox(width: 8),
                                 Obx(() => Text(
-                                  '\$ ${(courtPrice + cartController.total).toStringAsFixed(2)}',
+                                  '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
                                   style: GoogleFonts.inter(
                                     fontSize: 25,
                                     color: Colors.black,
@@ -2476,6 +2476,35 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     bool isMembershipApplied,
     double membershipPrice,
   ) async {
+
+    // Create a copy of bookings to modify prices without affecting original
+    List<BookingInfo> updatedBookings = bookings.map((booking) {
+      return BookingInfo(
+        courtName: booking.courtName,
+        selectedDateTime: booking.selectedDateTime,
+        selectedDays: booking.selectedDays,
+        subSlots: booking.subSlots.map((subSlot) {
+          // Apply membership pricing if applicable
+          double updatedPrice = subSlot.price;
+          if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+            updatedPrice = subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+          }
+          return BookingSubSlotInfo(
+            startTime: subSlot.startTime,
+            endTime: subSlot.endTime,
+            price: updatedPrice,
+            isPeak: subSlot.isPeak,
+          );
+        }).toList(),
+        bookingId: booking.bookingId,
+      );
+    }).toList();
+
+    // Recalculate total amount with updated prices
+    double updatedTotalAmount = updatedBookings.fold(0.0, (sum, booking) {
+      return sum + booking.subSlots.fold(0.0, (subSum, subSlot) => subSum + subSlot.price);
+    });
+
     await showDialog(
       context: parentContext,
       builder:
@@ -2865,6 +2894,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               ).pop(); // Close the dialog first
 
                               await Future.delayed(Duration(seconds: 1));
+                              //print(updatedBookings[0].subSlots[0].price);
                               Get.to(
                                 //Checkout(),
                                 CheckoutScreen(
@@ -2873,7 +2903,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   mobileno: mobile,
                                   selectedDateTime: selectedDateTime,
                                   billAmount: billAmount + cartController.total,
-                                  bookings: bookings,
+                                  bookings: updatedBookings,
                                   membershipID: selectedMembershipId!,
                                   membershipName: selectedMembershipPlan,
                                   isMembershipApplied: isMembershipApplied,

@@ -170,19 +170,19 @@ class NewBookingController extends GetxController {
         .schema('s22_prod_schema')
         .from('customers')
         .select('''
-        mobile, 
-        first_name, 
-        membershipplan_id,
-        created_at,
-        membershipplan (
-          name,
-          price,
-          billing_cycle,
-          peak_price,
-          non_peak_price,
-          validity
-        )
-      ''');
+          mobile, 
+          first_name, 
+          membershipplan_id,
+          created_at,
+          membershipplan (
+            name,
+            price,
+            billing_cycle,
+            peak_price,
+            non_peak_price,
+            validity
+          )
+        ''');
 
     // Generate booking ID
     final existingBookings = await supabase
@@ -190,7 +190,7 @@ class NewBookingController extends GetxController {
         .from('bookings')
         .select('id');
     final int numberOfBookings = existingBookings.length + 1;
-    bookingId = 'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
+    bookingId = '"BCK-2025-${numberOfBookings.toString().padLeft(3, '0')}';
 
     if (response != null) {
       userList.clear();

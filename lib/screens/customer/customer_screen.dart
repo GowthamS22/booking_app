@@ -135,59 +135,56 @@ class _CustomerScreenState extends State<CustomerScreen> {
           child: Container(
             padding: EdgeInsets.all(20),
             width: MediaQuery.of(context).size.width / 1.06,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: DataTable(
-                headingRowColor: MaterialStateProperty.all(Colors.black),
-                headingTextStyle: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                columnSpacing: 32,
-                headingRowHeight: 70,
-                dataRowMinHeight: 50,
-                dataRowMaxHeight: 65,
-                columns: const [
-                  DataColumn(label: Text("Name")),
-                  DataColumn(label: Text("Mobile No.")),
-                  DataColumn(label: Text("Total Booking")),
-                  DataColumn(label: Text("Membership")),
-                  DataColumn(label: Text("Total Spent (\$)")),
-                  DataColumn(label: Text("Action")),
-                ],
-                rows: customers.map((customer) {
-                  final name = "${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}";
-                  final mobile = customer['mobile'] ?? '';
-                  final membership = customer['membershipplan_id'] ?? '-';
+            child: DataTable(
+              headingRowColor: MaterialStateProperty.all(Colors.black),
+              headingTextStyle: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+              columnSpacing: 32,
+              headingRowHeight: 70,
+              dataRowMinHeight: 50,
+              dataRowMaxHeight: 65,
+              columns: const [
+                DataColumn(label: Text("Name")),
+                DataColumn(label: Text("Mobile No.")),
+                DataColumn(label: Text("Total Booking")),
+                DataColumn(label: Text("Membership")),
+                DataColumn(label: Text("Total Spent (\$)")),
+                DataColumn(label: Text("Action")),
+              ],
+              rows: customers.map((customer) {
+                final name = "${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}";
+                final mobile = customer['mobile'] ?? '';
+                final membership = customer['membershipplan_id'] ?? '-';
 
-                  return DataRow(
-                    cells: [
-                      DataCell(Text(name, style: const TextStyle(fontSize: 22))),
-                      DataCell(Text(mobile, style: const TextStyle(fontSize: 22))),
-                      const DataCell(Text("23", style: TextStyle(fontSize: 22))), // TODO: Replace with actual bookings
-                      DataCell(Text(membership, style: const TextStyle(fontSize: 22))),
-                      const DataCell(Text("\$7586.87", style: TextStyle(fontSize: 22))), // TODO: Replace with actual total spent
-                      DataCell(Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, size: 28),
-                            onPressed: () {
-                              // Edit action
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red, size: 28),
-                            onPressed: () async {
-                              await supabase
-                                  .schema('${centerSlug}_prod_schema')
-                                  .from('customers')
-                                  .delete()
-                                  .eq('id', customer['id']);
-                            },
-                          ),
-                        ],
-                      )),
-                    ],
-                  );
-                }).toList(),
-              ),
+                return DataRow(
+                  cells: [
+                    DataCell(Text(name, style: const TextStyle(fontSize: 22))),
+                    DataCell(Text(mobile, style: const TextStyle(fontSize: 22))),
+                    const DataCell(Text("23", style: TextStyle(fontSize: 22))), // TODO: Replace with actual bookings
+                    DataCell(Text(membership, style: const TextStyle(fontSize: 22))),
+                    const DataCell(Text("\$7586.87", style: TextStyle(fontSize: 22))), // TODO: Replace with actual total spent
+                    DataCell(Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 28),
+                          onPressed: () {
+                            // Edit action
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red, size: 28),
+                          onPressed: () async {
+                            await supabase
+                                .schema('${centerSlug}_prod_schema')
+                                .from('customers')
+                                .delete()
+                                .eq('id', customer['id']);
+                          },
+                        ),
+                      ],
+                    )),
+                  ],
+                );
+              }).toList(),
             ),
           ),
         );
