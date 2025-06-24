@@ -684,15 +684,15 @@ Future<void> openExtendedbookingRightDrawer(
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Obx(
-                      () => ListView.builder(
-                        itemCount: controller.bookedSlots.length,
-                        itemBuilder: (context, index) {
-                          final booking = controller.bookedSlots[index];
-                          // ... build your booking item ...
-                        },
-                      ),
-                    ),
+                    // Obx(
+                    //   () => ListView.builder(
+                    //     itemCount: controller.bookedSlots.length,
+                    //     itemBuilder: (context, index) {
+                    //       final booking = controller.bookedSlots[index];
+                    //       // ... build your booking item ...
+                    //     },
+                    //   ),
+                    // ),
                     Spacer(),
                     ElevatedButton(
                       onPressed: () {

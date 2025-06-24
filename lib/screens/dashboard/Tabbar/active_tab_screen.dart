@@ -7,6 +7,7 @@ import 'package:booking_app/controllers/order_controller.dart';
 import 'package:booking_app/models/booking_model.dart';
 
 import '../../../config/constants.dart';
+import 'active_grid_view.dart';
 
 class ActiveTabScreen extends StatefulWidget {
   const ActiveTabScreen({super.key});
@@ -284,13 +285,12 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                 return isGridView
                     ? GridView.builder(
                       padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1.1,
-                          ),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 5,
+                        mainAxisSpacing: 10,
+                        crossAxisSpacing: 20,
+                        childAspectRatio: 1.0,
+                      ),
                       itemCount: bookings.length,
                       itemBuilder: (context, index) {
                         final b = bookings[index];
@@ -301,7 +301,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           //       builder:
                           //           (_) => BookingDetailsDialog(booking: b),
                           //     ),
-                          // child: bookingsCard(booking: b),
+                          child: BookingCardWidget(booking: b),
                         );
                       },
                     )
@@ -828,7 +828,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   ],
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.all(4.0),
                 child: Icon(Icons.attach_money, color: Colors.red, size: 20),
               ),
