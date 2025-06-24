@@ -701,7 +701,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ) {
                                       String slot = controller.timeSlots[index];
                                       final slotData = slotInfoMap[slot];
-                                      final isPeak = slotData?['isPeak'] ?? false;
+                                      final isPeak =
+                                          slotData?['isPeak'] ?? false;
                                       courtPrice =
                                           (slotData?['price'] ?? 0.0)
                                               .toDouble();
@@ -1472,7 +1473,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minWidth: 200,
-                                          maxWidth: MediaQuery.of(context,).size.width * 0.50,
+                                          maxWidth:
+                                              MediaQuery.of(
+                                                context,
+                                              ).size.width *
+                                              0.50,
                                         ),
                                         child: TypeAheadField<
                                           Map<String, dynamic>
@@ -1480,7 +1485,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           controller: nameController,
                                           suggestionsCallback: (pattern) {
                                             if (pattern.isEmpty) return [];
-                                            return controller.userList.where((user,) {
+                                            return controller.userList.where((
+                                              user,
+                                            ) {
                                               return user['name']!
                                                   .toLowerCase()
                                                   .contains(
@@ -1524,7 +1531,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           },
                                           itemBuilder: (context, suggestion) {
                                             return ListTile(
-                                              title: Text(suggestion['name'], style: TextStyle(fontSize: 22),),
+                                              title: Text(
+                                                suggestion['name'],
+                                                style: TextStyle(fontSize: 22),
+                                              ),
                                               subtitle: Text(
                                                 suggestion['mobile'],
                                                 style: TextStyle(fontSize: 22),
@@ -1532,8 +1542,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             );
                                           },
                                           onSelected: (suggestion) {
-                                            mobileController.text = suggestion['mobile'];
-                                            nameController.text = suggestion['name'];
+                                            mobileController.text =
+                                                suggestion['mobile'];
+                                            nameController.text =
+                                                suggestion['name'];
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
@@ -1662,7 +1674,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           },
                                           itemBuilder: (context, suggestion) {
                                             return ListTile(
-                                              title: Text(suggestion['name'], style: TextStyle(fontSize: 22),),
+                                              title: Text(
+                                                suggestion['name'],
+                                                style: TextStyle(fontSize: 22),
+                                              ),
                                               subtitle: Text(
                                                 suggestion['mobile'],
                                                 style: TextStyle(fontSize: 22),
@@ -2156,12 +2171,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Obx(() => Text(
-                                    '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 25,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
+                                  Obx(
+                                    () => Text(
+                                      '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 25,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   )),
                                 ] else ...[
@@ -2174,12 +2191,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Obx(() => Text(
-                                    '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 25,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
+                                  Obx(
+                                    () => Text(
+                                      '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 25,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   )),
                                 ],
@@ -2201,12 +2220,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                 ),
                                 SizedBox(width: 8),
-                                Obx(() => Text(
-                                  '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 25,
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w600,
+                                Obx(
+                                  () => Text(
+                                    '\$ ${(totalPrice + cartController.total).toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 25,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 )),
                               ],
@@ -2255,11 +2276,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       if (_formKey.currentState!.validate()) {
                                         Navigator.pop(context);
                                         final double TotalAmount;
-                                        controller.getUserDatabyMobile(mobileController.text,);
+                                        controller.getUserDatabyMobile(
+                                          mobileController.text,
+                                        );
                                         if (isMembershipApplied) {
-                                          TotalAmount = courtPrice + memberPrice + cartController.total;
+                                          TotalAmount =
+                                              courtPrice +
+                                              memberPrice +
+                                              cartController.total;
                                         } else {
-                                          TotalAmount = courtPrice + cartController.total;
+                                          TotalAmount =
+                                              courtPrice + cartController.total;
                                         }
                                         showBookingConfirmationDialog(
                                           context,
@@ -2494,33 +2521,41 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     bool isMembershipApplied,
     double membershipPrice,
   ) async {
-
     // Create a copy of bookings to modify prices without affecting original
-    List<BookingInfo> updatedBookings = bookings.map((booking) {
-      return BookingInfo(
-        courtName: booking.courtName,
-        selectedDateTime: booking.selectedDateTime,
-        selectedDays: booking.selectedDays,
-        subSlots: booking.subSlots.map((subSlot) {
-          // Apply membership pricing if applicable
-          double updatedPrice = subSlot.price;
-          if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-            updatedPrice = subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
-          }
-          return BookingSubSlotInfo(
-            startTime: subSlot.startTime,
-            endTime: subSlot.endTime,
-            price: updatedPrice,
-            isPeak: subSlot.isPeak,
+    List<BookingInfo> updatedBookings =
+        bookings.map((booking) {
+          return BookingInfo(
+            courtName: booking.courtName,
+            selectedDateTime: booking.selectedDateTime,
+            selectedDays: booking.selectedDays,
+            subSlots:
+                booking.subSlots.map((subSlot) {
+                  // Apply membership pricing if applicable
+                  double updatedPrice = subSlot.price;
+                  if (hasMembership &&
+                      memberPeakPrice != null &&
+                      memberNonPeakPrice != null) {
+                    updatedPrice =
+                        subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+                  }
+                  return BookingSubSlotInfo(
+                    startTime: subSlot.startTime,
+                    endTime: subSlot.endTime,
+                    price: updatedPrice,
+                    isPeak: subSlot.isPeak,
+                  );
+                }).toList(),
+            bookingId: booking.bookingId,
           );
-        }).toList(),
-        bookingId: booking.bookingId,
-      );
-    }).toList();
+        }).toList();
 
     // Recalculate total amount with updated prices
     double updatedTotalAmount = updatedBookings.fold(0.0, (sum, booking) {
-      return sum + booking.subSlots.fold(0.0, (subSum, subSlot) => subSum + subSlot.price);
+      return sum +
+          booking.subSlots.fold(
+            0.0,
+            (subSum, subSlot) => subSum + subSlot.price,
+          );
     });
 
     await showDialog(
@@ -2749,23 +2784,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         ),
                       ],
                     ),
-                    Obx(() => ListView.builder(
+                    Obx(
+                      () => ListView.builder(
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
-                        itemCount:
-                        cartController.cartItems.length,
+                        itemCount: cartController.cartItems.length,
                         itemBuilder: (_, index) {
-                          final item =
-                          cartController.cartItems[index];
+                          final item = cartController.cartItems[index];
                           return Dismissible(
                             key: ValueKey(item.product.id),
                             direction: DismissDirection.none,
-                            confirmDismiss: (_) async => false, // ❗ Disables dismiss swipe
+                            confirmDismiss:
+                                (_) async => false, // ❗ Disables dismiss swipe
                             background: Container(
                               color: Colors.red,
                               alignment: Alignment.centerRight,
-                              padding:
-                              const EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                               ),
                               child: const Text(
@@ -2777,7 +2811,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ),
                               ),
                             ),
-                            onDismissed: (_) => cartController .removeItem(item),
+                            onDismissed: (_) => cartController.removeItem(item),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -2790,44 +2824,55 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       item.product.name,
                                       style: const TextStyle(
                                         fontSize: 22,
-                                        fontWeight:
-                                        FontWeight.bold,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      overflow:
-                                      TextOverflow.ellipsis,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Container(width:MediaQuery.of(context,).size.width / 14,
+                                  Container(
+                                    width:
+                                        MediaQuery.of(context).size.width / 14,
                                     padding: EdgeInsets.all(10),
                                     decoration: BoxDecoration(
                                       border: Border.all(
                                         color: Colors.grey.shade400,
                                       ),
-                                      borderRadius:
-                                      BorderRadius.circular(8,),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        Obx(() => Text('${item.quantity.value}',style:const TextStyle(fontSize: 22,),),),
+                                        Obx(
+                                          () => Text(
+                                            '${item.quantity.value}',
+                                            style: const TextStyle(
+                                              fontSize: 22,
+                                            ),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
                                   Container(
                                     width: 110,
                                     child: Row(
-                                      mainAxisAlignment:
-                                      MainAxisAlignment.end,
+                                      mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        Obx(() => Padding(padding:const EdgeInsets.only(left: 8.0,),
-                                          child: Text(
+                                        Obx(
+                                          () => Padding(
+                                            padding: const EdgeInsets.only(
+                                              left: 8.0,
+                                            ),
+                                            child: Text(
                                               '\$${item.appliedPrice.value.toStringAsFixed(2)}',
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 22,
                                               ),
                                             ),
-                                          ),),
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -2836,7 +2881,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             ),
                           );
                         },
-                      ),),
+                      ),
+                    ),
 
                     if (isMembershipApplied) ...[
                       Row(
