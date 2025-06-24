@@ -1,3 +1,4 @@
+import 'package:booking_app/controllers/simple_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -8,6 +9,11 @@ import 'package:get/get.dart';
 
 import '../../models/booking_model.dart';
 import '../../controllers/new_booking_controller.dart';
+
+bool isBookingEnded(DateTime? endTime) {
+  if (endTime == null) return true;
+  return DateTime.now().isAfter(endTime);
+}
 
 Widget bookingDetailRow(IconData icon, String label, String value) {
   return Row(
@@ -126,8 +132,13 @@ Future<void> openExtendedbookingRightDrawer(
   required DateTime mergedEndTime,
   required VoidCallback onRefresh,
 }) async {
+
   final timeFormat = DateFormat('hh:mm a');
   final dateFormat = DateFormat('dd MMM yyyy');
+  final bookingEnded = isBookingEnded(booking.endTime);
+
+  final SimpleController simpleController = Get.put(SimpleController());
+  simpleController.fetchOrder(bookingId: booking.bookingId);
 
   await showGeneralDialog(
     context: context,
@@ -151,7 +162,7 @@ Future<void> openExtendedbookingRightDrawer(
         final List<int> availableDurations = [];
 
         final endTime = booking.endTime;
-        if (endTime == null) return availableDurations;
+        if (endTime == null || bookingEnded) return availableDurations;
 
         // Check each possible duration
         for (int duration in possibleDurations) {
@@ -252,7 +263,7 @@ Future<void> openExtendedbookingRightDrawer(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.grey.shade300,
                           foregroundColor: Colors.white,
-                          minimumSize: Size.fromHeight(50),
+                          minimumSize: Size.fromHeight(60),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -281,7 +292,7 @@ Future<void> openExtendedbookingRightDrawer(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.indigo.shade500,
                           foregroundColor: Colors.white,
-                          minimumSize: Size.fromHeight(50),
+                          minimumSize: Size.fromHeight(60),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -412,6 +423,7 @@ Future<void> openExtendedbookingRightDrawer(
                           ),
                           textAlign: TextAlign.center,
                         ),
+                        if (!bookingEnded)
                         GestureDetector(
                           onTap: () {
                             showNoShowDialog(
@@ -562,7 +574,7 @@ Future<void> openExtendedbookingRightDrawer(
                             builder: (context, isAvailable, child) {
                               return isAvailable
                                   ? buildExtendTimeButtons()
-                                  : TextButton(
+                                  : !bookingEnded ? TextButton(
                                     onPressed: () {
                                       final endTime = booking.endTime;
                                       if (endTime == null) {
@@ -657,7 +669,7 @@ Future<void> openExtendedbookingRightDrawer(
                                         color: Colors.indigo.shade500,
                                       ),
                                     ),
-                                  );
+                                  ) : SizedBox.shrink();
                             },
                           ),
                         ],
@@ -665,33 +677,78 @@ Future<void> openExtendedbookingRightDrawer(
                     ),
 
                     const SizedBox(height: 20),
-                    // Text(
-                    //   "Purchase Details",
-                    //   style: GoogleFonts.inter(
-                    //     fontSize: 23,
-                    //     color: Colors.black,
-                    //     fontWeight: FontWeight.w600,
-                    //   ),
-                    // ),
-                    // Text(
-                    //   "Current purchase order informations",
-                    //   style: GoogleFonts.inter(
-                    //     fontSize: 22,
-                    //     color: Colors.black,
-                    //     fontWeight: FontWeight.w400,
-                    //   ),
-                    // ),
-                    // const SizedBox(height: 20),
-                    // Obx(
-                    //   () => ListView.builder(
-                    //     itemCount: controller.bookedSlots.length,
-                    //     itemBuilder: (context, index) {
-                    //       final booking = controller.bookedSlots[index];
-                    //       // ... build your booking item ...
-                    //     },
-                    //   ),
-                    // ),
+
+
+                    if(simpleController.order.value!=null)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Purchase Details",
+                            style: GoogleFonts.inter(
+                              fontSize: 23,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            "Current purchase items information",
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Obx(() {
+                            final cartItems = simpleController.order.value?.cartItems ?? [];
+
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: cartItems.length,
+                              itemBuilder: (_, index) {
+                                final item = cartItems[index];
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.product.name,
+                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Container(
+                                        child: Text(
+                                          'x${item.quantity}',
+                                          style: const TextStyle(fontSize: 22),
+                                          textAlign: TextAlign.right,
+                                        ),
+                                        width: 150,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Container(
+                                        width: 150,
+                                        child: Text(
+                                          '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                          textAlign: TextAlign.right,
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                          }),
+                        ],
+                      ),
+
+
                     Spacer(),
+                    if (!bookingEnded)
                     ElevatedButton(
                       onPressed: () {
                         showCancelDialog(
@@ -704,7 +761,7 @@ Future<void> openExtendedbookingRightDrawer(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade50,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 60),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                           side: BorderSide(color: Colors.red.shade300),
@@ -1641,7 +1698,7 @@ void showCourtAvailableDialog(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              minimumSize: Size.fromHeight(50),
+                              minimumSize: Size.fromHeight(60),
                               padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                             child: Text(
@@ -1676,7 +1733,7 @@ void showCourtAvailableDialog(
                                       ? Colors.green.shade500
                                       : Colors.grey.shade300,
                               padding: const EdgeInsets.symmetric(vertical: 10),
-                              minimumSize: Size.fromHeight(50),
+                              minimumSize: Size.fromHeight(60),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),

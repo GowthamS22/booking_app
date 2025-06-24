@@ -505,12 +505,12 @@ class _PendingPaymentState extends State<PendingPayment> {
                                         ElevatedButton(
                                           onPressed: () {
 
-
+                                            
 
                                           },
                                           child: Text('Pay',style: TextStyle(fontSize: 25, color: Colors.white),),
                                           style: ElevatedButton.styleFrom(
-                                            minimumSize: const Size(150, 50),
+                                            minimumSize: const Size(150, 40),
                                             backgroundColor: Colors.green.shade500,
                                             padding: const EdgeInsets.symmetric(vertical: 16),
                                             shape: RoundedRectangleBorder(
