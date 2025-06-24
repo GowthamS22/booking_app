@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:booking_app/app/getx_binding.dart';
 import 'package:booking_app/controllers/payment_controller.dart';
+import 'package:booking_app/models/booking_with_all.dart';
 import 'package:booking_app/models/order.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,55 +41,18 @@ class CheckoutController extends GetxController {
   late TyroService tyroService;
 
   @override
-  void onInit() {
+  void onInit() async {
     super.onInit();
   }
 
-  Future<void> validatePromocode(String promoCode) async {
-    try {
-      final QuerySnapshot discountSnapshot =
-          await FirebaseFirestore.instance
-              .collection(authController.centerSlug.toString())
-              .doc('discounts')
-              .collection('discount')
-              .where('code', isEqualTo: promoCode.toString())
-              .where('expireAt', isGreaterThanOrEqualTo: Timestamp.now())
-              .where('active', isEqualTo: 1)
-              .get();
+  void _printAlignedText(NetworkPrinter printer, String leftText, String rightText) {
+    final totalWidth = 42;
+    final leftWidth  = leftText.length;
+    final rightWidth = rightText.length;
+    final spaceWidth = totalWidth - leftWidth - rightWidth;
 
-      if (discountSnapshot.docs.isNotEmpty) {
-        for (var doc in discountSnapshot.docs) {
-          var code = doc['code'];
-          final QuerySnapshot couponUsageSnapshot =
-              await FirebaseFirestore.instance
-                  .collection(authController.centerSlug.toString())
-                  .doc('couponUsages')
-                  .collection('couponUsage')
-                  .where('userId', isEqualTo: authController.userId.toString())
-                  .where('couponId', isEqualTo: code.toString())
-                  .get();
-          if (couponUsageSnapshot.docs.isEmpty) {
-            if (doc['discountType'] == 'Fixed') {
-              discount.value = doc['discount'];
-            } else {
-              discount.value = totalAmount / 100 * doc['discount'];
-            }
-            showCustomSnackbar('Success', 'Promo Applied ', Colors.green);
-          } else {
-            discount.value = 0;
-            showCustomSnackbar('Failed', 'Promo Already Used', Colors.red);
-          }
-        }
-      } else {
-        discount.value = 0;
-        showCustomSnackbar('Failed', 'Invalid Promo Code', Colors.red);
-      }
-    } catch (e) {
-      print(e.toString());
-    } finally {
-      isLoading.value = false;
-      update();
-    }
+    final alignedText = '$leftText${' ' * spaceWidth}$rightText';
+    printer.text(alignedText);
   }
 
   Future<void> registerUser({
@@ -103,35 +67,22 @@ class CheckoutController extends GetxController {
     String? membershipId,
     BuildContext? context,
   }) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
     isLoading.value = true;
 
     try {
-      final response =
-          await supabase
-              .schema('s22_prod_schema')
+      final response = await supabase
+              .schema('${centerSlug}_prod_schema')
               .from('customers')
               .insert({
-                'email': email,
                 'first_name': firstName,
-                'last_name': lastName,
-                'address': address,
                 'mobile': mobile,
-                'postcode': postcode,
-                'password': password,
-                'aboutus': aboutus,
-                'created_at': DateTime.now().toIso8601String(),
-                'membershipplan_id': membershipId,
-                // 'updated_at': DateTime.now().toIso8601String(),
-                'date_of_birth': null,
-                'city': '',
-                'state': '',
-                'country': '',
-                'profile_picture': '',
-                'status': false,
+                'status': true,
               })
-              .select()
+              .select('*')
               .single();
-
       if (response['id'] != null) {
         userData.value.id = response['id'];
         showCustomSnackbar(
@@ -161,11 +112,18 @@ class CheckoutController extends GetxController {
     String? bookingId,
     bool? isMembershipApplied,
     String? membershipId,
+    bool? printReceipt,
+    String? orderId,
   }) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    // final cartJson     = preferences.getString('shopping_cart');
+    // final orderNotes   = preferences.getString('order_notes');
+    // final orderId      = preferences.getString('order_id');
+
     try {
-      final validation = await bulkValidateSlots(
-        selectedBSlots: newBookingController.cartItems,
-      );
+      final validation = await bulkValidateSlots(selectedBSlots: newBookingController.cartItems,);
       if (!validation) {
         showCustomSnackbar(
           'Failed',
@@ -178,13 +136,13 @@ class CheckoutController extends GetxController {
         return;
       }
 
-      if (isMembershipApplied == true &&
-          membershipId != null &&
-          userId != null) {
+      if (isMembershipApplied == true && membershipId != null && userId != null) {
         await supabase
-            .schema('s22_prod_schema')
+            .schema('${centerSlug}_prod_schema')
             .from('customers')
-            .update({'membershipplan_id': membershipId})
+            .update({
+              'membershipplan_id': membershipId
+            })
             .eq('id', userId);
       }
 
@@ -198,9 +156,8 @@ class CheckoutController extends GetxController {
       //     'BOOKING${numberOfBookings.toString().padLeft(3, '0')}';
 
       // Insert Booking
-      final bookingResponse =
-          await supabase
-              .schema('s22_prod_schema')
+      final bookingResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
               .from('bookings')
               .insert({
                 'booking_no': bookingId,
@@ -213,8 +170,7 @@ class CheckoutController extends GetxController {
                 'gst': gstPrice,
                 'total': grandtotalPrice,
                 'payment_type': paymentType,
-                'payment_status':
-                    (grandtotalPrice <= paid!) ? 'Paid' : 'Partially',
+                'payment_status': (grandtotalPrice <= paid!) ? 'Paid' : 'Partially',
                 'status': 'Booked',
                 'created_by': authController.userId.toString(),
                 'updated_by': authController.userId.toString(),
@@ -227,9 +183,8 @@ class CheckoutController extends GetxController {
       final bookingInserted = bookingResponse['id'];
 
       // Insert Payment
-      final paymentResponse =
-          await supabase
-              .schema('s22_prod_schema')
+      final paymentResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
               .from('booking_payments')
               .insert({
                 'booking_id': bookingInserted,
@@ -253,9 +208,8 @@ class CheckoutController extends GetxController {
       try {
         // Insert booking slots and payments in a loop
         for (var slot in newBookingController.cartItems) {
-          final bookingSlotsresponse =
-              await supabase
-                  .schema('s22_prod_schema')
+          final bookingSlotsresponse =  await supabase
+                  .schema('${centerSlug}_prod_schema')
                   .from('booking_slots')
                   .insert({
                     'booking_id': bookingInserted,
@@ -286,7 +240,7 @@ class CheckoutController extends GetxController {
           print('✅ booking_slots inserted with ID: $bookingSlotsInserted');
 
           await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('booking_slots_payments')
               .insert({
                 'booking_payments_id': paymentInserted,
@@ -314,12 +268,28 @@ class CheckoutController extends GetxController {
         print('❌ Exception during insert: $e');
       }
 
-      printReceipt(bookingSlotItems: newBookingController.cartItems);
+      if(printReceipt==true) {
+        await printBookingReceipt(bookingId: bookingResponse['id']);
+      }
+
+      if(orderId!=null && orderId!='') {
+        await mergeBookingtoOrder(
+          order_id: orderId,
+          customer_id: userId,
+          booking_id: bookingResponse['id'],
+          redirect: false
+        );
+      }
+
+      //printReceipt(bookingSlotItems: newBookingController.cartItems);
+
       newBookingController.cartItems.clear();
       showBookingSuccessAlert();
       isLoading.value = false;
       update();
+
       Future.delayed(Duration(seconds: 1), () => Get.offAllNamed('/'));
+
     } catch (e) {
       print("e : $e");
       showCustomSnackbar('Failed', e.toString(), Palette.dangerTxt);
@@ -370,6 +340,306 @@ class CheckoutController extends GetxController {
     return totalAmount;
   }
 
+  Future<void> printBookingReceipt({
+    required String bookingId,
+  }) async {
+
+    SharedPreferences prefs               = await SharedPreferences.getInstance();
+    String? centerSlug                    = prefs.getString('centerSlug');
+    String? storeDetails                  = prefs.getString('storeDetails');
+    final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
+    String printerIp                      = storeData['printer'][0]['ip'];
+    int printerPort                       = int.parse(storeData['printer'][0]['port']);
+
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('bookings')
+        .select('*, booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
+        .eq('id', bookingId)
+        .single();
+
+    final booking = BookingWithAll.fromJson(response);
+
+    try {
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(PaperSize.mm80, profile);
+      final PosPrintResult res = await printer.connect(printerIp, port: printerPort);
+      if (res == PosPrintResult.success) {
+
+        final orderDate = DateFormat('dd/MM/yyyy hh:mm:ss a').format(DateTime.now());
+
+        printer.setStyles(PosStyles(align: PosAlign.center, bold: true));
+        printer.text('Tax Invoice / Receipt \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.setStyles(PosStyles(align: PosAlign.center));
+        printer.text('${storeData['name']} \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.text('${storeData['address']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('PH: ${storeData['mobile']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('WEBSITE: ${storeData['website']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('ABN: ${storeData['abn']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('Booking Date: $orderDate \n', styles: PosStyles(align: PosAlign.center));
+        printer.text('Booking No: #${booking.bookingNo}', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.text('--------------------------------------------');
+
+        //Header for table
+        printer.setStyles(PosStyles(align: PosAlign.left, bold: true));
+        printer.text('Item                    Qty    Price   Total');
+        printer.setStyles(PosStyles(align: PosAlign.left));
+        printer.text('--------------------------------------------');
+
+        // Group slots by court and sport, then merge consecutive time slots
+        final mergedSlots = _mergeConsecutiveSlots(booking.bookingSlots ?? []);
+
+        // Print each merged slot
+        for (var slotGroup in mergedSlots) {
+          final firstSlot = slotGroup.first;
+          final lastSlot = slotGroup.last;
+          final duration = slotGroup.length * 30; // Each slot is 30 minutes
+          final totalPrice = slotGroup.fold(0, (sum, slot) => sum + (slot.price ?? 0));
+
+          final itemName = '${firstSlot.platformStatus?.sports?.sportName} - Court ${firstSlot.platformStatus?.platformId}'
+              .padRight(20);
+          final itemQuantity = '${slotGroup.length}'.padLeft(4); // Number of 30-min slots
+          final itemPrice = '\$${(firstSlot.price ?? 0).toStringAsFixed(2)}'.padLeft(7); // Price per 30-min
+          final itemTotal = '\$${totalPrice.toStringAsFixed(2)}'.padLeft(8); // Total for all slots
+
+          printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+          _printAlignedTextBooking(
+              printer,
+              '${DateFormat('hh:mm a').format(firstSlot.startTime!)} - ${DateFormat('hh:mm a').format(lastSlot.endTime!)} (${duration} mins)',
+              ''
+          );
+        }
+
+        // Header for table
+        // printer.setStyles(PosStyles(align: PosAlign.left, bold: true));
+        // printer.text('Item                    Qty    Price   Total');
+        // printer.setStyles(PosStyles(align: PosAlign.left));
+        // printer.text('--------------------------------------------');
+        //
+        // // Print each item in table format
+        // for (var slot in booking.bookingSlots!) {
+        //   final itemName      = ('${slot.platformStatus?.sports?.sportName} - Court ${slot.platformStatus?.platformId!}').padRight(20);
+        //   final itemQuantity  = ('1').toString().padLeft(4);
+        //   final itemPrice     = ('\$${(slot.price ?? 0).toStringAsFixed(2)}').padLeft(7);
+        //   final itemTotal     = ('\$${(slot.price ?? 0).toStringAsFixed(2)}').padLeft(8);
+        //
+        //   printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+        //   _printAlignedText(printer, '${DateFormat('hh:mm a').format(slot.startTime!)} - ${DateFormat('hh:mm a').format(slot.endTime!)}', '');
+        //
+        //   // if (item['options'] != null) {
+        //   //   for (var option in item['options']) {
+        //   //     final optionText  = ' - ${option['name']}';
+        //   //     final optionPrice = option['price'].toStringAsFixed(2);
+        //   //     //printer.text('$optionText $optionPrice');
+        //   //     _printAlignedText(printer, optionText, '\$${optionPrice}');
+        //   //   }
+        //   // }
+        //   //
+        //   // if (item['discount'] != null && item['discount'] > 0) {
+        //   //   final itemDiscount = (item['price'] + (item['options']?.fold(0.0, (prev, opt) => prev + opt['price']) ?? 0.0) - item['appliedPrice']).toStringAsFixed(2);
+        //   //   //printer.text(' - Discount ${item['discount']}% $itemDiscount');
+        //   //   _printAlignedText(printer, ' - Discount ${item['discount']}%', '\$${itemDiscount}');
+        //   // }
+        // }
+
+        printer.text('--------------------------------------------');
+
+        // if ((order.billDetails?.discount ?? 0) > 0) {
+        //   _printAlignedText(printer, 'Discount:', '\$${(order.billDetails?.discount ?? 0).toStringAsFixed(2)}');
+        // }
+        _printAlignedText(printer, 'Sub-Total:', '\$${(booking.total ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'GST Incl.:', '\$${(booking.gst ?? 0).toStringAsFixed(2)}');
+        // if ((order.billDetails?.surcharge ?? 0) > 0) {
+        //   _printAlignedText(printer, 'Surcharge:', '\$${(order.billDetails?.surcharge ?? 0).toStringAsFixed(2)}');
+        // }
+        _printAlignedText(printer, 'Payment Method:', '${booking.paymentType}');
+        _printAlignedText(printer, 'Total Amount:', '\$${(booking.grandTotal ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Paid Amount:', '\$${(booking.grandTotal ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Balance Amount:', '\$${(0 ?? 0).abs().toStringAsFixed(2)}');
+
+        printer.text('--------------------------------------------');
+        printer.text('THANK YOU! HAVE A NICE DAY!', styles: PosStyles(align: PosAlign.center));
+        printer.cut();
+        if(booking.paymentType=='Cash') {
+          printer.drawer(pin: PosDrawer.pin2);
+        }
+        printer.disconnect();
+
+      } else {
+        print('Failed to connect to the printer');
+      }
+    } catch (e) {
+      print('Error during printing: $e');
+    }
+
+  }
+
+  Future<void> printOrderAndBooking({
+    required String order_id,
+    required Orders order,
+  }) async {
+
+    SharedPreferences prefs               = await SharedPreferences.getInstance();
+    String? centerSlug                    = prefs.getString('centerSlug');
+    String? storeDetails                  = prefs.getString('storeDetails');
+    final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
+    String printerIp                      = storeData['printer'][0]['ip'];
+    int printerPort                       = int.parse(storeData['printer'][0]['port']);
+
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('bookings')
+        .select('*, booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
+        .eq('id', order.bookingId)
+        .single();
+
+    final booking = BookingWithAll.fromJson(response);
+
+    try {
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(PaperSize.mm80, profile);
+      final PosPrintResult res = await printer.connect(printerIp, port: printerPort);
+      if (res == PosPrintResult.success) {
+
+        final orderDate = DateFormat('dd/MM/yyyy hh:mm:ss a').format(DateTime.now());
+
+        printer.setStyles(PosStyles(align: PosAlign.center, bold: true));
+        printer.text('Tax Invoice / Receipt \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.setStyles(PosStyles(align: PosAlign.center));
+        printer.text('${storeData['name']} \n', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.text('${storeData['address']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('PH: ${storeData['mobile']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('WEBSITE: ${storeData['website']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('ABN: ${storeData['abn']}', styles: PosStyles(align: PosAlign.center));
+        printer.text('Booking Date: $orderDate \n', styles: PosStyles(align: PosAlign.center));
+        printer.text('Booking No: #${booking.bookingNo}', styles: PosStyles(align: PosAlign.center,width: PosTextSize.size2,height: PosTextSize.size2));
+        printer.text('--------------------------------------------');
+
+        //Header for table
+        printer.setStyles(PosStyles(align: PosAlign.left, bold: true));
+        printer.text('Item                    Qty    Price   Total');
+        printer.setStyles(PosStyles(align: PosAlign.left));
+        printer.text('--------------------------------------------');
+
+        // Group slots by court and sport, then merge consecutive time slots
+        final mergedSlots = _mergeConsecutiveSlots(booking.bookingSlots ?? []);
+
+        // Print each merged slot
+        for (var slotGroup in mergedSlots) {
+          final firstSlot = slotGroup.first;
+          final lastSlot = slotGroup.last;
+          final duration = slotGroup.length * 30; // Each slot is 30 minutes
+          final totalPrice = slotGroup.fold(0, (sum, slot) => sum + (slot.price ?? 0));
+
+          final itemName = '${firstSlot.platformStatus?.sports?.sportName} - Court ${firstSlot.platformStatus?.platformId}'
+              .padRight(20);
+          final itemQuantity = '${slotGroup.length}'.padLeft(4); // Number of 30-min slots
+          final itemPrice = '\$${(firstSlot.price ?? 0).toStringAsFixed(2)}'.padLeft(7); // Price per 30-min
+          final itemTotal = '\$${totalPrice.toStringAsFixed(2)}'.padLeft(8); // Total for all slots
+
+          printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+          _printAlignedTextBooking(
+              printer,
+              '${DateFormat('hh:mm a').format(firstSlot.startTime!)} - ${DateFormat('hh:mm a').format(lastSlot.endTime!)} (${duration} mins)',
+              ''
+          );
+        }
+
+        //Cart items
+        for (var item in order.cartItems!) {
+          final itemName      = item.product.name.padRight(20);
+          final itemQuantity  = item.quantity.toString().padLeft(4);
+          final itemPrice     = ('\$${(double.parse(item.product.price) ?? 0).toStringAsFixed(2)}').padLeft(7);
+          final itemTotal     = ('\$${(item.appliedPrice ?? 0).toStringAsFixed(2)}').padLeft(8);
+
+          printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+        }
+
+        printer.text('--------------------------------------------');
+
+        double? discount   = order.billDetails?.discount;
+        double? subtotal   = (booking.total ?? 0) + (order.billDetails?.price ?? 0);
+        double? gst        = (booking.gst ?? 0) + (order.billDetails?.taxes ?? 0);
+        double? surcharge  = (booking.surcharge ?? 0) + (order.billDetails?.surcharge ?? 0);
+        double? grandtotal = (booking.grandTotal ?? 0) + (order.billDetails?.billAmount ?? 0);
+        double? paidamount = (order.billDetails?.paidAmount ?? 0);
+        double? balance    = 0 + (order.billDetails?.balanceAmount ?? 0);
+
+
+        if ((order.billDetails?.discount ?? 0) > 0) {
+          _printAlignedText(printer, 'Discount:', '\$${(discount ?? 0).toStringAsFixed(2)}');
+        }
+        _printAlignedText(printer, 'Sub-Total:', '\$${(subtotal ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'GST Incl.:', '\$${(gst ?? 0).toStringAsFixed(2)}');
+        if ((order.billDetails?.surcharge ?? 0) > 0) {
+          _printAlignedText(printer, 'Surcharge:', '\$${(surcharge ?? 0).toStringAsFixed(2)}');
+        }
+        _printAlignedText(printer, 'Payment Method:', '${booking.paymentType}');
+        _printAlignedText(printer, 'Total Amount:', '\$${(grandtotal ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Paid Amount:', '\$${(paidamount ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Balance Amount:', '\$${(balance ?? 0).abs().toStringAsFixed(2)}');
+
+        printer.text('--------------------------------------------');
+        printer.text('THANK YOU! HAVE A NICE DAY!', styles: PosStyles(align: PosAlign.center));
+        printer.cut();
+        if(booking.paymentType=='Cash') {
+          printer.drawer(pin: PosDrawer.pin2);
+        }
+        printer.disconnect();
+
+      } else {
+        print('Failed to connect to the printer');
+      }
+    } catch (e) {
+      print('Error during printing: $e');
+    }
+
+  }
+
+  // Helper function to merge consecutive time slots for the same court and sport
+  List<List<BookingSlotNew>> _mergeConsecutiveSlots(List<BookingSlotNew> slots) {
+    if (slots.isEmpty) return [];
+
+    // First group by courtId
+    final Map<String, List<BookingSlotNew>> slotsByCourt = {};
+    for (final slot in slots) {
+      slotsByCourt.putIfAbsent(slot.courtId ?? '', () => []).add(slot);
+    }
+
+    List<List<BookingSlotNew>> mergedSlots = [];
+
+    // Process each court's slots separately
+    for (final courtSlots in slotsByCourt.values) {
+      // Sort slots by start time for this court
+      courtSlots.sort((a, b) => a.startTime!.compareTo(b.startTime!));
+
+      List<BookingSlotNew> currentGroup = [courtSlots.first];
+
+      for (int i = 1; i < courtSlots.length; i++) {
+        final currentSlot = courtSlots[i];
+        final lastInGroup = currentGroup.last;
+
+        // Only merge if consecutive time slots for same court
+        if (currentSlot.startTime == lastInGroup.endTime) {
+          currentGroup.add(currentSlot);
+        } else {
+          mergedSlots.add(currentGroup);
+          currentGroup = [currentSlot];
+        }
+      }
+      mergedSlots.add(currentGroup);
+    }
+
+    return mergedSlots;
+  }
+
+  void _printAlignedTextBooking(NetworkPrinter printer, String leftText, String rightText) {
+    printer.text(
+      '$leftText${' '}$rightText',
+      styles: PosStyles(align: PosAlign.left),
+    );
+  }
+
 
   //Product payment section
 
@@ -404,16 +674,6 @@ class CheckoutController extends GetxController {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
       rethrow; // Optional: Let the caller handle the exception
     }
-  }
-
-  void _printAlignedText(NetworkPrinter printer, String leftText, String rightText) {
-    final totalWidth = 42;
-    final leftWidth  = leftText.length;
-    final rightWidth = rightText.length;
-    final spaceWidth = totalWidth - leftWidth - rightWidth;
-
-    final alignedText = '$leftText${' ' * spaceWidth}$rightText';
-    printer.text(alignedText);
   }
 
   Future<void> printProductReceipt({
@@ -523,6 +783,7 @@ class CheckoutController extends GetxController {
     String? paymentNotes,
     String? paymentResponse,
     bool? receiptToggle,
+    bool? printBoth,
   }) async {
     try {
 
@@ -563,11 +824,16 @@ class CheckoutController extends GetxController {
             'order_status': 'Completed',
           })
           .eq('id', order_id!)
-          .select()
+          .select('*')
           .single();
 
       if(receiptToggle==true) {
-        await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));
+        if(printBoth==true) {
+          print(response['booking_id']);
+          await printOrderAndBooking(order_id: order_id, order: Orders.fromJson(response));
+        } else {
+          await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));  
+        }
       }
 
       // Status Alert
@@ -591,6 +857,7 @@ class CheckoutController extends GetxController {
     String? order_id,
     String? booking_id,
     String? customer_id,
+    bool redirect = true,
   }) async {
 
     try {
@@ -609,14 +876,17 @@ class CheckoutController extends GetxController {
           .select()
           .single();
 
-      update();
+      if(redirect==true) {
 
-      showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
+        update();
 
-      // Redirect
-      Future.delayed(Duration(seconds: 1), () {
-        Get.offAllNamed('/');
-      });
+        showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
+
+        // Redirect
+        Future.delayed(Duration(seconds: 1), () {
+          Get.offAllNamed('/');
+        });
+      }
 
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);

@@ -397,8 +397,7 @@ class NewBookingController extends GetxController {
 
     try {
       // 1. Fetch sport details to check 'enabled' status and get base fees
-      final sportResponse =
-          await supabase
+      final sportResponse = await supabase
               .schema('s22_prod_schema')
               .from('sports')
               .select(
@@ -415,19 +414,16 @@ class NewBookingController extends GetxController {
       final bool isSportEnabled = sportResponse['peak_hour_status'] ?? false;
       TimeOfDay openStart;
       TimeOfDay openEnd;
-      double sportRegularFee =
-          (sportResponse['regular_fee'] as num?)?.toDouble() ?? 0.0;
-      double sportPeakFee =
-          (sportResponse['peak_fee'] as num?)?.toDouble() ?? 0.0;
+      double sportRegularFee = (sportResponse['regular_fee'] as num?)?.toDouble() ?? 0.0;
+      double sportPeakFee    = (sportResponse['peak_fee'] as num?)?.toDouble() ?? 0.0;
 
       List<Map<String, dynamic>> dailySpecialHours = [];
       String today = DateFormat('EEE').format(selectedDate);
 
       // Always use platform_from_time and platform_to_time from sports table
-      if (sportResponse['platform_from_time'] != null &&
-          sportResponse['platform_to_time'] != null) {
+      if (sportResponse['platform_from_time'] != null && sportResponse['platform_to_time'] != null) {
         openStart = parseTimeString(sportResponse['platform_from_time']);
-        openEnd = parseTimeString(sportResponse['platform_to_time']);
+        openEnd   = parseTimeString(sportResponse['platform_to_time']);
       } else {
         print('Missing platform time data for sport: $serviceId');
         return [];
@@ -448,39 +444,41 @@ class NewBookingController extends GetxController {
       // 5. Generate slots and assign peak/non-peak pricing
       TimeOfDay current = openStart;
 
-      while (current.hour < openEnd.hour ||
-          (current.hour == openEnd.hour && current.minute < openEnd.minute)) {
+      while (current.hour < openEnd.hour || (current.hour == openEnd.hour && current.minute < openEnd.minute)) {
         final slotStart = current;
-        final slotEnd = addMinutesToTimeOfDay(current, 30);
+        final slotEnd   = addMinutesToTimeOfDay(current, 30);
 
-        bool isPeak = isSportEnabled; // Initial peak status from sports table
+        bool isPeak      = isSportEnabled; // Initial peak status from sports table
         double slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
         bool specialHourOverride = false;
         for (var sh in dailySpecialHours) {
           final specialStart = parseTimeString(sh['from_time']);
-          final specialEnd = parseTimeString(sh['to_time']);
+          final specialEnd   = parseTimeString(sh['to_time']);
 
           if (isTimeInRange(slotStart, specialStart, specialEnd)) {
-            bool specialHourDbStatus = sh['peak_hour_status'] ?? false;
-            if (!specialHourDbStatus) {
-              isPeak = true;
+            //bool specialHourDbStatus = sh['peak_hour_status'] ?? false;
+            //if (!specialHourDbStatus) {
+              isPeak    = true;
               slotPrice = sportPeakFee;
-            } else {
-              isPeak = false;
+            // } else {
+            //   isPeak    = false;
+            //   slotPrice = sportRegularFee;
+            // }
+            //specialHourOverride = true;
+            //break;
+          } else {
+              isPeak    = false;
               slotPrice = sportRegularFee;
-            }
-            specialHourOverride = true;
-            break;
           }
         }
-        if (!specialHourOverride) {
-          isPeak = isSportEnabled;
-          slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
-        } else {
-          print(
-            '  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice',
-          );
-        }
+        // if (!specialHourOverride) {
+        //   isPeak = isSportEnabled;
+        //   slotPrice = isSportEnabled ? sportPeakFee : sportRegularFee;
+        // } else {
+        //   print(
+        //     '  Special hour override applied. Final isPeak = $isPeak, price = $slotPrice',
+        //   );
+        // }
 
         for (var court in courtList) {
           slots.add({

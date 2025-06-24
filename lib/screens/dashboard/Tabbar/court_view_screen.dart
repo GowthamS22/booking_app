@@ -684,8 +684,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ) {
                                       String slot = controller.timeSlots[index];
                                       final slotData = slotInfoMap[slot];
-                                      final isPeak =
-                                          slotData?['isPeak'] ?? false;
+                                      final isPeak = slotData?['isPeak'] ?? false;
                                       courtPrice =
                                           (slotData?['price'] ?? 0.0)
                                               .toDouble();
@@ -2229,14 +2228,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       if (_formKey.currentState!.validate()) {
                                         Navigator.pop(context);
                                         final double TotalAmount;
-                                        controller.getUserDatabyMobile(
-                                          mobileController.text,
-                                        );
+                                        controller.getUserDatabyMobile(mobileController.text,);
                                         if (isMembershipApplied) {
-                                          TotalAmount =
-                                              courtPrice + memberPrice;
+                                          TotalAmount = courtPrice + memberPrice + cartController.total;
                                         } else {
-                                          TotalAmount = courtPrice;
+                                          TotalAmount = courtPrice + cartController.total;
                                         }
                                         showBookingConfirmationDialog(
                                           context,
@@ -2486,12 +2482,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
+                constraints: const BoxConstraints(maxWidth: 800),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      "Booking Confirmed",
+                      "Booking Confirmation",
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w700,
@@ -2681,7 +2677,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             }).toStringAsFixed(2)}",
                                             textAlign: TextAlign.right,
                                             style: GoogleFonts.inter(
-                                              fontSize: 23,
+                                              fontSize: 22,
                                               fontWeight: FontWeight.w600,
                                               color: Colors.grey.shade900,
                                             ),
@@ -2702,6 +2698,94 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         ),
                       ],
                     ),
+                    Obx(() => ListView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        itemCount:
+                        cartController.cartItems.length,
+                        itemBuilder: (_, index) {
+                          final item =
+                          cartController.cartItems[index];
+                          return Dismissible(
+                            key: ValueKey(item.product.id),
+                            direction: DismissDirection.none,
+                            confirmDismiss: (_) async => false, // ❗ Disables dismiss swipe
+                            background: Container(
+                              color: Colors.red,
+                              alignment: Alignment.centerRight,
+                              padding:
+                              const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            onDismissed: (_) => cartController .removeItem(item),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.product.name,
+                                      style: const TextStyle(
+                                        fontSize: 22,
+                                        fontWeight:
+                                        FontWeight.bold,
+                                      ),
+                                      overflow:
+                                      TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(width:MediaQuery.of(context,).size.width / 14,
+                                    padding: EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      borderRadius:
+                                      BorderRadius.circular(8,),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Obx(() => Text('${item.quantity.value}',style:const TextStyle(fontSize: 22,),),),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 110,
+                                    child: Row(
+                                      mainAxisAlignment:
+                                      MainAxisAlignment.end,
+                                      children: [
+                                        Obx(() => Padding(padding:const EdgeInsets.only(left: 8.0,),
+                                          child: Text(
+                                              '\$${item.appliedPrice.value.toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 22,
+                                              ),
+                                            ),
+                                          ),),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),),
 
                     const SizedBox(height: 16),
                     Row(
@@ -2783,7 +2867,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   customerName: customerName,
                                   mobileno: mobile,
                                   selectedDateTime: selectedDateTime,
-                                  billAmount: billAmount,
+                                  billAmount: billAmount + cartController.total,
                                   bookings: bookings,
                                   membershipID: selectedMembershipId!,
                                   membershipName: selectedMembershipPlan,
