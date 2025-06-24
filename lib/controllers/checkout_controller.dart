@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:booking_app/app/getx_binding.dart';
+import 'package:booking_app/controllers/cart_controller.dart';
 import 'package:booking_app/controllers/payment_controller.dart';
 import 'package:booking_app/models/booking_with_all.dart';
 import 'package:booking_app/models/order.dart';
@@ -37,8 +38,13 @@ class CheckoutController extends GetxController {
   //final DefaultController defaultController = Get.find();
   final CustomerController customerController = Get.put(CustomerController());
   final PaymentController paymentController   = Get.put(PaymentController());
+  final CartController cartController   = Get.put(CartController());
 
   late TyroService tyroService;
+
+  static const String _prefsCartKey = 'shopping_cart';
+  static const String _prefsOrderNotesKey = 'order_notes';
+  static const String _prefsOrderIdKey = 'order_id';
 
   @override
   void onInit() async {
@@ -281,10 +287,11 @@ class CheckoutController extends GetxController {
         );
       }
 
-      //printReceipt(bookingSlotItems: newBookingController.cartItems);
-
       newBookingController.cartItems.clear();
+      newBookingController.clearSelectedSlots();
+
       showBookingSuccessAlert();
+
       isLoading.value = false;
       update();
 
@@ -829,15 +836,18 @@ class CheckoutController extends GetxController {
 
       if(receiptToggle==true) {
         if(printBoth==true) {
-          print(response['booking_id']);
           await printOrderAndBooking(order_id: order_id, order: Orders.fromJson(response));
         } else {
+          // Status Alert
+          showPaymentSuccessAlert();
           await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));  
         }
       }
 
-      // Status Alert
-      showPaymentSuccessAlert();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_prefsCartKey);
+      await prefs.remove(_prefsOrderNotesKey);
+      await prefs.remove(_prefsOrderIdKey);
 
       // Update the Page
       isLoading.value = false;

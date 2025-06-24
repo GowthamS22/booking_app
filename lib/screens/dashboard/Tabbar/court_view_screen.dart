@@ -58,6 +58,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   @override
   void initState() {
     super.initState();
+    selectedSlots.clear();
+    controller.cartItems.clear();
+    cartController.clearCart();
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
     _vertical.addListener(() {
@@ -73,10 +76,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   void dispose() {
+    // Clear controllers and cart when screen is disposed
+    nameController.dispose();
+    mobileController.dispose();
+    repeatUntilController.dispose();
     _vertical.dispose();
     _horizontal.dispose();
     _headerHorizontalController.dispose();
     _leftVerticalController.dispose();
+
+    // Clear cart items when screen is disposed
+    cartController.clearCart();
+    controller.clearSelectedSlots();
+
     super.dispose();
   }
 
@@ -442,7 +454,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       'Loading courts and time slots...',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -465,7 +477,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     Text(
                       'No courts or time slots available',
                       style: GoogleFonts.inter(
-                        fontSize: 16,
+                        fontSize: 22,
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -1448,11 +1460,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minWidth: 200,
-                                          maxWidth:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.width *
-                                              0.50,
+                                          maxWidth: MediaQuery.of(context,).size.width * 0.50,
                                         ),
                                         child: TypeAheadField<
                                           Map<String, dynamic>
@@ -1460,9 +1468,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           controller: nameController,
                                           suggestionsCallback: (pattern) {
                                             if (pattern.isEmpty) return [];
-                                            return controller.userList.where((
-                                              user,
-                                            ) {
+                                            return controller.userList.where((user,) {
                                               return user['name']!
                                                   .toLowerCase()
                                                   .contains(
@@ -1480,11 +1486,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     value.trim().isEmpty) {
                                                   return 'Name is required';
                                                 }
-
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
-                                                fontSize: 18,
+                                                fontSize: 22,
                                                 color: Colors.grey.shade800,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -1492,7 +1497,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 isDense: true,
                                                 contentPadding:
                                                     const EdgeInsets.symmetric(
-                                                      vertical: 12,
+                                                      vertical: 15,
                                                       horizontal: 12,
                                                     ),
                                                 border: OutlineInputBorder(
@@ -1507,17 +1512,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           },
                                           itemBuilder: (context, suggestion) {
                                             return ListTile(
-                                              title: Text(suggestion['name']),
+                                              title: Text(suggestion['name'], style: TextStyle(fontSize: 22),),
                                               subtitle: Text(
                                                 suggestion['mobile'],
+                                                style: TextStyle(fontSize: 22),
                                               ),
                                             );
                                           },
                                           onSelected: (suggestion) {
-                                            nameController.text =
-                                                suggestion['name'];
-                                            mobileController.text =
-                                                suggestion['mobile'];
+                                            mobileController.text = suggestion['mobile'];
+                                            nameController.text = suggestion['name'];
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
@@ -1623,7 +1627,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
-                                                fontSize: 18,
+                                                fontSize: 22,
                                                 color: Colors.grey.shade800,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -1646,9 +1650,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           },
                                           itemBuilder: (context, suggestion) {
                                             return ListTile(
-                                              title: Text(suggestion['name']),
+                                              title: Text(suggestion['name'], style: TextStyle(fontSize: 22),),
                                               subtitle: Text(
                                                 suggestion['mobile'],
+                                                style: TextStyle(fontSize: 22),
                                               ),
                                             );
                                           },
@@ -1719,7 +1724,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ),
                               ),
                               Text(
-                                'Sport : ${bookings.isNotEmpty ? 'Badminton' : ''}',
+                                'Sport : ${bookings.isNotEmpty ? 'Badminton' : ' '}',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   color: Colors.black,
@@ -2258,7 +2263,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
                                       foregroundColor: Colors.white,
-                                      minimumSize: Size.fromHeight(50),
+                                      minimumSize: Size.fromHeight(60),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2280,7 +2285,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             // Bottom Row
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
-                              spacing: 20,
+                              spacing: 30,
                               children: [
                                 Expanded(
                                   child: ElevatedButton(
@@ -2300,7 +2305,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
-                                      minimumSize: Size.fromHeight(50),
+                                      minimumSize: Size.fromHeight(65),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2376,7 +2381,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     .grey, // visually indicate disabled
 
                                         foregroundColor: Colors.white,
-                                        minimumSize: Size.fromHeight(50),
+                                        minimumSize: Size.fromHeight(65),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
                                             10,
@@ -2396,7 +2401,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 15),
                             ElevatedButton(
                               onPressed: () {
                                 if (_formKey.currentState!.validate()) {
@@ -2428,7 +2433,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.green,
                                 foregroundColor: Colors.white,
-                                minimumSize: Size.fromHeight(50),
+                                minimumSize: Size.fromHeight(65),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),

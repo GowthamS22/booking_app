@@ -14,6 +14,7 @@ import 'package:booking_app/models/category.dart';
 import 'package:booking_app/models/products.dart';
 import 'package:provider/provider.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ShoppingScreen extends StatefulWidget {
   const ShoppingScreen({super.key});
@@ -1396,278 +1397,194 @@ class _ShoppingScreenState extends State<ShoppingScreen>
       );
     }
 
-    Widget _buildAllOrdersTab() {
-      return Obx(() {
-        if (ordersListController.isLoading &&
-            ordersListController.orders.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    Future<String?> _getCenterSlug() async {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('centerSlug');
+    }
 
-        if (ordersListController.error.isNotEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(ordersListController.error),
-                ElevatedButton(
-                  onPressed: ordersListController.refreshOrders,
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          );
-        }
+    String _getMonthName(int month) {
+      const months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+      ];
+      return months[month - 1];
+    }
 
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            color: Colors.white,
-          ),
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    String _formatDate(String? dateStr) {
+      if (dateStr == null) return '-';
+      final dateTime = DateTime.tryParse(dateStr);
+      if (dateTime == null) return '-';
+      return "${dateTime.day} ${_getMonthName(dateTime.month)} ${dateTime.year}";
+    }
+
+    String _formatTime(String? dateStr) {
+      if (dateStr == null) return '-';
+      final dateTime = DateTime.tryParse(dateStr);
+      if (dateTime == null) return '-';
+      return "${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}";
+    }
+
+    Widget _buildHeader() {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        spacing: 400,
+        children: [
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title on left, Search + Filter on right
-              Row(
-                spacing: 400,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Left Title
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'All Orders',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'View all current and past orders in one place.',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 25),
-                      ),
-                    ],
-                  ),
-                  // Right Search + Filter
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            decoration: InputDecoration(
-                              hintText: 'e.g John',
-                              hintStyle: TextStyle(fontSize: 22),
-                              prefixIcon: Icon(Icons.search),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              contentPadding: EdgeInsets.symmetric(
-                                vertical: 0,
-                                horizontal: 16,
-                              ),
-                              fillColor: Colors.white,
-                              filled: true,
-                            ),
-                            style: TextStyle(fontSize: 22),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () {
-                            // filter logic
-                          },
-                          icon: Icon(Icons.filter_list, color: Colors.black),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // Table Full Width
-              Expanded(
-                child: Container(
-                  width: MediaQuery.of(context).size.width,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: DataTable(
-                      columnSpacing: 24,
-                      dataRowHeight:
-                          80, // Set your desired row height here (default is 56)
-                      headingRowHeight:
-                          60, // Optional: adjust header row height
-                      headingRowColor: MaterialStateColor.resolveWith(
-                        (states) => Colors.black,
-                      ),
-                      headingTextStyle: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                      ),
-                      columns: const [
-                        DataColumn(label: Text('Order Id')),
-                        DataColumn(label: Text('Name & Mobile No.')),
-                        DataColumn(label: Text('Date & Time')),
-                        DataColumn(label: Text('Items')),
-                        DataColumn(label: Text('Amount (\$)')),
-                        DataColumn(label: Text('Order Status')),
-                      ],
-                      rows:
-                          ordersListController.orders.map((order) {
-                            return DataRow(
-                              onSelectChanged: (_) {
-                                // Add navigation to order details if needed
-                              },
-                              cells: [
-                                DataCell(
-                                  SizedBox(
-                                    height: 80, // Match this with dataRowHeight
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '#${order.tokenNumber}',
-                                        style: TextStyle(fontSize: 22),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    height: 80,
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'order.customerName',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 22,
-                                          ),
-                                        ),
-                                        Text(
-                                          'order.mobileNo',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 22,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    height: 80,
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${order.createdAt?.day} ${_getMonthName(order.createdAt!.month)} ${order.createdAt?.year}',
-                                          style: TextStyle(fontSize: 22),
-                                        ),
-                                        Text(
-                                          '${order.createdAt?.hour}:${order.createdAt?.minute.toString().padLeft(2, '0')}',
-                                          style: TextStyle(
-                                            color: Colors.grey[600],
-                                            fontSize: 22,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    height: 80,
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        order.cartItems!
-                                            .map((item) => item.product.name)
-                                            .join(' \n '),
-                                        maxLines:
-                                            2, // Increased from 1 to show more items
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(fontSize: 22),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    height: 80,
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        '\$${order.billDetails?.billAmount!.toStringAsFixed(2)}',
-                                        style: TextStyle(fontSize: 22),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                DataCell(
-                                  SizedBox(
-                                    height: 80,
-                                    child: DropdownButton<String>(
-                                      value: order.orderStatus,
-                                      items:
-                                          [
-                                                'Pending',
-                                                'Paid',
-                                                'Cancelled',
-                                                'Completed',
-                                              ]
-                                              .map(
-                                                (status) => DropdownMenuItem(
-                                                  value: status,
-                                                  child: Text(
-                                                    status,
-                                                    style: TextStyle(
-                                                      color:
-                                                          status == 'Paid'
-                                                              ? Colors.green
-                                                              : status ==
-                                                                  'Cancelled'
-                                                              ? Colors.red
-                                                              : Colors.orange,
-                                                      fontSize: 22,
-                                                    ),
-                                                  ),
-                                                ),
-                                              )
-                                              .toList(),
-                                      onChanged: (newStatus) {
-                                        if (newStatus != null) {
-                                          //ordersController.updateOrderStatus(order.id, newStatus);
-                                        }
-                                      },
-                                      underline: Container(),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                    ),
-                  ),
-                ),
-              ),
+              const Text('All Orders', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('View all current and past orders in one place.', style: TextStyle(color: Colors.grey[600], fontSize: 25)),
             ],
           ),
-        );
-      });
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'e.g John',
+                  hintStyle: const TextStyle(fontSize: 22),
+                  prefixIcon: const Icon(Icons.search, size: 35,),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                  filled: true,
+                  fillColor: Colors.white,
+                ),
+                style: const TextStyle(fontSize: 22),
+                onChanged: (value) {
+                  // Optional: Add filtering logic
+                },
+              ),
+            ),
+          ),
+        ],
+      );
     }
+
+    Widget _buildCartItems(List<dynamic>? items) {
+      if (items == null || items.isEmpty) {
+        return Text("No items", style: TextStyle(fontSize: 22));
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: items.map((item) {
+          // Handle both Map and String formats
+          final product = item is Map ? item['product'] : jsonDecode(item)['product'];
+          final quantity = item is Map ? item['quantity'] : jsonDecode(item)['quantity'];
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Text(
+              '${product['name']} (x$quantity) - \$${(double.parse(product['price'].toString()) * quantity)}',
+                  style: TextStyle(fontSize: 20),
+            ),
+          );
+        }).toList(),
+      );
+    }
+
+    Widget _buildAllOrdersTab() {
+      return FutureBuilder<String?>(
+        future: _getCenterSlug(), // Fetch centerSlug first
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final centerSlug = snapshot.data!;
+
+          return StreamBuilder<List<Map<String, dynamic>>>(
+            stream: Supabase.instance.client
+                .schema('${centerSlug}_prod_schema')
+                .from('orders')
+                .stream(primaryKey: ['id'])
+                .order('created_at', ascending: false)
+                .map((data) => data as List<Map<String, dynamic>>),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
+
+              final orders = snapshot.data ?? [];
+
+              return Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.white,
+                ),
+                margin: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: Container(
+                        width: MediaQuery.of(context).size.width,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: DataTable(
+                            columnSpacing: 24,
+                            dataRowHeight: 80,
+                            headingRowHeight: 70,
+                            headingRowColor: MaterialStateProperty.all(Colors.black),
+                            headingTextStyle: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                            columns: const [
+                              DataColumn(label: Text('Order Id')),
+                              DataColumn(label: Text('Name & Mobile No.')),
+                              DataColumn(label: Text('Date & Time')),
+                              DataColumn(label: Text('Items')),
+                              DataColumn(label: Text('Amount (\$)')),
+                              DataColumn(label: Text('Order Status')),
+                            ],
+                            rows: orders.map((order) {
+                              return DataRow(cells: [
+                                DataCell(Text('#${order['token_number'] ?? ''}', style: const TextStyle(fontSize: 22))),
+                                DataCell(Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(order['customer_name'] ?? '-', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+                                    Text(order['mobile_no'] ?? '-', style: TextStyle(fontSize: 22, color: Colors.grey[600])),
+                                  ],
+                                )),
+                                DataCell(Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(_formatDate(order['created_at']), style: const TextStyle(fontSize: 22)),
+                                    Text(_formatTime(order['created_at']), style: TextStyle(fontSize: 22, color: Colors.grey[600])),
+                                  ],
+                                )),
+                                DataCell(
+                                  _buildCartItems(order['cart_items'] ?? order['items']), // Handle different field names
+                                ), // replace with your parsing logic
+                                DataCell(Text('\$${order['bill_details']?['billAmount']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 22))),
+                                DataCell(Text(order['order_status'] ?? '-', style: const TextStyle(fontSize: 22))),
+                              ]);
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
 
     return Scaffold(
       backgroundColor: Colors.grey[200],
