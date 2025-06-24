@@ -1,4 +1,5 @@
 import 'package:booking_app/screens/dashboard/Tabbar/dashboard_view_screen.dart';
+import 'package:booking_app/screens/dashboard/Tabbar/pending_payment.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -119,12 +120,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               children: [
                 Container(
-                  width: MediaQuery.of(context).size.width / 2.5,
-                  height: MediaQuery.of(context).size.height * .05,
+                  width: MediaQuery.of(context).size.width / 2.0,
+                  height: MediaQuery.of(context).size.height * .06,
                   //    margin: const EdgeInsets.only(left: 16, top: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(30),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.shade300,
@@ -163,8 +164,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Tab(text: 'Court View'),
                       Tab(text: 'Active'),
                       Tab(text: 'Upcoming'),
+                      Tab(text: 'Pending Payment'),
                       // Tab(text: 'Scheduled'),
-                      Tab(text: 'All Booking'),
+                      //Tab(text: 'All Booking'),
                       //Tab(text: 'Dashboard'),
                     ],
                   ),
@@ -204,8 +206,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   CourtViewScreen(),
                   ActiveTabScreen(),
                   UpcomingTabScreen(),
+                  PendingPayment(),
                   //ScheduledTabScreen(),
-                  AllBookingTabScreen(),
+                  //AllBookingTabScreen(),
                   //DashboardTabViewScreen()
                 ],
               ),

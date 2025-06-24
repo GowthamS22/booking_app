@@ -11,10 +11,11 @@ import '../../controllers/new_booking_controller.dart';
 
 Widget bookingDetailRow(IconData icon, String label, String value) {
   return Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.center,
+    mainAxisAlignment: MainAxisAlignment.center,
+    spacing: 10,
     children: [
-      Icon(icon, size: 28, color: Colors.grey[600]),
-      const SizedBox(width: 6),
+      Icon(icon, size: 50, color: Colors.grey[600]),
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -123,6 +124,7 @@ Future<void> openExtendedbookingRightDrawer(
   required void Function(double price, bool isApplied) onMembershipApplied,
   required DateTime mergedStartTime,
   required DateTime mergedEndTime,
+  required VoidCallback onRefresh,
 }) async {
   final timeFormat = DateFormat('hh:mm a');
   final dateFormat = DateFormat('dd MMM yyyy');
@@ -399,10 +401,7 @@ Future<void> openExtendedbookingRightDrawer(
                                 ),
                               ),
                               TextSpan(
-                                text:
-                                    booking.endTime != null
-                                        ? formatRemainingTime(booking.endTime!)
-                                        : 'N/A',
+                                text: booking.endTime != null ? formatRemainingTime(booking.endTime!) : 'N/A',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   color: Colors.black,
@@ -419,6 +418,7 @@ Future<void> openExtendedbookingRightDrawer(
                               context,
                               booking.bookingId ?? '',
                               controller,
+                              onRefresh: onRefresh,
                             );
                           },
                           child: Container(
@@ -492,11 +492,12 @@ Future<void> openExtendedbookingRightDrawer(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 20),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            spacing: 150,
                             children: [
                               Column(
+                                spacing: 20,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   bookingDetailRow(
@@ -504,7 +505,6 @@ Future<void> openExtendedbookingRightDrawer(
                                     "Sport",
                                     booking.service ?? 'N/A',
                                   ),
-                                  const SizedBox(height: 12),
                                   bookingDetailRow(
                                     LucideIcons.clock,
                                     "Time",
@@ -516,7 +516,6 @@ Future<void> openExtendedbookingRightDrawer(
                                             ? '${timeFormat.format(booking.startTime!.toLocal())} - ${timeFormat.format(booking.endTime!.toLocal())}'
                                             : 'N/A'),
                                   ),
-                                  const SizedBox(height: 12),
                                   ValueListenableBuilder<bool>(
                                     valueListenable: isExtensionConfirmed,
                                     builder: (context, confirmed, child) {
@@ -532,6 +531,7 @@ Future<void> openExtendedbookingRightDrawer(
                                 ],
                               ),
                               Column(
+                                spacing: 20,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   bookingDetailRow(
@@ -539,7 +539,6 @@ Future<void> openExtendedbookingRightDrawer(
                                     "Court",
                                     booking.court ?? 'N/A',
                                   ),
-                                  const SizedBox(height: 12),
                                   bookingDetailRow(
                                     LucideIcons.timer,
                                     "Duration",
@@ -548,7 +547,6 @@ Future<void> openExtendedbookingRightDrawer(
                                         ? '${mergedEndTime.difference(mergedStartTime.toLocal()).inMinutes} min'
                                         : 'N/A',
                                   ),
-                                  const SizedBox(height: 12),
                                   bookingDetailRow(
                                     LucideIcons.dollarSign,
                                     "Payment",
@@ -667,32 +665,32 @@ Future<void> openExtendedbookingRightDrawer(
                     ),
 
                     const SizedBox(height: 20),
-                    Text(
-                      "Purchase Details",
-                      style: GoogleFonts.inter(
-                        fontSize: 23,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      "Current purchase order informations",
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Obx(
-                      () => ListView.builder(
-                        itemCount: controller.bookedSlots.length,
-                        itemBuilder: (context, index) {
-                          final booking = controller.bookedSlots[index];
-                          // ... build your booking item ...
-                        },
-                      ),
-                    ),
+                    // Text(
+                    //   "Purchase Details",
+                    //   style: GoogleFonts.inter(
+                    //     fontSize: 23,
+                    //     color: Colors.black,
+                    //     fontWeight: FontWeight.w600,
+                    //   ),
+                    // ),
+                    // Text(
+                    //   "Current purchase order informations",
+                    //   style: GoogleFonts.inter(
+                    //     fontSize: 22,
+                    //     color: Colors.black,
+                    //     fontWeight: FontWeight.w400,
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 20),
+                    // Obx(
+                    //   () => ListView.builder(
+                    //     itemCount: controller.bookedSlots.length,
+                    //     itemBuilder: (context, index) {
+                    //       final booking = controller.bookedSlots[index];
+                    //       // ... build your booking item ...
+                    //     },
+                    //   ),
+                    // ),
                     Spacer(),
                     ElevatedButton(
                       onPressed: () {
@@ -700,6 +698,7 @@ Future<void> openExtendedbookingRightDrawer(
                           context,
                           booking.bookingId ?? '',
                           controller as NewBookingController,
+                          onRefresh: onRefresh,
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -734,8 +733,9 @@ Future<void> openExtendedbookingRightDrawer(
 void showCancelDialog(
   BuildContext context,
   String bookingId,
-  NewBookingController controller,
-) {
+  NewBookingController controller, {
+  required VoidCallback onRefresh,
+}) {
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -763,6 +763,21 @@ void showCancelDialog(
                 style: GoogleFonts.inter(
                   fontSize: 22,
                   color: Colors.grey.shade500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Reason for cancellation',
+                  hintStyle: GoogleFonts.inter(
+                    color: Colors.grey[500],
+                    fontSize: 20,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
                 ),
               ),
               const SizedBox(height: 20),
@@ -794,7 +809,9 @@ void showCancelDialog(
                     child: ElevatedButton(
                       onPressed: () async {
                         await controller.cancelBooking(bookingId);
-                        Navigator.of(context).pop();
+                        Navigator.of(context).pop(); // Close dialog
+                        Navigator.of(context).pop(); // Close drawer
+                        onRefresh(); // Call the refresh callback
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade500,
@@ -816,21 +833,6 @@ void showCancelDialog(
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              TextField(
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Reason for cancellation',
-                  hintStyle: GoogleFonts.inter(
-                    color: Colors.grey[500],
-                    fontSize: 20,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-              ),
             ],
           ),
         ),
@@ -840,8 +842,9 @@ void showCancelDialog(
 void showNoShowDialog(
   BuildContext context,
   String bookingId,
-  NewBookingController controller,
-) {
+  NewBookingController controller,{
+  required VoidCallback onRefresh,
+}) {
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -900,7 +903,9 @@ void showNoShowDialog(
                     child: ElevatedButton(
                       onPressed: () async {
                         await controller.markNoShow(bookingId);
-                        Navigator.of(context).pop();
+                        Navigator.of(context).pop(); // Close dialog
+                        Navigator.of(context).pop(); // Close drawer
+                        onRefresh(); // Call the refresh callback
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red.shade500,

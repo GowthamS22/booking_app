@@ -863,10 +863,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 mergedStartTime: mergedStart,
                                                 mergedEndTime: mergedEnd,
                                                 controller: controller,
-                                                updateTotalPrice:
-                                                    () => totalPrice,
-                                                onMembershipApplied:
-                                                    (price, isApplied) {},
+                                                updateTotalPrice: () => totalPrice,
+                                                onMembershipApplied: (price, isApplied) {},
+                                                onRefresh: () {
+                                                  controller.fetchBookedSlots();
+                                                  fetchSlotInfo();
+                                                },
                                               );
                                               controller.fetchBookedSlots();
                                               fetchSlotInfo();
@@ -2124,9 +2126,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     size: 30,
                                     color: Colors.grey.shade900,
                                   ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    minimumSize: const Size(70, 45),
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                      side: BorderSide(color: Colors.grey.shade300),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
+                            SizedBox(height: 20,),
                           ] else ...[
                             Divider(color: Colors.grey.shade300),
                             Row(
@@ -2151,7 +2163,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
-                                  ),
+                                  )),
                                 ] else ...[
                                   Text(
                                     'Total',
@@ -2169,17 +2181,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
-                                  ),
+                                  )),
                                 ],
                               ],
                             ),
                           ],
-                          if (isMembershipApplied &&
-                              membershipValidityDate != null &&
-                              membershipValidityDate!
-                                      .difference(DateTime.now())
-                                      .inDays >
-                                  0) ...[
+                          if (isMembershipApplied && membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays > 0) ...[
                             //Spacer(),
                             Divider(color: Colors.grey.shade300),
                             Row(
@@ -2201,10 +2208,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     color: Colors.black,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                ),
+                                )),
                               ],
                             ),
                             Row(
+                              spacing: 20,
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 Expanded(
@@ -2219,14 +2227,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       selectedMembershipId = null;
                                       selectedSlots.clear();
                                       cartController.clearCart();
-                                      if (onCancel != null)
-                                        onCancel(); // notify parent to refresh
+                                      if (onCancel != null) onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.grey.shade300,
                                       foregroundColor: Colors.white,
-                                      minimumSize: Size.fromHeight(50),
+                                      minimumSize: Size.fromHeight(65),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2242,7 +2249,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 Expanded(
                                   child: ElevatedButton(
                                     onPressed: () {
@@ -2279,7 +2285,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.green,
                                       foregroundColor: Colors.white,
-                                      minimumSize: Size.fromHeight(60),
+                                      minimumSize: Size.fromHeight(65),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -2306,6 +2312,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Expanded(
                                   child: ElevatedButton(
                                     onPressed: () {
+                                      print('test');
                                       controller.clearSelectedSlots();
                                       nameController.clear();
                                       mobileController.clear();
@@ -2315,8 +2322,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       selectedMembershipId = null;
                                       selectedSlots.clear();
                                       cartController.clearCart();
-                                      if (onCancel != null)
-                                        onCancel(); // notify parent to refresh
+                                      fetchSlotInfo();
+                                      if (onCancel != null) onCancel(); // notify parent to refresh
                                       Navigator.pop(context);
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -2331,7 +2338,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       "Cancel",
                                       style: GoogleFonts.inter(
                                         fontSize: 23,
-
                                         color: Colors.black,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2361,12 +2367,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 //   ),
                                 // ]
                                 //else ...[
-                                if (!hasMembership ||
-                                    (membershipValidityDate != null &&
-                                        membershipValidityDate!
-                                                .difference(DateTime.now())
-                                                .inDays <=
-                                            0)) ...[
+                                if (!hasMembership || (membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays <= 0)) ...[
                                   Expanded(
                                     child: ElevatedButton(
                                       onPressed:
@@ -2564,7 +2565,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               customerName.toString(),
                               style: GoogleFonts.inter(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 23,
+                                fontSize: 25,
                                 color: Colors.black,
                               ),
                             ),
@@ -2572,7 +2573,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               mobile,
                               style: GoogleFonts.inter(
                                 color: Colors.grey.shade800,
-                                fontSize: 22,
+                                fontSize: 25,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -2589,17 +2590,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   'Sport',
                                   style: GoogleFonts.inter(
                                     color: Colors.grey.shade800,
-                                    fontSize: 22,
+                                    fontSize: 25,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
                             ),
-
                             Text(
                               game,
                               style: GoogleFonts.inter(
-                                fontSize: 22,
+                                fontSize: 25,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.black,
                               ),
@@ -2838,6 +2838,44 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         },
                       ),),
 
+                    if (isMembershipApplied) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: MediaQuery.of(context).size.width / 2.4,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            child: Row(
+                              mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  '$selectedMembershipPlan Membership',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 23,
+                                    color: Palette.newColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                /*Text(
+                                  '\$ ${.toStringAsFixed(2)}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 23,
+                                    color: Palette.newColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),*/
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 20,),
+                    ],
+
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -2852,12 +2890,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   email: controller.userData.value.email,
                                   mobile: controller.userData.value.mobile,
                                   bookingId: controller.bookingId,
-
-                                  paymentType:
-                                      'Pending', // Set payment type as Pending
+                                  paymentType: 'Pending', // Set payment type as Pending
                                   promoCode: '',
-                                  notes:
-                                      'Payment pending - Pay Later option selected',
+                                  notes: 'Payment pending - Pay Later option selected',
                                 );
                                 // // After booking, clear slots and reset form
                                 // controller.clearSelectedSlots();
@@ -2873,30 +2908,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Navigator.pop(context);
                               } else {
                                 // Create new user and then create booking with pending payment
-                                controller
-                                    .registerUser(
-                                      mobile:
-                                          controller
-                                              .mobileNumberController
-                                              .text,
-                                      firstName: controller.nameController.text,
-                                    )
-                                    .then((value) {
+                                controller.registerUser(
+                                  mobile: controller.mobileNumberController.text,
+                                  firstName: controller.nameController.text,
+                                ).then((value) {
                                       // Create booking with pending payment
                                       populateCartWithSubSlots(bookings);
                                       controller.processCheckout(
                                         name: controller.nameController.text,
                                         email: controller.userData.value.email,
-                                        mobile:
-                                            controller.userData.value.mobile,
-                                        paymentType:
-                                            'Pending', // Set payment type as Pending
+                                        mobile: controller.userData.value.mobile,
+                                        paymentType: 'Pending', // Set payment type as Pending
                                         promoCode: '',
-                                        notes:
-                                            'Payment pending - Pay Later option selected',
+                                        notes: 'Payment pending - Pay Later option selected',
                                         bookingId: controller.bookingId,
                                       );
-                                    });
+                                });
                                 // // After booking, clear slots and reset form
                                 // controller.clearSelectedSlots();
                                 // nameController.clear();
