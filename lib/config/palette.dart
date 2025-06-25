@@ -1,6 +1,7 @@
 import 'package:booking_app/config/constants.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:toastification/toastification.dart';
 
 class Palette {
   static const Color primaryColor = Color(0xFF2C83F1);
@@ -42,23 +43,71 @@ Color textPrimary = Color(0xFF111111);
 Color textSecondary = Color(0xFF3A3cd3);
 
 void showCustomSnackbar(String title, String message, Color color) {
-  Get.snackbar(
-    '',
-    '',
-    titleText: Text(
-      '${title}',
-      style: TextStyle(color: Colors.white, fontSize: 15 * ffem),
+  toastification.show(
+    type: ToastificationType.success,
+    style: ToastificationStyle.flatColored,
+    autoCloseDuration: const Duration(seconds: 2),
+    title: Text('${title}', style: TextStyle(fontSize: 22, color: Colors.black87)),
+    description: RichText(text: TextSpan(text: '${message}', style: TextStyle(fontSize: 20, color: Colors.black87))),
+    alignment: Alignment.topRight,
+    direction: TextDirection.ltr,
+    animationDuration: const Duration(milliseconds: 300),
+    animationBuilder: (context, animation, alignment, child) {
+      return FadeTransition(
+        opacity: AlwaysStoppedAnimation(10),
+        child: child,
+      );
+    },
+    icon: const Icon(Icons.check, size: 40, color: Colors.black87,),
+    showIcon: true, // show or hide the icon
+    primaryColor: color,
+    backgroundColor: color,
+    foregroundColor: color,
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
+    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    borderRadius: BorderRadius.circular(12),
+    boxShadow: const [
+      BoxShadow(
+        color: Color(0x07000000),
+        blurRadius: 16,
+        offset: Offset(0, 16),
+        spreadRadius: 0,
+      )
+    ],
+    showProgressBar: true,
+    progressBarTheme: ProgressIndicatorThemeData(color: Colors.black26),
+    closeButton: ToastCloseButton(
+      showType: CloseButtonShowType.onHover,
+      buttonBuilder: (context, onClose) {
+        return OutlinedButton.icon(
+          onPressed: onClose,
+          icon: const Icon(Icons.close, size: 20),
+          label: const Text('Close'),
+        );
+      },
     ),
-    messageText: Text(
-      '${message}',
-      style: TextStyle(color: Colors.white, fontSize: 15 * ffem),
-    ),
-    snackPosition: SnackPosition.TOP,
-    backgroundColor: color, // Customize the background color
-    colorText: Colors.white, // Customize the text color
-    duration: Duration(seconds: 1), // Customize the duration
-    borderRadius: 20, // Customize the border radius
-    margin: EdgeInsets.only(top: 100), // Customize the margin
-    maxWidth: 500, // Set the maximum width of the Snackbar
+    closeOnClick: false,
+    pauseOnHover: true,
+    dragToClose: true,
+    applyBlurEffect: false,
   );
+  // Get.snackbar(
+  //   '',
+  //   '',
+  //   titleText: Text(
+  //     '${title}',
+  //     style: TextStyle(color: Colors.white, fontSize: 15 * ffem),
+  //   ),
+  //   messageText: Text(
+  //     '${message}',
+  //     style: TextStyle(color: Colors.white, fontSize: 15 * ffem),
+  //   ),
+  //   snackPosition: SnackPosition.TOP,
+  //   backgroundColor: color, // Customize the background color
+  //   colorText: Colors.white, // Customize the text color
+  //   duration: Duration(seconds: 1), // Customize the duration
+  //   borderRadius: 20, // Customize the border radius
+  //   margin: EdgeInsets.only(top: 100), // Customize the margin
+  //   maxWidth: 500, // Set the maximum width of the Snackbar
+  // );
 }

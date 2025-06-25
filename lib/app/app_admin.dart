@@ -22,6 +22,12 @@ class _AppAdminState extends State<AppAdmin> {
   final authController = Get.find<AuthController>();
   final defaultController = Get.put(DefaultController());
 
+  @override
+  void initState() {
+    super.initState();
+    defaultController.tabIndex.value = 0; // Always reset to dashboard
+  }
+
   Widget _getScreenForIndex(int index) {
     switch (index) {
       case 0:

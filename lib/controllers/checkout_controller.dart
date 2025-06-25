@@ -404,7 +404,12 @@ class CheckoutController extends GetxController {
       isLoading.value = false;
       update();
 
-      Future.delayed(Duration(seconds: 1), () => Get.offAllNamed('/'));
+      Future.delayed(Duration(seconds: 1), () {
+        final defaultController = Get.find<DefaultController>();
+        defaultController.tabIndex.value = 0; // Reset to Dashboard
+        defaultController.dashboardTabController?.index = 0;
+        Get.offAllNamed('/');
+      },);
 
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
@@ -975,6 +980,8 @@ class CheckoutController extends GetxController {
 
       // Redirect
       Future.delayed(Duration(seconds: 1), () {
+        final defaultController = Get.find<DefaultController>();
+        defaultController.tabIndex.value = 1; // Reset to Dashboard
         Get.offAllNamed('/');
       });
 
@@ -1130,20 +1137,20 @@ class CheckoutController extends GetxController {
           ),
           contentPadding: EdgeInsets.all(40),
           //title: Center(child: Text('Booking Success',style: TextStyle(color: Palette.primaryColor,fontSize: 40),)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/images/icons/check.png', // Replace this with the path to your image
-                height: 200,
-                width: 200,
-              ),
-              SizedBox(height: 35),
-              Text(
-                'Your booking has been successful!',
-                style: TextStyle(fontSize: 25),
-              ),
-            ],
+          content: Container(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/icons/check.png', // Replace this with the path to your image
+                  height: 200,
+                  width: 200,
+                ),
+                SizedBox(height: 35),
+                Text('Your booking has been successful!', style: TextStyle(fontSize: 30),),
+              ],
+            ),
           ),
         ),
       ),
@@ -1154,12 +1161,7 @@ class CheckoutController extends GetxController {
     Get.dialog(
       Theme(
         data: ThemeData(
-          // Set the overlay color of the AlertDialog
-          //backgroundColor: Palette.lightGrey,
-          hoverColor: MaterialStateColor.resolveWith((states) {
-            return Palette
-                .lightGrey; // Replace with the desired color and opacity
-          }),
+          hoverColor: MaterialStateColor.resolveWith((states) { return Palette.lightGrey; }),
         ),
         child: AlertDialog(
           backgroundColor: Colors.white,
@@ -1168,17 +1170,20 @@ class CheckoutController extends GetxController {
           ),
           contentPadding: EdgeInsets.all(40),
           //title: Center(child: Text('Booking Success',style: TextStyle(color: Palette.primaryColor,fontSize: 40),)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/images/icons/check.png', // Replace this with the path to your image
-                height: 200,
-                width: 200,
-              ),
-              SizedBox(height: 35),
-              Text('Payment Success!!', style: TextStyle(fontSize: 25)),
-            ],
+          content: Container(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/icons/check.png', // Replace this with the path to your image
+                  height: 200,
+                  width: 200,
+                ),
+                SizedBox(height: 35),
+                Text('Payment Success!!', style: TextStyle(fontSize: 30)),
+              ],
+            ),
           ),
         ),
       ),

@@ -229,31 +229,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   const Spacer(),
                   // Items count
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade500),
-                      borderRadius: BorderRadius.circular(6),
-                      color: Colors.white,
-                    ),
-                    child: Row(
-                      spacing: 10,
-                      children: [
-                        Icon(LucideIcons.layoutDashboard, size: 40),
-                        Text(
-                          'Dashboard',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade900,
-                            fontSize: 25,
+                  GestureDetector(
+                    onTap: () {
+                      final defaultController = Get.find<DefaultController>();
+                      defaultController.tabIndex.value = 0; // Reset to Dashboard
+                      defaultController.dashboardTabController?.index = 0;
+                      Get.offAllNamed('/');
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade500),
+                        borderRadius: BorderRadius.circular(6),
+                        color: Colors.white,
+                      ),
+                      child: Row(
+                        spacing: 10,
+                        children: [
+                          Icon(LucideIcons.layoutDashboard, size: 40),
+                          Text(
+                            'Dashboard',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey.shade900,
+                              fontSize: 25,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  )
                   //SizedBox(width: 30),
                 ],
               ),
@@ -1055,6 +1063,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       padding: const EdgeInsets.all(0.0),
                       child: Row(
                         children: [
+                          if(widget.type=='Product') ...[
+
                           // Discount Applied
                           if (isDiscountApplied)
                             Expanded(
@@ -1138,6 +1148,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                           if (!isDiscountApplied) const SizedBox(width: 12),
+
+                          ],
 
                           // Receipt Toggle
                           Expanded(

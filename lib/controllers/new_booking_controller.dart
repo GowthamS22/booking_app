@@ -1306,6 +1306,8 @@ class NewBookingController extends GetxController {
     Get.dialog(
       Theme(
         data: ThemeData(
+          // Set the overlay color of the AlertDialog
+          //backgroundColor: Palette.lightGrey,
           hoverColor: MaterialStateColor.resolveWith((states) {
             return Palette
                 .lightGrey; // Replace with the desired color and opacity
@@ -1316,20 +1318,21 @@ class NewBookingController extends GetxController {
             borderRadius: BorderRadius.circular(20),
           ),
           contentPadding: EdgeInsets.all(40),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                'assets/images/icons/check.png', // Replace this with the path to your image
-                height: 200,
-                width: 200,
-              ),
-              SizedBox(height: 35),
-              Text(
-                'Your booking has been successful!',
-                style: TextStyle(fontSize: 25),
-              ),
-            ],
+          //title: Center(child: Text('Booking Success',style: TextStyle(color: Palette.primaryColor,fontSize: 40),)),
+          content: Container(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.asset(
+                  'assets/images/icons/check.png', // Replace this with the path to your image
+                  height: 200,
+                  width: 200,
+                ),
+                SizedBox(height: 35),
+                Text('Your booking has been successful!', style: TextStyle(fontSize: 30),),
+              ],
+            ),
           ),
         ),
       ),

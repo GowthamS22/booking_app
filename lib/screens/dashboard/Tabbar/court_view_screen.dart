@@ -1343,6 +1343,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     });
                     totalPrice =
                         courtPrice + (isMembershipApplied ? memberPrice : 0.0);
+                    final selectedName = controller.serviceList
+                        .firstWhere(
+                          (e) => e['id'].toString() == controller.selectedServiceId.toString(),
+                      orElse: () => null,
+                    )?['name'] ?? 'Unknown';
                     return Container(
                       color: Colors.white,
                       height: MediaQuery.of(context).size.height,
@@ -1742,7 +1747,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ),
                               ),
                               Text(
-                                'Sport : ${bookings.isNotEmpty ? 'Badminton' : ' '}',
+                                'Sport : ${bookings.isNotEmpty ? '${selectedName}' : ' '}',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   color: Colors.black,

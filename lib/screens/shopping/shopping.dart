@@ -1466,21 +1466,25 @@ class _ShoppingScreenState extends State<ShoppingScreen>
         return Text("No items", style: TextStyle(fontSize: 22));
       }
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: items.map((item) {
-          // Handle both Map and String formats
-          final product = item is Map ? item['product'] : jsonDecode(item)['product'];
-          final quantity = item is Map ? item['quantity'] : jsonDecode(item)['quantity'];
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: items.map((item) {
+            // Handle both Map and String formats
+            final product = item is Map ? item['product'] : jsonDecode(item)['product'];
+            final quantity = item is Map ? item['quantity'] : jsonDecode(item)['quantity'];
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4.0),
-            child: Text(
-              '${product['name']} (x$quantity) - \$${(double.parse(product['price'].toString()) * quantity)}',
-                  style: TextStyle(fontSize: 20),
-            ),
-          );
-        }).toList(),
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: Text(
+                '${product['name']} (x$quantity) - \$${(double.parse(product['price'].toString()) * quantity)}',
+                style: TextStyle(fontSize: 22),
+              ),
+            );
+          }).toList(),
+        ),
       );
     }
 
@@ -1509,7 +1513,10 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
 
-              final orders = snapshot.data ?? [];
+              final orders = (snapshot.data ?? []).where((order) {
+                final token = order['token_number'];
+                return token != null && !(token.toString().startsWith('TMP'));
+              }).toList();
 
               return Container(
                 decoration: BoxDecoration(
@@ -1530,7 +1537,8 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                           scrollDirection: Axis.vertical,
                           child: DataTable(
                             columnSpacing: 24,
-                            dataRowHeight: 80,
+                            dataRowMinHeight: 60, // Reduced from 80
+                            dataRowMaxHeight: double.infinity, // Allow rows to expand as needed
                             headingRowHeight: 70,
                             headingRowColor: MaterialStateProperty.all(Colors.black),
                             headingTextStyle: const TextStyle(
@@ -1547,30 +1555,73 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                               DataColumn(label: Text('Order Status')),
                             ],
                             rows: orders.map((order) {
-                              return DataRow(cells: [
-                                DataCell(Text('#${order['token_number'] ?? ''}', style: const TextStyle(fontSize: 22))),
-                                DataCell(Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(order['customer_name'] ?? '-', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
-                                    Text(order['mobile_no'] ?? '-', style: TextStyle(fontSize: 22, color: Colors.grey[600])),
-                                  ],
-                                )),
-                                DataCell(Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(_formatDate(order['created_at']), style: const TextStyle(fontSize: 22)),
-                                    Text(_formatTime(order['created_at']), style: TextStyle(fontSize: 22, color: Colors.grey[600])),
-                                  ],
-                                )),
-                                DataCell(
-                                  _buildCartItems(order['cart_items'] ?? order['items']), // Handle different field names
-                                ), // replace with your parsing logic
-                                DataCell(Text('\$${order['bill_details']?['billAmount']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 22))),
-                                DataCell(Text(order['order_status'] ?? '-', style: const TextStyle(fontSize: 22))),
-                              ]);
+                              final cartItems = order['cart_items'] ?? order['items'];
+                              final itemCount = cartItems is List ? cartItems.length : 1;
+                              final rowHeight = 60.0 + (itemCount * 30.0); // Base height + additional for each item
+
+                              return DataRow(
+                                cells: [
+                                  DataCell(Text('#${order['token_number'] ?? ''}', style: const TextStyle(fontSize: 22))),
+                                  DataCell(
+                                    order['customer_id'] == null
+                                        ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: const [
+                                        Text('Guest', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+                                        Text('-', style: TextStyle(fontSize: 22, color: Colors.grey)),
+                                      ],
+                                    )
+                                        : FutureBuilder(
+                                      future: Supabase.instance.client
+                                          .schema('${centerSlug}_prod_schema')
+                                          .from('customers')
+                                          .select()
+                                          .eq('id', order['customer_id'])
+                                          .maybeSingle(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return const SizedBox(
+                                            width: 100,
+                                            height: 40,
+                                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                          );
+                                        }
+
+                                        if (snapshot.hasError || snapshot.data == null) {
+                                          return Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: const [
+                                              Text('Unknown', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+                                              Text('-', style: TextStyle(fontSize: 22, color: Colors.grey)),
+                                            ],
+                                          );
+                                        }
+
+                                        final customer = snapshot.data as Map<String, dynamic>;
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(customer['first_name'] ?? 'No Name', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
+                                            Text(customer['mobile'] ?? '-', style: TextStyle(fontSize: 22, color: Colors.grey[600])),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  DataCell(Row(
+                                    spacing: 10,
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(_formatDate(order['created_at']), style: const TextStyle(fontSize: 22)),
+                                      Text(_formatTime(order['created_at']), style: TextStyle(fontSize: 22, color: Colors.grey[600])),
+                                    ],
+                                  )),
+                                  DataCell(_buildCartItems(cartItems)),
+                                  DataCell(Text('\$${order['bill_details']?['billAmount']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 22))),
+                                  DataCell(Text(order['order_status'] ?? '-', style: const TextStyle(fontSize: 22))),
+                                ],
+                              );
                             }).toList(),
                           ),
                         ),
@@ -1596,7 +1647,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
             width: MediaQuery.of(context).size.width / 4,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
                   color: Colors.grey.shade300,
@@ -1607,13 +1658,13 @@ class _ShoppingScreenState extends State<ShoppingScreen>
               ],
             ),
             child: Container(
-              height: 60,
+              height: 70,
               child: TabBar(
                 controller: _tabController,
                 //isScrollable: true,
                 indicator: BoxDecoration(
                   color: Colors.indigo.shade500,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(30),
                 ),
                 indicatorPadding: EdgeInsets.all(4),
                 // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
@@ -1621,12 +1672,12 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                 unselectedLabelColor: Colors.grey.shade600,
                 indicatorSize: TabBarIndicatorSize.tab,
                 labelStyle: GoogleFonts.inter(
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: Colors.grey.shade50,
                 ),
                 unselectedLabelStyle: GoogleFonts.inter(
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: FontWeight.w500,
                 ),
                 dividerColor: Colors.transparent,

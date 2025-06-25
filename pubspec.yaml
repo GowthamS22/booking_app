@@ -58,6 +58,7 @@ dependencies:
   collection: ^1.18.0
   webview_flutter:
   flutter_inappwebview:
+  toastification:
 
 dev_dependencies:
   flutter_test:

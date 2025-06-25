@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/default_controller.dart';
 import 'Tabbar/active_tab_screen.dart';
 import 'Tabbar/all_booking_tab_screen.dart';
@@ -20,6 +21,22 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final defaultController = Get.find<DefaultController>();
+
+  String? staffName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCenterSlug();
+  }
+
+  Future<void> _loadCenterSlug() async {
+    final preferences = await SharedPreferences.getInstance();
+    setState(() {
+      staffName = preferences.getString('userName');
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -188,7 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 SizedBox(width: 10),
                 Text(
-                  'Staff Name',
+                  '${staffName}',
                   style: GoogleFonts.inter(
                     color: Colors.black,
                     fontSize: 23,

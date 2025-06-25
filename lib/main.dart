@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:toastification/toastification.dart';
 
 import 'app/getx_binding.dart';
 import 'components/nonetwork_widget.dart';
@@ -96,37 +97,39 @@ class _MyAppState extends State<MyApp> {
       builder: (context, snapshot) {
         final isConnected = snapshot.data != ConnectivityResult.none;
         print(isConnected);
-        return GetMaterialApp(
-          debugShowCheckedModeBanner: false,
-          initialBinding: InitialBinding(),
-          smartManagement: SmartManagement.keepFactory,
-          theme: ThemeData(
-            //backgroundColor: Colors.white,
-            textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
+        return ToastificationWrapper(
+          child: GetMaterialApp(
+            debugShowCheckedModeBanner: false,
+            initialBinding: InitialBinding(),
+            smartManagement: SmartManagement.keepFactory,
+            theme: ThemeData(
+              //backgroundColor: Colors.white,
+              textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
+            ),
+            getPages: Routes.routes,
+            scrollBehavior: const MaterialScrollBehavior().copyWith(
+              dragDevices: {
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.touch,
+                PointerDeviceKind.stylus,
+                PointerDeviceKind.unknown,
+              },
+            ),
+            //home: PaymentScreen(),
+            // home: CheckoutScreen(
+            //   billAmount: 10,
+            //   customerName: 'Jamuna',
+            //   type: '',
+            //   mobileno: '',
+            //   selectedDateTime: DateTime.now(),
+            //   bookings: [],
+            //   membershipID: '',
+            //   membershipName: '',
+            //   isMembershipApplied: null,
+            //   membershipPrice: 0,
+            // ),
+            home: isConnected ? Root() : NetworkScreen(),
           ),
-          getPages: Routes.routes,
-          scrollBehavior: const MaterialScrollBehavior().copyWith(
-            dragDevices: {
-              PointerDeviceKind.mouse,
-              PointerDeviceKind.touch,
-              PointerDeviceKind.stylus,
-              PointerDeviceKind.unknown,
-            },
-          ),
-          //home: PaymentScreen(),
-          // home: CheckoutScreen(
-          //   billAmount: 10,
-          //   customerName: 'Jamuna',
-          //   type: '',
-          //   mobileno: '',
-          //   selectedDateTime: DateTime.now(),
-          //   bookings: [],
-          //   membershipID: '',
-          //   membershipName: '',
-          //   isMembershipApplied: null,
-          //   membershipPrice: 0,
-          // ),
-          home: isConnected ? Root() : NetworkScreen(),
         );
       },
     );

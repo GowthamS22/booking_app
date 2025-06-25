@@ -23,6 +23,8 @@ class _CustomerScreenState extends State<CustomerScreen> {
   bool isLoading = true;
   String? selectedMembershipPlanId;
 
+  String? staffName;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +39,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
     final preferences = await SharedPreferences.getInstance();
     setState(() {
       customerController.centerSlug = preferences.getString('centerSlug');
+      staffName = preferences.getString('userName');
       isLoading = false;
     });
   }
@@ -94,7 +97,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 ),
                 SizedBox(width: 10),
                 Text(
-                  'Staff Name',
+                  '${staffName}',
                   style: GoogleFonts.inter(
                     color: Colors.black,
                     fontSize: 23,
