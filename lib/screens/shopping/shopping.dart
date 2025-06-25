@@ -814,7 +814,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
         builder:
             (context) => CheckoutScreen(
               type: 'Product',
-              customerName: 'System Customer',
+              customerName: 'Guest',
               mobileno: '+61 0000 000 000',
               selectedDateTime: DateTime.now(),
               billAmount: total,

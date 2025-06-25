@@ -1245,7 +1245,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       if (double.parse(
                                             balanceAmountController.text,
                                           ) <=
-                                          0) {
+                                          0 && totalPaid >= widget.billAmount) {
                                         setState(() {
                                           checkoutController
                                               .checkoutPayBtn

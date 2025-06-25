@@ -186,18 +186,18 @@ class _PinScreenState extends State<PinScreen> {
                         submitForm: () {},
                       ),
                       SizedBox(height: 30),
-                      TextButton(
-                        onPressed: () {},
-                        child: Text(
-                          'Forgot PIN?',
-                          style: GoogleFonts.getFont(
-                            'Mulish',
-                            fontSize: 15 * ffem,
-                            color: Colors.grey,
-                            letterSpacing: 3.0,
-                          ),
-                        ),
-                      ),
+                      // TextButton(
+                      //   onPressed: () {},
+                      //   child: Text(
+                      //     'Forgot PIN?',
+                      //     style: GoogleFonts.getFont(
+                      //       'Mulish',
+                      //       fontSize: 15 * ffem,
+                      //       color: Colors.grey,
+                      //       letterSpacing: 3.0,
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),

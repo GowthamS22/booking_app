@@ -111,7 +111,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                               printerController.scanForPrinters();
                             },
                             icon: Icon(
-                              LucideIcons.fingerprint,
+                              LucideIcons.scanLine,
                               size: 30,
                             ), // lucide fingerprint icon
                             label: Text(

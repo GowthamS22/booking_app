@@ -28,6 +28,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadCenterSlug();
+    // Start refresh when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      defaultController.startAutoRefresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    // Stop refresh when leaving screen
+    defaultController.stopAutoRefresh();
+    super.dispose();
   }
 
   Future<void> _loadCenterSlug() async {
@@ -35,6 +46,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       staffName = preferences.getString('userName');
     });
+  }
+
+  Widget _buildPendingPaymentTab() {
+    return Obx(() => Tab(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text('Pending Payment'),
+          if (defaultController.pendingPaymentCount.value > 0) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 25,
+                minHeight: 25,
+              ),
+              child: Text(
+                defaultController.pendingPaymentCount.value > 99
+                    ? '99+'
+                    : defaultController.pendingPaymentCount.value.toString(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ],
+      ),
+    ));
   }
 
   @override
@@ -137,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               children: [
                 Container(
-                  width: MediaQuery.of(context).size.width / 2.0,
+                  width: MediaQuery.of(context).size.width / 1.8,
                   height: MediaQuery.of(context).size.height * .06,
                   //    margin: const EdgeInsets.only(left: 16, top: 16),
                   decoration: BoxDecoration(
@@ -177,11 +223,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     dividerColor: Colors.transparent,
                     overlayColor: WidgetStateProperty.all(Colors.transparent),
-                    tabs: const [
+                    tabs: [
                       Tab(text: 'Court View'),
                       Tab(text: 'Active'),
                       Tab(text: 'Upcoming'),
-                      Tab(text: 'Pending Payment'),
+                      _buildPendingPaymentTab(),
+                      //Tab(text: 'Pending Payment'),
                       // Tab(text: 'Scheduled'),
                       //Tab(text: 'All Booking'),
                       //Tab(text: 'Dashboard'),

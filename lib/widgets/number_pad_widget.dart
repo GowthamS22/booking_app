@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:google_fonts/google_fonts.dart';
-
 import '../config/constants.dart';
 
 class NumberPadWidget extends StatefulWidget {
@@ -9,89 +7,89 @@ class NumberPadWidget extends StatefulWidget {
   final Function() onBackspaceTap;
   final Function() submitForm;
 
-  NumberPadWidget({
+  const NumberPadWidget({
     required this.onNumberTap,
     required this.onBackspaceTap,
     required this.submitForm,
-  });
+    Key? key,
+  }) : super(key: key);
 
   @override
   State<NumberPadWidget> createState() => _NumberPadWidgetState();
 }
 
 class _NumberPadWidgetState extends State<NumberPadWidget> {
-  // Track scale for each button by index
   final Map<int, double> _scales = {};
-  final double _pressedScale = 0.85;
+  final double _pressedScale = 0.95;
   final double _normalScale = 1.0;
-  final Duration _duration = Duration(milliseconds: 90);
+  final Duration _duration = const Duration(milliseconds: 50);
 
   @override
   void initState() {
     super.initState();
-    // Initialize all scales to normal
     for (int i = 0; i < 12; i++) {
       _scales[i] = _normalScale;
     }
   }
 
   void _animateButton(int index, VoidCallback onTap) async {
-    setState(() {
-      _scales[index] = _pressedScale;
-    });
+    setState(() => _scales[index] = _pressedScale);
     await Future.delayed(_duration);
-    setState(() {
-      _scales[index] = _normalScale;
-    });
+    setState(() => _scales[index] = _normalScale);
     onTap();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: GridView.count(
         crossAxisCount: 3,
-        childAspectRatio: 2, // Make buttons less wide
-        crossAxisSpacing: 4, // Reduced space between columns
-        mainAxisSpacing: 20,
+        childAspectRatio: 1.8,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
         shrinkWrap: true,
-        physics: NeverScrollableScrollPhysics(),
-        padding: EdgeInsets.zero,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
-          buildNumberButton('1', 0),
-          buildNumberButton('2', 1),
-          buildNumberButton('3', 2),
-          buildNumberButton('4', 3),
-          buildNumberButton('5', 4),
-          buildNumberButton('6', 5),
-          buildNumberButton('7', 6),
-          buildNumberButton('8', 7),
-          buildNumberButton('9', 8),
-          buildBackspaceButton(9),
-          buildNumberButton('0', 10),
-          /*buildEmptyButton(),*/
+          _buildButton('1', 0, onTap: () => widget.onNumberTap('1')),
+          _buildButton('2', 1, onTap: () => widget.onNumberTap('2')),
+          _buildButton('3', 2, onTap: () => widget.onNumberTap('3')),
+          _buildButton('4', 3, onTap: () => widget.onNumberTap('4')),
+          _buildButton('5', 4, onTap: () => widget.onNumberTap('5')),
+          _buildButton('6', 5, onTap: () => widget.onNumberTap('6')),
+          _buildButton('7', 6, onTap: () => widget.onNumberTap('7')),
+          _buildButton('8', 7, onTap: () => widget.onNumberTap('8')),
+          _buildButton('9', 8, onTap: () => widget.onNumberTap('9')),
+          _buildIconButton(Icons.backspace, 9, onTap: widget.onBackspaceTap),
+          _buildButton('0', 10, onTap: () => widget.onNumberTap('0')),
+          _buildIconButton(Icons.check, 11,
+            onTap: widget.submitForm,
+            // color: Colors.white,
+            // bgColor: Colors.green,
+          ),
         ],
       ),
     );
   }
 
-  Widget buildNumberButton(String number, int index) {
+  Widget _buildButton(String text, int index, {required VoidCallback onTap}) {
     return AnimatedScale(
       scale: _scales[index] ?? _normalScale,
       duration: _duration,
-      curve: Curves.easeOut,
-      child: InkWell(
-        onTap: () => _animateButton(index, () => widget.onNumberTap(number)),
-        borderRadius: BorderRadius.circular(100),
-        child: Container(
-          alignment: Alignment.center,
-          margin: EdgeInsets.symmetric(horizontal: 2.0, vertical: 8.0),
-          child: Text(
-            number,
-            style: GoogleFonts.getFont(
-              'Poppins',
-              fontSize: 20 * ffem,
-              fontWeight: FontWeight.bold,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        elevation: 2,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _animateButton(index, onTap),
+          child: Center(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 30,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
@@ -99,28 +97,24 @@ class _NumberPadWidgetState extends State<NumberPadWidget> {
     );
   }
 
-  Widget buildEmptyButton() {
-    return GestureDetector(
-      onTap: widget.submitForm,
-      child: Container(
-        alignment: Alignment.center,
-        margin: EdgeInsets.symmetric(horizontal: 2.0, vertical: 8.0),
-        child: Icon(Icons.subdirectory_arrow_right_outlined, size: 30.0),
-      ),
-    );
-  }
-
-  Widget buildBackspaceButton(int index) {
+  Widget _buildIconButton(IconData icon, int index, {
+    required VoidCallback onTap,
+    Color color = Colors.black,
+    Color bgColor = Colors.white,
+  }) {
     return AnimatedScale(
       scale: _scales[index] ?? _normalScale,
       duration: _duration,
-      curve: Curves.easeOut,
-      child: GestureDetector(
-        onTap: () => _animateButton(index, widget.onBackspaceTap),
-        child: Container(
-          alignment: Alignment.center,
-          margin: EdgeInsets.symmetric(horizontal: 2.0, vertical: 8.0),
-          child: Icon(Icons.backspace, size: 30.0),
+      child: Material(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        elevation: 2,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _animateButton(index, onTap),
+          child: Center(
+            child: Icon(icon, size: 35, color: color),
+          ),
         ),
       ),
     );

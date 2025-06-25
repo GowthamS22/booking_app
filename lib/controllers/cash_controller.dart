@@ -1,3 +1,5 @@
+import 'package:booking_app/config/palette.dart';
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -27,7 +29,6 @@ class CashController extends GetxController {
   // Close cash - update existing record
   Future<bool> closeCash({
     required double closingAmount,
-    required String userId,
     required double cashSales,
     required double eftposSales,
     double? eftposFromDevice,
@@ -39,6 +40,7 @@ class CashController extends GetxController {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     String? centerSlug                  = preferences.getString('centerSlug');
     final String schema                 = '${centerSlug}_prod_schema';
+    String? userId                      = preferences.getString('userId');
     try {
       // Get current open cash record
       final currentRecord = await _supabase
@@ -65,10 +67,12 @@ class CashController extends GetxController {
               'eftpos_difference_reason': eftposDifferenceReason,
               'other_spend_reason': otherSpendReason,
               'closed_by': userId,
-            }
+            },
+            'status': 'Completed'
           })
           .eq('id', currentRecord['id']);
-
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('openCloseId');
       return true;
     } catch (e) {
       Get.snackbar('Error', 'Failed to close cash: ${e.toString()}');
@@ -148,4 +152,110 @@ class CashController extends GetxController {
       return false;
     }
   }
+
+  Future<double> getOrdersAndBookingsTotal() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    final String schema = '${centerSlug}_prod_schema';
+
+    double ordersTotal = 0.0;
+    double bookingsTotal = 0.0;
+
+    try {
+      // Get Orders Total
+      final ordersResponse = await _supabase
+          .schema(schema)
+          .from('orders')
+          .select('total')
+          .eq('status', 'Completed')
+          .eq('closed', false);
+
+      final orders = ordersResponse as List<dynamic>;
+      ordersTotal = orders.fold<double>(
+        0.0,
+            (sum, order) => sum + double.tryParse(order['total'].toString())!,
+      );
+    } catch (e) {
+      showCustomSnackbar('Error', 'Failed to fetch orders total', Colors.orange);
+    }
+
+    try {
+      // Get Bookings Total
+      final bookingsResponse = await _supabase
+          .schema(schema)
+          .from('bookings')
+          .select('grand_total');
+
+      final bookings = bookingsResponse as List<dynamic>;
+      bookingsTotal = bookings.fold<double>(
+        0.0,
+            (sum, booking) => sum + double.tryParse(booking['grand_total'].toString())!,
+      );
+    } catch (e) {
+      showCustomSnackbar('Error', 'Failed to fetch bookings total', Colors.orange);
+    }
+
+    return ordersTotal + bookingsTotal;
+  }
+
+  Future<Map<String, double>> getTotalsByPaymentType() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    final String schema = '${centerSlug}_prod_schema';
+
+    Map<String, double> result = {
+      'Cash': 0.0,
+      'EFTPOS': 0.0,
+      'On Acc. / Void': 0.0,
+    };
+
+    double safeParse(dynamic value) {
+      return double.tryParse(value.toString()) ?? 0.0;
+    }
+
+    try {
+      for (String paymentType in ['Cash', 'EFTPOS', 'On Acc. / Void']) {
+        double ordersTotal = 0.0;
+        double bookingsTotal = 0.0;
+
+        // Orders
+        final ordersResponse = await _supabase
+            .schema(schema)
+            .from('orders')
+            .select('total')
+            .eq('order_status', 'Completed')
+            .eq('closed', false)
+            .eq('payment_type', paymentType);
+
+        final orders = ordersResponse as List<dynamic>;
+        ordersTotal = orders.fold<double>(
+          0.0,
+              (sum, order) => sum + safeParse(order['total']),
+        );
+
+        // Bookings
+        final bookingsResponse = await _supabase
+            .schema(schema)
+            .from('bookings')
+            .select('grand_total')
+            .eq('payment_type', paymentType);
+
+        final bookings = bookingsResponse as List<dynamic>;
+        bookingsTotal = bookings.fold<double>(
+          0.0,
+              (sum, booking) => sum + safeParse(booking['grand_total']),
+        );
+
+        result[paymentType] = ordersTotal + bookingsTotal;
+      }
+    } catch (e) {
+      showCustomSnackbar('Error', 'Failed to fetch totals by payment type', Colors.orange);
+    }
+
+    return result;
+  }
+
+
+
+
 }

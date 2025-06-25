@@ -75,7 +75,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Image.asset(
-                    'assets/images/logo/fb.png', // Replace with your actual image path
+                    'assets/images/splash_logo.png', // Replace with your actual image path
                     width: 45,
                     height: 45,
                   ),
@@ -204,7 +204,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  LucideIcons.pieChart,
+                  LucideIcons.coins,
                   color:
                       controller.selectedIndex == 4
                           ? Colors.indigo.shade900

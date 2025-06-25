@@ -57,8 +57,12 @@ class _CloseCashState extends State<CloseCash> {
   Future<void> _fetchInitialData() async {
     // Fetch opening balance from database
     final openingData = await cashController.getOpeningBalance();
+    final totals = await cashController.getTotalsByPaymentType();
     setState(() {
       openingBalance = openingData ?? 0.0;
+      cashSales = totals['Cash'] ?? 0.0;
+      eftposSales = totals['EFTPOS'] ?? 0.0;
+      overallOnAccount = totals['On Acc. / Void'] ?? 0.0;
     });
 
     // Fetch cash sales total
@@ -87,17 +91,17 @@ class _CloseCashState extends State<CloseCash> {
   Future<void> _submitCloseCash() async {
     // Validate required fields
     if (showCashDifferenceReason && cashDifferenceReasonController.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter reason for cash difference');
+      showCustomSnackbar('Error', 'Please enter reason for cash difference', Colors.redAccent);
       return;
     }
 
     if (showEftposDifferenceReason && eftposDifferenceReasonController.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter reason for EFTPOS difference');
+      showCustomSnackbar('Error', 'Please enter reason for EFTPOS difference', Colors.redAccent);
       return;
     }
 
     if (showOtherSpendReason && otherSpendReasonController.text.isEmpty) {
-      Get.snackbar('Error', 'Please enter reason for other spend');
+      showCustomSnackbar('Error', 'Please enter reason for other spend', Colors.redAccent);
       return;
     }
 
@@ -114,13 +118,23 @@ class _CloseCashState extends State<CloseCash> {
       'other_spend_reason': showOtherSpendReason ? otherSpendReasonController.text : null,
     };
 
-    // final result = await cashController.closeCash(closeCashData);
-    // if (result) {
-    //   Get.snackbar('Success', 'Cash closed successfully');
-    //   // Navigate to another screen or reset form
-    // } else {
-    //   Get.snackbar('Error', 'Failed to close cash');
-    // }
+    final result = await cashController.closeCash(
+      closingAmount: cashSum,
+      cashSales: cashSales,
+      eftposSales: eftposSales,
+      eftposFromDevice: eftposFromDevice,
+      otherSpend: otherSpend,
+      cashDifferenceReason: showCashDifferenceReason ? cashDifferenceReasonController.text : null,
+      eftposDifferenceReason: showEftposDifferenceReason ? eftposDifferenceReasonController.text : null,
+      otherSpendReason: showOtherSpendReason ? otherSpendReasonController.text : null,
+    );
+
+    if (result) {
+      showCustomSnackbar('Success', 'Cash closed successfully', Colors.green);
+      Get.offAllNamed('/');
+    } else {
+      showCustomSnackbar('Error', 'Failed to close cash', Colors.redAccent);
+    }
   }
 
   @override
@@ -193,28 +207,28 @@ class _CloseCashState extends State<CloseCash> {
                               fontSize: 25,
                             ),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              // Implement scan functionality
-                            },
-                            icon: Icon(LucideIcons.fingerprint, size: 30),
-                            label: Text(
-                              'Scan',
-                              style: GoogleFonts.inter(
-                                color: Colors.indigo.shade500,
-                                fontSize: 25,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Palette.newColorbg,
-                              minimumSize: const Size(150, 60),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  side: BorderSide(color: Palette.newColor)
-                              ),
-                            ),
-                          ),
+                          // ElevatedButton.icon(
+                          //   onPressed: () {
+                          //     // Implement scan functionality
+                          //   },
+                          //   icon: Icon(LucideIcons.fingerprint, size: 30),
+                          //   label: Text(
+                          //     'Scan',
+                          //     style: GoogleFonts.inter(
+                          //       color: Colors.indigo.shade500,
+                          //       fontSize: 25,
+                          //       fontWeight: FontWeight.w500,
+                          //     ),
+                          //   ),
+                          //   style: ElevatedButton.styleFrom(
+                          //     backgroundColor: Palette.newColorbg,
+                          //     minimumSize: const Size(150, 60),
+                          //     shape: RoundedRectangleBorder(
+                          //         borderRadius: BorderRadius.circular(10),
+                          //         side: BorderSide(color: Palette.newColor)
+                          //     ),
+                          //   ),
+                          // ),
                         ],
                       ),
                       SizedBox(height: 25),
@@ -347,7 +361,7 @@ class _CloseCashState extends State<CloseCash> {
                                     decoration: InputDecoration(
                                       prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
                                       hintText: '0.00',
-                                      hintStyle: TextStyle(fontSize: 25),
+                                      hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
                                       filled: true,
                                       fillColor: Colors.white,
                                       border: UnderlineInputBorder(
@@ -671,7 +685,7 @@ class _CloseCashState extends State<CloseCash> {
                                     decoration: InputDecoration(
                                       prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
                                       hintText: '0.00',
-                                      hintStyle: TextStyle(fontSize: 25),
+                                      hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
                                       filled: true,
                                       fillColor: Colors.white,
                                       border: UnderlineInputBorder(

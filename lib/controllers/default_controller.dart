@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -218,6 +220,10 @@ class DefaultController extends GetxController
   //   return _allbookingSlotStream(selectedDate);
   // }
 
+  RxInt pendingPaymentCount = 0.obs;
+  String? centerSlug;
+  Timer? _refreshTimer;
+
   @override
   void onInit() {
     fetchServiceList();
@@ -226,6 +232,7 @@ class DefaultController extends GetxController
     //getUpcomingBookingData();
     //getUpcomingBookingSlots();
     super.onInit();
+    loadCenterSlug();
     // tabController = TabController(length: 4, vsync: this);
 
     // tabController!.addListener(() {
@@ -275,8 +282,52 @@ class DefaultController extends GetxController
     });
   }
 
+  Future<void> loadCenterSlug() async {
+    final preferences = await SharedPreferences.getInstance();
+    centerSlug = preferences.getString('centerSlug');
+    if (centerSlug != null) {
+      await fetchPendingPaymentsCount();
+      startAutoRefresh();
+    }
+  }
+
+  Future<void> fetchPendingPaymentsCount() async {
+    try {
+      final res = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('id')
+          .neq('payment_status', 'Paid');
+
+      pendingPaymentCount.value = res.length ?? 0;
+      print('Pending payments count updated to: ${pendingPaymentCount.value}');
+    } catch (e) {
+      pendingPaymentCount.value = 0;
+      print('Error fetching pending payments: $e');
+    }
+  }
+
+  void startAutoRefresh() {
+    // Cancel existing timer if any
+    _refreshTimer?.cancel();
+
+    // Refresh immediately
+    fetchPendingPaymentsCount();
+
+    // Then refresh every 1 minute (adjust as needed)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      fetchPendingPaymentsCount();
+    });
+  }
+
+  void stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
   @override
   void onClose() {
+    stopAutoRefresh();
     tabController!.dispose();
     super.onClose();
   }

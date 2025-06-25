@@ -61,6 +61,23 @@ class CheckoutController extends GetxController {
     printer.text(alignedText);
   }
 
+  void _printFormattedItemRow(NetworkPrinter printer, String name, String qty, String price, String total) {
+    const firstLineChars = 20; // Number of characters to show on first line
+
+    if (name.length <= firstLineChars) {
+      // Single line if name is short
+      printer.text('$name $qty $price $total');
+    } else {
+      // First line: first 15 chars + quantity + price + total
+      final firstPart = name.substring(0, firstLineChars);
+      printer.text('$firstPart $qty $price $total');
+
+      // Second line: remaining characters
+      final remainingPart = name.substring(firstLineChars);
+      printer.text(remainingPart);
+    }
+  }
+
   Future<void> registerUser({
     String? email,
     String? firstName,
@@ -673,7 +690,8 @@ class CheckoutController extends GetxController {
           final itemPrice     = ('\$${(double.parse(item.product.price) ?? 0).toStringAsFixed(2)}').padLeft(7);
           final itemTotal     = ('\$${(item.appliedPrice ?? 0).toStringAsFixed(2)}').padLeft(8);
 
-          printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+          //printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+          _printFormattedItemRow(printer, itemName, itemQuantity, itemPrice, itemTotal);
         }
 
         printer.text('--------------------------------------------');
@@ -852,7 +870,8 @@ class CheckoutController extends GetxController {
           final itemPrice     = ('\$${(double.parse(item.product.price) ?? 0).toStringAsFixed(2)}').padLeft(7);
           final itemTotal     = ('\$${(item.appliedPrice ?? 0).toStringAsFixed(2)}').padLeft(8);
 
-          printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+          //printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
+          _printFormattedItemRow(printer, itemName, itemQuantity, itemPrice, itemTotal);
 
           // if (item['options'] != null) {
           //   for (var option in item['options']) {
