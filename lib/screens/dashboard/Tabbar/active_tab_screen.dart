@@ -1,3 +1,4 @@
+import 'package:booking_app/screens/dashboard/Tabbar/active_grid_view.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -60,7 +61,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 40),
+            const SizedBox(height: 20),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -71,7 +72,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                     Text(
                       "Active Bookings",
                       style: GoogleFonts.inter(
-                        fontSize: 23,
+                        fontSize: 25,
                         color: Colors.black,
                         fontWeight: FontWeight.w700,
                       ),
@@ -91,17 +92,17 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
-                      style: GoogleFonts.roboto(fontSize: 14),
+                      style: GoogleFonts.roboto(fontSize: 25),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
-                          fontSize: 22,
+                          fontSize: 25,
                           color: Colors.grey.shade400,
                           fontWeight: FontWeight.w400,
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 7,
+                          vertical: 15,
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -125,79 +126,79 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 20),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width / 8,
-                  child: DropdownButtonFormField<String>(
-                    value: selectedFilter,
-                    items:
-                        filterOptions.map((String item) {
-                          return DropdownMenuItem<String>(
-                            value: item,
-                            // enabled: !isDisabled,
-                            child: Text(
-                              item,
-                              style: GoogleFonts.inter(
-                                fontSize: 15 * ffem,
-                                color: Colors.black,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (value) async {},
-                    onSaved: (value) {},
-                    decoration: InputDecoration(
-                      hintText: 'All',
-                      hintStyle: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 7,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: Colors.grey.shade500,
-                          width: 1.5,
-                        ),
-                      ),
-                      isDense: true,
-                    ),
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      color: Colors.grey.shade900,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-
+                // const SizedBox(width: 20),
+                // SizedBox(
+                //   width: MediaQuery.of(context).size.width / 8,
+                //   child: DropdownButtonFormField<String>(
+                //     value: selectedFilter,
+                //     items:
+                //         filterOptions.map((String item) {
+                //           return DropdownMenuItem<String>(
+                //             value: item,
+                //             // enabled: !isDisabled,
+                //             child: Text(
+                //               item,
+                //               style: GoogleFonts.inter(
+                //                 fontSize: 15 * ffem,
+                //                 color: Colors.black,
+                //               ),
+                //             ),
+                //           );
+                //         }).toList(),
+                //     onChanged: (value) async {},
+                //     onSaved: (value) {},
+                //     decoration: InputDecoration(
+                //       hintText: 'All',
+                //       hintStyle: GoogleFonts.inter(
+                //         fontSize: 22,
+                //         color: Colors.white,
+                //         fontWeight: FontWeight.w500,
+                //       ),
+                //       contentPadding: const EdgeInsets.symmetric(
+                //         horizontal: 8,
+                //         vertical: 7,
+                //       ),
+                //       filled: true,
+                //       fillColor: Colors.white,
+                //       border: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(10),
+                //         borderSide: BorderSide(color: Colors.grey.shade200),
+                //       ),
+                //       enabledBorder: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(8),
+                //         borderSide: BorderSide(color: Colors.grey.shade300),
+                //       ),
+                //       focusedBorder: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(8),
+                //         borderSide: BorderSide(
+                //           color: Colors.grey.shade500,
+                //           width: 1.5,
+                //         ),
+                //       ),
+                //       isDense: true,
+                //     ),
+                //     style: GoogleFonts.inter(
+                //       fontSize: 22,
+                //       color: Colors.grey.shade900,
+                //       fontWeight: FontWeight.w500,
+                //     ),
+                //   ),
+                // ),
+                //
+                // const SizedBox(width: 10),
+                // Container(
+                //   height: 48,
+                //   width: 48,
+                //   decoration: BoxDecoration(
+                //     color: Colors.white,
+                //     borderRadius: BorderRadius.circular(12),
+                //     border: Border.all(color: Colors.grey.shade300),
+                //   ),
+                //   child: const Icon(LucideIcons.filter, size: 32),
+                // ),
                 const SizedBox(width: 10),
                 Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: const Icon(LucideIcons.filter, size: 32),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  height: 48,
+                  height: 70,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -212,11 +213,11 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           });
                         },
                         child: Container(
-                          width: 48,
+                          width: 70,
                           alignment: Alignment.center,
                           child: Icon(
                             LucideIcons.layoutGrid,
-                            size: 32,
+                            size: 40,
                             color:
                                 isGridView
                                     ? Colors.indigo.shade500
@@ -231,7 +232,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           });
                         },
                         child: Container(
-                          width: 48,
+                          width: 70,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             border: Border(
@@ -240,7 +241,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           ),
                           child: Icon(
                             LucideIcons.layoutList,
-                            size: 32,
+                            size: 40,
                             color:
                                 !isGridView
                                     ? Colors.indigo.shade500
@@ -283,28 +284,22 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
 
                 return isGridView
                     ? GridView.builder(
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 4,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1.1,
-                          ),
-                      itemCount: bookings.length,
-                      itemBuilder: (context, index) {
-                        final b = bookings[index];
-                        return GestureDetector(
-                          // onTap:
-                          //     () => showDialog(
-                          //       context: context,
-                          //       builder:
-                          //           (_) => BookingDetailsDialog(booking: b),
-                          //     ),
-                          // child: bookingsCard(booking: b),
-                        );
-                      },
-                    )
+                        padding: const EdgeInsets.all(12),
+                        gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 5,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 20,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemCount: bookings.length,
+                        itemBuilder: (context, index) {
+                          final b = bookings[index];
+                          return GestureDetector(
+                            child: BookingCardWidget(booking: b),
+                          );
+                        },
+                      )
                     : Expanded(
                       child: SingleChildScrollView(
                         child: Column(

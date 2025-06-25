@@ -270,7 +270,7 @@ class DefaultController extends GetxController
         //   bookingController.fetchBookings('scheduled');
         //   break;
         case 3:
-          bookingController.fetchBookings('all');
+          bookingController.fetchBookings('unpaid');
       }
     });
   }

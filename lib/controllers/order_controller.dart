@@ -86,6 +86,14 @@ class OrderController extends GetxController {
             .lte('start_time', future);
       } else if (filterType == 'all') {
         query = query.inFilter('status', ['Booked', 'Cancelled', 'No Show']);
+      } else if (filterType == 'unpaid') {
+        // Filter by payment_status in the bookings table
+        query = query.neq('bookings.payment_status', 'Paid');
+      } else if (filterType == 'paid') {
+        // Add a new filter for paid bookings if needed
+        query = query
+            .eq('bookings.payment_status', 'Paid')
+            .eq('status', 'Booked');
       }
 
       final response = await query;
