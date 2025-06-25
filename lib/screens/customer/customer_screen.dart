@@ -22,12 +22,20 @@ class _CustomerScreenState extends State<CustomerScreen> {
   String? centerSlug;
   bool isLoading = true;
   String? selectedMembershipPlanId;
+  String? editingCustomerId;
+  TextEditingController editNameController = TextEditingController();
+  TextEditingController editMobileController = TextEditingController();
+  String? editMembershipPlanId;
+  List<Map<String, dynamic>> filteredCustomers = [];
 
   @override
   void initState() {
     super.initState();
     _loadCenterSlug();
-    customerController.fetchCustomerDetails();
+    customerController.fetchCustomerDetails().then((_) {
+      filteredCustomers = customerController.customers;
+      setState(() {});
+    });
     if (customerController.membershipPlans.isEmpty) {
       customerController.fetchMembershipPlanDetails();
     }
@@ -213,11 +221,13 @@ class _CustomerScreenState extends State<CustomerScreen> {
                   child: SizedBox(
                     height: MediaQuery.of(context).size.height - 200,
                     child: ListView.builder(
-                      itemCount: customerController.customers.length,
+                      itemCount: filteredCustomers.length,
                       shrinkWrap: true,
                       physics: const AlwaysScrollableScrollPhysics(),
                       itemBuilder: (context, index) {
-                        final customer = customerController.customers[index];
+                        final customer = filteredCustomers[index];
+                        final isEditing = editingCustomerId == customer['id'];
+
                         return Column(
                           children: [
                             Container(
@@ -231,29 +241,150 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                   // Name
                                   Expanded(
                                     child: Center(
-                                      child: Text(
-                                        customer['name'] ?? '',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey.shade900,
-                                        ),
-                                      ),
+                                      child:
+                                          isEditing
+                                              ? TextFormField(
+                                                controller: editNameController,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade900,
+                                                ),
+                                                decoration: InputDecoration(
+                                                  isDense:
+                                                      true, // trims vertical padding a bit
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 10,
+                                                      ),
+                                                  border: OutlineInputBorder(
+                                                    // default state
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                        // unfocused state
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color:
+                                                              Colors
+                                                                  .grey
+                                                                  .shade400,
+                                                          width: 1.2,
+                                                        ),
+                                                      ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                        // focused state
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .primary,
+                                                          width: 1.2,
+                                                        ),
+                                                      ),
+                                                ),
+                                                keyboardType:
+                                                    TextInputType.name,
+                                                maxLines: 1,
+                                              )
+                                              : Text(
+                                                customer['name'] ?? '',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade900,
+                                                ),
+                                              ),
                                     ),
                                   ),
+                                  SizedBox(width: 16),
                                   // Mobile
                                   Expanded(
                                     child: Center(
-                                      child: Text(
-                                        customer['mobile'] ?? '',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey.shade900,
-                                        ),
-                                      ),
+                                      child:
+                                          isEditing
+                                              ? TextFormField(
+                                                controller:
+                                                    editMobileController,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade900,
+                                                ),
+                                                decoration: InputDecoration(
+                                                  isDense:
+                                                      true, // trims vertical padding a bit
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 12,
+                                                        horizontal: 10,
+                                                      ),
+                                                  border: OutlineInputBorder(
+                                                    // default state
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                        // unfocused state
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color:
+                                                              Colors
+                                                                  .grey
+                                                                  .shade400,
+                                                          width: 1.2,
+                                                        ),
+                                                      ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                        // focused state
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
+                                                        borderSide: BorderSide(
+                                                          color:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .primary,
+                                                          width: 1.2,
+                                                        ),
+                                                      ),
+                                                ),
+                                                keyboardType:
+                                                    TextInputType.phone,
+                                                maxLines: 1,
+                                              )
+                                              : Text(
+                                                customer['mobile'] ?? '',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade900,
+                                                ),
+                                              ),
                                     ),
                                   ),
+
                                   // Total Bookings
                                   Expanded(
                                     child: Center(
@@ -270,14 +401,62 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                   // Membership
                                   Expanded(
                                     child: Center(
-                                      child: Text(
-                                        customer['membership'] ?? '',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 23,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.grey.shade900,
-                                        ),
-                                      ),
+                                      child:
+                                          isEditing
+                                              ? Obx(
+                                                () => DropdownButtonFormField<
+                                                  String
+                                                >(
+                                                  value: editMembershipPlanId,
+                                                  items:
+                                                      customerController
+                                                          .membershipPlans
+                                                          .map((plan) {
+                                                            return DropdownMenuItem<
+                                                              String
+                                                            >(
+                                                              value: plan['id'],
+                                                              child: Text(
+                                                                plan['name'] ??
+                                                                    '',
+                                                              ),
+                                                            );
+                                                          })
+                                                          .toList(),
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      editMembershipPlanId =
+                                                          value;
+                                                    });
+                                                  },
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 23,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Colors.grey.shade900,
+                                                  ),
+                                                  decoration: InputDecoration(
+                                                    border: OutlineInputBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
+                                                          ),
+                                                    ),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4,
+                                                        ),
+                                                  ),
+                                                ),
+                                              )
+                                              : Text(
+                                                customer['membership'] ?? '',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 23,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade900,
+                                                ),
+                                              ),
                                     ),
                                   ),
                                   // Total Spent
@@ -297,15 +476,61 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                   Expanded(
                                     child: Row(
                                       mainAxisAlignment:
-                                      MainAxisAlignment.center,
+                                          MainAxisAlignment.center,
                                       children: [
                                         IconButton(
                                           icon: Icon(
-                                            LucideIcons.edit,
+                                            isEditing
+                                                ? LucideIcons.save
+                                                : LucideIcons.edit,
                                             size: 28,
+                                            color:
+                                                isEditing ? Colors.green : null,
                                           ),
-                                          onPressed: () {
-                                            // Edit action
+                                          onPressed: () async {
+                                            if (isEditing) {
+                                              // Save logic
+                                              final updatedName =
+                                                  editNameController.text
+                                                      .trim();
+                                              final updatedMobile =
+                                                  editMobileController.text
+                                                      .trim();
+                                              final updatedMembershipPlanId =
+                                                  editMembershipPlanId;
+                                              // Call your update method (e.g., customerController.updateCustomer)
+                                              await customerController
+                                                  .updateCustomer(
+                                                    id: customer['id'],
+                                                    name: updatedName,
+                                                    mobile: updatedMobile,
+                                                    membershipPlanId:
+                                                        updatedMembershipPlanId,
+                                                  );
+                                              setState(() {
+                                                editingCustomerId = null;
+                                              });
+                                            } else {
+                                              // Enter edit mode
+                                              setState(() {
+                                                editingCustomerId =
+                                                    customer['id'];
+                                                editNameController.text =
+                                                    customer['name'] ?? '';
+                                                editMobileController.text =
+                                                    customer['mobile'] ?? '';
+                                                // Find the plan ID by matching the name
+                                                final plan = customerController
+                                                    .membershipPlans
+                                                    .firstWhereOrNull(
+                                                      (plan) =>
+                                                          plan['name'] ==
+                                                          customer['membership'],
+                                                    );
+                                                editMembershipPlanId =
+                                                    plan?['id'];
+                                              });
+                                            }
                                           },
                                         ),
                                         const SizedBox(width: 10),
@@ -321,7 +546,6 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                               context,
                                               customer['id'],
                                             );
-                                            //Navigator.pop(context);
                                           },
                                         ),
                                       ],
@@ -353,7 +577,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
 
         Expanded(
           child: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.3,
+            width: MediaQuery.of(context).size.width * 0.6,
             child: TextField(
               controller: _searchController,
               style: GoogleFonts.roboto(fontSize: 14),
@@ -387,22 +611,22 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 ),
                 isDense: true,
               ),
-              onChanged: (_) => setState(() {}),
+              onChanged: (_) => filterCustomers(),
             ),
           ),
         ),
         const SizedBox(width: 20),
 
-        Container(
-          height: 50,
-          width: 50,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: const Icon(LucideIcons.filter, size: 30),
-        ),
+        // Container(
+        //   height: 50,
+        //   width: 50,
+        //   decoration: BoxDecoration(
+        //     color: Colors.white,
+        //     borderRadius: BorderRadius.circular(12),
+        //     border: Border.all(color: Colors.grey.shade300),
+        //   ),
+        //   child: const Icon(LucideIcons.filter, size: 30),
+        // ),
         const SizedBox(width: 10),
         Container(
           height: 50,
@@ -581,21 +805,21 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                 ),
                               ),
                               items:
-                              customerController.membershipPlans.map((
-                                  plan,
+                                  customerController.membershipPlans.map((
+                                    plan,
                                   ) {
-                                return DropdownMenuItem<String>(
-                                  value: plan['id'],
-                                  child: Text(
-                                    plan['name'] ?? '',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w400,
-                                      color: Colors.grey.shade900,
-                                    ),
-                                  ),
-                                );
-                              }).toList(),
+                                    return DropdownMenuItem<String>(
+                                      value: plan['id'],
+                                      child: Text(
+                                        plan['name'] ?? '',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w400,
+                                          color: Colors.grey.shade900,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
                               onChanged: (value) {
                                 selectedMembershipPlanId = value;
                                 setState(() {});
@@ -633,11 +857,11 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                 child: ElevatedButton(
                                   onPressed: () async {
                                     final name =
-                                    customerController.nameController.text
-                                        .trim();
+                                        customerController.nameController.text
+                                            .trim();
                                     final mobile =
-                                    customerController.mobileController.text
-                                        .trim();
+                                        customerController.mobileController.text
+                                            .trim();
                                     final membershipId =
                                         selectedMembershipPlanId;
                                     if (name.isEmpty ||
@@ -656,10 +880,10 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                     }
                                     final success = await customerController
                                         .addCustomer(
-                                      firstName: name,
-                                      mobile: mobile,
-                                      membershipPlanId: membershipId,
-                                    );
+                                          firstName: name,
+                                          mobile: mobile,
+                                          membershipPlanId: membershipId,
+                                        );
                                     if (success) {
                                       ScaffoldMessenger.of(
                                         context,
@@ -733,208 +957,106 @@ class _CustomerScreenState extends State<CustomerScreen> {
       barrierDismissible: false,
       builder:
           (_) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        contentPadding: const EdgeInsets.all(20),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Delete Customer?',
-              style: GoogleFonts.inter(
-                fontSize: 23,
-                fontWeight: FontWeight.bold,
-              ),
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-            const SizedBox(height: 30),
-            Text(
-              'Are you sure \nyou want to delete this customer? \nThis action cannot be undone.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 22,
-                color: Colors.grey.shade500,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
+            contentPadding: const EdgeInsets.all(20),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey.shade100,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      minimumSize: Size.fromHeight(50),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                Text(
+                  'Delete Customer?',
+                  style: GoogleFonts.inter(
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await customerController.softDeleteCustomer(
-                        customerId,
-                      );
-                      Navigator.of(context).pop();
-                      setState(() {});
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade500,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      minimumSize: Size.fromHeight(50),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(
-                      'Delete',
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                const SizedBox(height: 30),
+                Text(
+                  'Are you sure \nyou want to delete this customer? \nThis action cannot be undone.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    color: Colors.grey.shade500,
                   ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade100,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: Size.fromHeight(50),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final navigator = Navigator.of(
+                            context,
+                          ); // capture before await
+                          await customerController.softDeleteCustomer(
+                            customerId,
+                          );
+                          if (mounted) {
+                            navigator.pop(); // safe to pop
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade500,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: const Size.fromHeight(50),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: Text(
+                          'Delete',
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
     );
   }
 
-// Widget _buildCustomerTable() {
-//   return StreamBuilder<List<Map<String, dynamic>>>(
-//     stream: supabase
-//         .schema('${centerSlug}_prod_schema')
-//         .from('customers')
-//         .stream(primaryKey: ['id'])
-//         //.eq('status', true)
-//         .map((data) => data as List<Map<String, dynamic>>),
-//     builder: (context, snapshot) {
-//       if (snapshot.connectionState == ConnectionState.waiting) {
-//         return const Center(child: CircularProgressIndicator());
-//       }
-//       if (snapshot.hasError) {
-//         return Center(child: Text("Error: ${snapshot.error}"));
-//       }
-
-//       List<Map<String, dynamic>> customers = snapshot.data ?? [];
-
-//       // Filter by search
-//       final searchText = _searchController.text.toLowerCase();
-//       if (searchText.isNotEmpty) {
-//         customers =
-//             customers.where((c) {
-//               final name =
-//                   "${c['first_name'] ?? ''} ${c['last_name'] ?? ''}"
-//                       .toLowerCase();
-//               return name.contains(searchText);
-//             }).toList();
-//       }
-
-//       return SingleChildScrollView(
-//         scrollDirection: Axis.vertical,
-//         child: Container(
-//           padding: EdgeInsets.all(20),
-//           width: MediaQuery.of(context).size.width / 1.06,
-//           child: DataTable(
-//             headingRowColor: MaterialStateProperty.all(Colors.black),
-//             headingTextStyle: GoogleFonts.inter(
-//               color: Colors.white,
-//               fontSize: 22,
-//               fontWeight: FontWeight.bold,
-//             ),
-//             columnSpacing: 32,
-//             headingRowHeight: 70,
-//             dataRowMinHeight: 50,
-//             dataRowMaxHeight: 65,
-//             columns: const [
-//               DataColumn(label: Text("Name")),
-//               DataColumn(label: Text("Mobile No.")),
-//               DataColumn(label: Text("Total Booking")),
-//               DataColumn(label: Text("Membership")),
-//               DataColumn(label: Text("Total Spent (\$)")),
-//               DataColumn(label: Text("Action")),
-//             ],
-//             rows:
-//                 customers.map((customer) {
-//                   final name =
-//                       "${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}";
-//                   final mobile = customer['mobile'] ?? '';
-//                   final membership = customer['membershipplan_id'] ?? '-';
-
-//                   return DataRow(
-//                     cells: [
-//                       DataCell(
-//                         Text(name, style: GoogleFonts.inter(fontSize: 22)),
-//                       ),
-//                       DataCell(
-//                         Text(mobile, style: GoogleFonts.inter(fontSize: 22)),
-//                       ),
-//                       DataCell(
-//                         Text("23", style: GoogleFonts.inter(fontSize: 22)),
-//                       ), // TODO: Replace with actual bookings
-//                       DataCell(
-//                         Text(
-//                           membership,
-//                           style: GoogleFonts.inter(fontSize: 22),
-//                         ),
-//                       ),
-//                       DataCell(
-//                         Text(
-//                           "\$7586.87",
-//                           style: GoogleFonts.inter(fontSize: 22),
-//                         ),
-//                       ), // TODO: Replace with actual total spent
-//                       DataCell(
-//                         Row(
-//                           children: [
-//                             IconButton(
-//                               icon: const Icon(Icons.edit, size: 28),
-//                               onPressed: () {
-//                                 // Edit action
-//                               },
-//                             ),
-//                             IconButton(
-//                               icon: const Icon(
-//                                 Icons.delete,
-//                                 color: Colors.red,
-//                                 size: 28,
-//                               ),
-//                               onPressed: () async {
-//                                 await supabase
-//                                     .schema('${centerSlug}_prod_schema')
-//                                     .from('customers')
-//                                     .delete()
-//                                     .eq('id', customer['id']);
-//                               },
-//                             ),
-//                           ],
-//                         ),
-//                       ),
-//                     ],
-//                   );
-//                 }).toList(),
-//           ),
-//         ),
-//       );
-//     },
-//   );
-
-// }
+  void filterCustomers() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      filteredCustomers = customerController.customers;
+    } else {
+      filteredCustomers =
+          customerController.customers.where((customer) {
+            final name = (customer['name'] ?? '').toLowerCase();
+            final mobile = (customer['mobile'] ?? '').toLowerCase();
+            return name.contains(query) || mobile.contains(query);
+          }).toList();
+    }
+    setState(() {});
+  }
 }

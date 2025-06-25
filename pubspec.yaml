@@ -58,7 +58,7 @@ dependencies:
   collection: ^1.18.0
   webview_flutter:
   flutter_inappwebview:
-  flutter_native_splash:
+ 
 
 dev_dependencies:
   flutter_test:

@@ -59,7 +59,7 @@ class CustomerController extends GetxController {
   Future<void> fetchMembershipPlanDetails() async {
     try {
       final response = await supabase
-      //.schema('${centerSlug}_prod_schema')
+          //.schema('${centerSlug}_prod_schema')
           .schema('s22_prod_schema')
           .from('membershipplan')
           .select('id, name')
@@ -154,19 +154,19 @@ class CustomerController extends GetxController {
   void onSortCustomerColumn(int columnIndex, bool ascending) {
     if (columnIndex == 0) {
       users.sort(
-            (item1, item2) =>
+        (item1, item2) =>
             compareString(ascending, item1.firstName, item2.firstName),
       );
       filteredUsers.sort(
-            (item1, item2) =>
+        (item1, item2) =>
             compareString(ascending, item1.firstName, item2.firstName),
       );
     } else if (columnIndex == 1) {
       users.sort(
-            (item1, item2) => compareString(ascending, item1.mobile, item2.mobile),
+        (item1, item2) => compareString(ascending, item1.mobile, item2.mobile),
       );
       filteredUsers.sort(
-            (item1, item2) => compareString(ascending, item1.mobile, item2.mobile),
+        (item1, item2) => compareString(ascending, item1.mobile, item2.mobile),
       );
     }
     sortColumnIndex = columnIndex;
@@ -193,12 +193,12 @@ class CustomerController extends GetxController {
 
     //Retrieve User Data
     final userResponse =
-    await supabase
-        .schema('${centerSlug}_prod_schema')
-        .from('customers')
-        .select()
-        .eq('id', userId!)
-        .single();
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('customers')
+            .select()
+            .eq('id', userId!)
+            .single();
 
     if (userResponse != null) {
       final userData = User.fromMap(userResponse);
@@ -288,9 +288,9 @@ class CustomerController extends GetxController {
             slotType: slot['slot_type'],
             repeatDays: slot['repeat_days'],
             repeatEnd:
-            slot['repeat_end'] != null
-                ? DateTime.parse(slot['repeat_end'])
-                : null,
+                slot['repeat_end'] != null
+                    ? DateTime.parse(slot['repeat_end'])
+                    : null,
             repeatId: slot['repeat_id'],
             repeatGroupId: slot['repeat_group_id'],
             paymentStatus: slot['payment_status'],
@@ -313,7 +313,7 @@ class CustomerController extends GetxController {
       isLoading.value = true;
 
       final response = await supabase
-      //.schema('${centerSlug}_prod_schema')
+          //.schema('${centerSlug}_prod_schema')
           .schema('s22_prod_schema')
           .from('customers')
           .select('''
@@ -337,26 +337,26 @@ class CustomerController extends GetxController {
       final data = response as List<dynamic>;
 
       final result =
-      data.map((customer) {
-        final bookingList = customer['bookings'] as List<dynamic>? ?? [];
-        final paymentList =
-            customer['booking_slots_payments'] as List<dynamic>? ?? [];
+          data.map((customer) {
+            final bookingList = customer['bookings'] as List<dynamic>? ?? [];
+            final paymentList =
+                customer['booking_slots_payments'] as List<dynamic>? ?? [];
 
-        final totalBookings = bookingList.length;
-        final totalSpent = paymentList.fold<double>(
-          0.0,
+            final totalBookings = bookingList.length;
+            final totalSpent = paymentList.fold<double>(
+              0.0,
               (sum, p) => sum + (p['paid_amount'] as num?)!.toDouble() ?? 0.0,
-        );
+            );
 
-        return {
-          'id': customer['id'],
-          'name': '${customer['first_name']}',
-          'mobile': customer['mobile'],
-          'membership': customer['membershipplan']?['name'] ?? 'N/A',
-          'totalBookings': totalBookings,
-          'totalSpent': totalSpent.toStringAsFixed(2),
-        };
-      }).toList();
+            return {
+              'id': customer['id'],
+              'name': '${customer['first_name']}',
+              'mobile': customer['mobile'],
+              'membership': customer['membershipplan']?['name'] ?? 'N/A',
+              'totalBookings': totalBookings,
+              'totalSpent': totalSpent.toStringAsFixed(2),
+            };
+          }).toList();
 
       customers.value = result;
     } catch (e) {
@@ -374,15 +374,15 @@ class CustomerController extends GetxController {
   }) async {
     try {
       await supabase
-      // .schema('${centerSlug}_prod_schema')
+          // .schema('${centerSlug}_prod_schema')
           .schema('s22_prod_schema')
           .from('customers')
           .insert({
-        'first_name': firstName,
-        'mobile': mobile,
-        'membershipplan_id': membershipPlanId,
-        'status': true,
-      });
+            'first_name': firstName,
+            'mobile': mobile,
+            'membershipplan_id': membershipPlanId,
+            'status': true,
+          });
       await fetchCustomerDetails();
       return true;
     } catch (e) {
@@ -395,7 +395,7 @@ class CustomerController extends GetxController {
   Future<void> softDeleteCustomer(String customerId) async {
     try {
       await supabase
-      // .schema('${centerSlug}_prod_schema')
+          // .schema('${centerSlug}_prod_schema')
           .schema('s22_prod_schema')
           .from('customers')
           .update({'status': false})
@@ -404,6 +404,34 @@ class CustomerController extends GetxController {
       await fetchCustomerDetails();
     } catch (e) {
       print('Error soft deleting customer: $e');
+    }
+  }
+
+  Future<bool> updateCustomer({
+    required String id,
+    String? name,
+    String? mobile,
+    String? membershipPlanId,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{};
+      if (name != null) updateData['first_name'] = name;
+      if (mobile != null) updateData['mobile'] = mobile;
+      if (membershipPlanId != null) updateData['membershipplan_id'] = membershipPlanId;
+
+      if (updateData.isEmpty) return false;
+
+      await supabase
+          .schema('s22_prod_schema')
+          .from('customers')
+          .update(updateData)
+          .eq('id', id);
+
+      await fetchCustomerDetails();
+      return true;
+    } catch (e) {
+      print('Error updating customer: $e');
+      return false;
     }
   }
   // // get booking slot details
@@ -587,13 +615,13 @@ class CustomerController extends GetxController {
     for (var id in selectedIds!) {
       //Booking Slot query
       QuerySnapshot bookingSlotsSnapshot =
-      await FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('bookingSlots')
-          .collection('bookingSlot')
-          .where('subBookingId', isEqualTo: id.toString())
-          .where('status', isEqualTo: 'Booked')
-          .get();
+          await FirebaseFirestore.instance
+              .collection(authController.centerSlug.toString())
+              .doc('bookingSlots')
+              .collection('bookingSlot')
+              .where('subBookingId', isEqualTo: id.toString())
+              .where('status', isEqualTo: 'Booked')
+              .get();
 
       //Store the booking slot in model
       for (DocumentSnapshot subDoc in bookingSlotsSnapshot.docs) {
@@ -621,7 +649,7 @@ class CustomerController extends GetxController {
           slotType: subDoc['slotType'],
           repeatDays: subDoc['repeatDays'],
           repeatEnd:
-          subDoc['repeatEnd'] != null ? subDoc['repeatEnd'].toDate() : null,
+              subDoc['repeatEnd'] != null ? subDoc['repeatEnd'].toDate() : null,
           repeatId: subDoc['repeatId'],
           repeatGroupId: subDoc['repeatGroupId'],
           paymentStatus: subDoc['paymentStatus'],
@@ -644,12 +672,12 @@ class CustomerController extends GetxController {
     try {
       for (var id in selectedIds!) {
         QuerySnapshot querySnapshot =
-        await FirebaseFirestore.instance
-            .collection(authController.centerSlug.toString())
-            .doc('bookingSlots')
-            .collection('bookingSlot')
-            .where('subBookingId', isEqualTo: id.toString())
-            .get();
+            await FirebaseFirestore.instance
+                .collection(authController.centerSlug.toString())
+                .doc('bookingSlots')
+                .collection('bookingSlot')
+                .where('subBookingId', isEqualTo: id.toString())
+                .get();
 
         List<Future<void>> updateFutures = [];
         for (DocumentSnapshot docSnapshot in querySnapshot.docs) {
@@ -688,12 +716,12 @@ class CustomerController extends GetxController {
     if (serviceName == null) {
       // Service name not found in cache, fetch it from Firestore
       DocumentSnapshot serviceDoc =
-      await FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('services')
-          .collection('service')
-          .doc(serviceId)
-          .get();
+          await FirebaseFirestore.instance
+              .collection(authController.centerSlug.toString())
+              .doc('services')
+              .collection('service')
+              .doc(serviceId)
+              .get();
       serviceName = serviceDoc['name'];
       prefs.setString(
         'service_$serviceId',
@@ -710,12 +738,12 @@ class CustomerController extends GetxController {
     if (courtName == null) {
       // Court name not found in cache, fetch it from Firestore
       DocumentSnapshot courtDoc =
-      await FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('courts')
-          .collection('court')
-          .doc(courtId)
-          .get();
+          await FirebaseFirestore.instance
+              .collection(authController.centerSlug.toString())
+              .doc('courts')
+              .collection('court')
+              .doc(courtId)
+              .get();
       courtName = courtDoc['name'];
       prefs.setString('court_$courtId', courtName!); // Cache the court name
     }
@@ -787,11 +815,11 @@ class CustomerController extends GetxController {
 
       //Insert user membership
       var docRef =
-      FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('userMemberships')
-          .collection('userMembership')
-          .doc();
+          FirebaseFirestore.instance
+              .collection(authController.centerSlug.toString())
+              .doc('userMemberships')
+              .collection('userMembership')
+              .doc();
 
       await docRef.set({
         'userId': userId.toString(),
@@ -823,21 +851,21 @@ class CustomerController extends GetxController {
     isLoading.value = true;
     currentPlan.clear();
     QuerySnapshot userMembershipSnapshot =
-    await FirebaseFirestore.instance
-        .collection(authController.centerSlug.toString())
-        .doc('userMemberships')
-        .collection('userMembership')
-        .where('status', isEqualTo: 'Active')
-        .where('userId', isEqualTo: userId.toString())
-        .get();
+        await FirebaseFirestore.instance
+            .collection(authController.centerSlug.toString())
+            .doc('userMemberships')
+            .collection('userMembership')
+            .where('status', isEqualTo: 'Active')
+            .where('userId', isEqualTo: userId.toString())
+            .get();
     if (userMembershipSnapshot.docs.isNotEmpty) {
       DocumentSnapshot membershipSnapshot =
-      await FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('membershipPlans')
-          .collection('membershipPlan')
-          .doc(userMembershipSnapshot.docs[0]['membershipPlanId'])
-          .get();
+          await FirebaseFirestore.instance
+              .collection(authController.centerSlug.toString())
+              .doc('membershipPlans')
+              .collection('membershipPlan')
+              .doc(userMembershipSnapshot.docs[0]['membershipPlanId'])
+              .get();
 
       DateTime created = userMembershipSnapshot.docs[0]['createdAt'].toDate();
       DateTime endDate = created.add(

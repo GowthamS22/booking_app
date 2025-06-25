@@ -132,10 +132,9 @@ Future<void> openExtendedbookingRightDrawer(
   required DateTime mergedEndTime,
   required VoidCallback onRefresh,
 }) async {
-
   final timeFormat = DateFormat('hh:mm a');
   final dateFormat = DateFormat('dd MMM yyyy');
-  final bookingEnded = isBookingEnded(booking.endTime);
+  final bookingEnded = isBookingEnded(mergedEndTime);
 
   final SimpleController simpleController = Get.put(SimpleController());
   simpleController.fetchOrder(bookingId: booking.bookingId);
@@ -161,55 +160,77 @@ Future<void> openExtendedbookingRightDrawer(
         final List<int> possibleDurations = [30, 60, 90, 120]; // Up to 4 hours
         final List<int> availableDurations = [];
 
-        final endTime = booking.endTime;
+        final endTime = mergedEndTime;
         if (endTime == null || bookingEnded) return availableDurations;
 
-        // Check each possible duration
+        // Helper: is slot booked by this booking
+        bool isSlotBookedByMe(DateTime checkTime) {
+          return controller.bookedSlots.any(
+            (b) =>
+                b.court == booking.court &&
+                b.startTime != null &&
+                b.startTime!.year == checkTime.year &&
+                b.startTime!.month == checkTime.month &&
+                b.startTime!.day == checkTime.day &&
+                b.startTime!.hour == checkTime.hour &&
+                b.startTime!.minute == checkTime.minute &&
+                b.bookingId == booking.bookingId,
+          );
+        }
+
+        // Helper: is slot booked by anyone
+        bool isSlotBookedByAnyone(DateTime checkTime) {
+          return controller.bookedSlots.any(
+            (b) =>
+                b.court == booking.court &&
+                b.startTime != null &&
+                b.startTime!.year == checkTime.year &&
+                b.startTime!.month == checkTime.month &&
+                b.startTime!.day == checkTime.day &&
+                b.startTime!.hour == checkTime.hour &&
+                b.startTime!.minute == checkTime.minute,
+          );
+        }
+
         for (int duration in possibleDurations) {
           bool isDurationAvailable = true;
+          final lastSlotStr =
+              controller.timeSlots.isNotEmpty
+                  ? controller.timeSlots.last
+                  : null;
 
-          // Check if this duration is available by checking each 30-minute slot
-          for (int i = 30; i <= duration; i += 30) {
+          for (int i = 0; i < duration; i += 30) {
             final checkTime = endTime.add(Duration(minutes: i));
             final checkTimeStr = DateFormat('HH:mm').format(checkTime);
 
-            bool isSlotValid =
-                controller.timeSlots.contains(checkTimeStr) &&
-                !_isSlotInPastForExtensionBooking(
-                  checkTimeStr,
-                  booking.date!,
-                  endTime,
-                );
+            bool isSlotValid = controller.timeSlots.contains(checkTimeStr);
+            // If this is the last slot, allow it even if the end time is not in the list
+            if (!isSlotValid &&
+                lastSlotStr != null &&
+                checkTimeStr == lastSlotStr &&
+                (i + 30 == duration)) {
+              isSlotValid = true;
+            }
 
             if (!isSlotValid) {
+              print('    Slot not valid, breaking.');
               isDurationAvailable = false;
               break;
             }
-            final isSlotBooked = controller.bookedSlots.any(
-              (b) =>
-                  b.court == booking.court &&
-                  b.startTime != null &&
-                  b.startTime!.year == checkTime.year &&
-                  b.startTime!.month == checkTime.month &&
-                  b.startTime!.day == checkTime.day &&
-                  b.startTime!.hour == checkTime.hour &&
-                  b.startTime!.minute == checkTime.minute,
-            );
-
-            if (isSlotBooked) {
-              isDurationAvailable = false;
-              break;
+            if (isSlotBookedByAnyone(checkTime)) {
+              if (!isSlotBookedByMe(checkTime)) {
+                isDurationAvailable = false;
+                break;
+              }
             }
           }
 
           if (isDurationAvailable) {
             availableDurations.add(duration);
           } else {
-            // If this duration is not available, stop checking longer durations
             break;
           }
         }
-
         return availableDurations;
       }
 
@@ -412,7 +433,10 @@ Future<void> openExtendedbookingRightDrawer(
                                 ),
                               ),
                               TextSpan(
-                                text: booking.endTime != null ? formatRemainingTime(booking.endTime!) : 'N/A',
+                                text:
+                                    mergedEndTime != null
+                                        ? formatRemainingTime(mergedEndTime)
+                                        : 'N/A',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   color: Colors.black,
@@ -424,46 +448,46 @@ Future<void> openExtendedbookingRightDrawer(
                           textAlign: TextAlign.center,
                         ),
                         if (!bookingEnded)
-                        GestureDetector(
-                          onTap: () {
-                            showNoShowDialog(
-                              context,
-                              booking.bookingId ?? '',
-                              controller,
-                              onRefresh: onRefresh,
-                            );
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade100,
-                              border: Border.all(color: Colors.red.shade300),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'No show',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 22,
-                                    color: Colors.red.shade500,
-                                    fontWeight: FontWeight.w600,
+                          GestureDetector(
+                            onTap: () {
+                              showNoShowDialog(
+                                context,
+                                booking.bookingId ?? '',
+                                controller,
+                                onRefresh: onRefresh,
+                              );
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                border: Border.all(color: Colors.red.shade300),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'No show',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      color: Colors.red.shade500,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(width: 6),
-                                Icon(
-                                  LucideIcons.userX,
-                                  color: Colors.red,
-                                  size: 23,
-                                ),
-                              ],
+                                  SizedBox(width: 6),
+                                  Icon(
+                                    LucideIcons.userX,
+                                    color: Colors.red,
+                                    size: 23,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     const Divider(height: 32),
@@ -574,9 +598,10 @@ Future<void> openExtendedbookingRightDrawer(
                             builder: (context, isAvailable, child) {
                               return isAvailable
                                   ? buildExtendTimeButtons()
-                                  : !bookingEnded ? TextButton(
+                                  : !bookingEnded
+                                  ? TextButton(
                                     onPressed: () {
-                                      final endTime = booking.endTime;
+                                      final endTime = mergedEndTime;
                                       if (endTime == null) {
                                         showCourtUnavailableDialog(
                                           context,
@@ -590,19 +615,27 @@ Future<void> openExtendedbookingRightDrawer(
                                         'HH:mm',
                                       ).format(nextCalculatedStartTime);
 
-                                      final nextPotentialSlotDateTime =
-                                          _parseTimeForExtension(
+                                      final lastSlotStr =
+                                          controller.timeSlots.isNotEmpty
+                                              ? controller.timeSlots.last
+                                              : null;
+                                      bool isNextSlotValidAndFuture = false;
+                                      // If the next slot is in the list, or if the current end time is the last slot (allow extension to end boundary)
+                                      if (controller.timeSlots.contains(
+                                        nextPotentialSlotStr,
+                                      )) {
+                                        isNextSlotValidAndFuture = true;
+                                      } else if (lastSlotStr != null &&
+                                          DateFormat('HH:mm').format(endTime) ==
+                                              lastSlotStr) {
+                                        // If the current end time is the last slot, allow extension
+                                        isNextSlotValidAndFuture = true;
+                                      }
+                                      isNextSlotValidAndFuture =
+                                          isNextSlotValidAndFuture &&
+                                          !_isSlotInPastForExtension(
                                             nextPotentialSlotStr,
                                             booking.date!,
-                                          );
-                                      bool isNextSlotValidAndFuture =
-                                          controller.timeSlots.contains(
-                                            nextPotentialSlotStr,
-                                          ) &&
-                                          !_isSlotInPastForExtensionBooking(
-                                            nextPotentialSlotStr,
-                                            booking.date!,
-                                            booking.endTime!,
                                           );
 
                                       if (!isNextSlotValidAndFuture) {
@@ -622,19 +655,19 @@ Future<void> openExtendedbookingRightDrawer(
                                                 b.startTime != null &&
                                                 // Compare the start time of booked slots with the the full DateTime of the next potential slot
                                                 b.startTime!.year ==
-                                                    nextPotentialSlotDateTime
+                                                    nextCalculatedStartTime
                                                         .year &&
                                                 b.startTime!.month ==
-                                                    nextPotentialSlotDateTime
+                                                    nextCalculatedStartTime
                                                         .month &&
                                                 b.startTime!.day ==
-                                                    nextPotentialSlotDateTime
+                                                    nextCalculatedStartTime
                                                         .day &&
                                                 b.startTime!.hour ==
-                                                    nextPotentialSlotDateTime
+                                                    nextCalculatedStartTime
                                                         .hour &&
                                                 b.startTime!.minute ==
-                                                    nextPotentialSlotDateTime
+                                                    nextCalculatedStartTime
                                                         .minute,
                                           );
                                       if (isNextSlotBooked) {
@@ -669,7 +702,8 @@ Future<void> openExtendedbookingRightDrawer(
                                         color: Colors.indigo.shade500,
                                       ),
                                     ),
-                                  ) : SizedBox.shrink();
+                                  )
+                                  : SizedBox.shrink();
                             },
                           ),
                         ],
@@ -678,8 +712,7 @@ Future<void> openExtendedbookingRightDrawer(
 
                     const SizedBox(height: 20),
 
-
-                    if(simpleController.order.value!=null)
+                    if (simpleController.order.value != null)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -701,7 +734,8 @@ Future<void> openExtendedbookingRightDrawer(
                           ),
                           const SizedBox(height: 20),
                           Obx(() {
-                            final cartItems = simpleController.order.value?.cartItems ?? [];
+                            final cartItems =
+                                simpleController.order.value?.cartItems ?? [];
 
                             return ListView.builder(
                               shrinkWrap: true,
@@ -710,13 +744,18 @@ Future<void> openExtendedbookingRightDrawer(
                               itemBuilder: (_, index) {
                                 final item = cartItems[index];
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                  ),
                                   child: Row(
                                     children: [
                                       Expanded(
                                         child: Text(
                                           item.product.name,
-                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -733,10 +772,13 @@ Future<void> openExtendedbookingRightDrawer(
                                         width: 150,
                                         child: Text(
                                           '\$${item.appliedPrice.toStringAsFixed(2)}',
-                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                           textAlign: TextAlign.right,
                                         ),
-                                      )
+                                      ),
                                     ],
                                   ),
                                 );
@@ -746,36 +788,35 @@ Future<void> openExtendedbookingRightDrawer(
                         ],
                       ),
 
-
                     Spacer(),
                     if (!bookingEnded)
-                    ElevatedButton(
-                      onPressed: () {
-                        showCancelDialog(
-                          context,
-                          booking.bookingId ?? '',
-                          controller as NewBookingController,
-                          onRefresh: onRefresh,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade50,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 60),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.red.shade300),
+                      ElevatedButton(
+                        onPressed: () {
+                          showCancelDialog(
+                            context,
+                            booking.bookingId ?? '',
+                            controller as NewBookingController,
+                            onRefresh: onRefresh,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade50,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 60),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                        ),
+                        child: Text(
+                          "Cancel Booking",
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            color: Colors.red.shade500,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        "Cancel Booking",
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.red.shade500,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -899,7 +940,7 @@ void showCancelDialog(
 void showNoShowDialog(
   BuildContext context,
   String bookingId,
-  NewBookingController controller,{
+  NewBookingController controller, {
   required VoidCallback onRefresh,
 }) {
   showDialog(
