@@ -534,7 +534,6 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                 List<dynamic> jsonList = jsonDecode(value['booking']['bcart_items']);
                                                 List<BookingInfo> bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
 
-
                                                 Get.to(CheckoutScreen(
                                                   type: 'ExistingBooking',
                                                   customerName: booking.customerName!,
@@ -546,6 +545,9 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                   membershipName: '',
                                                   isMembershipApplied: false,
                                                   membershipPrice: 0,
+                                                  exbookingId: bookingData.id,
+                                                  exorderId: orderData!=null ? orderData.id: null,
+                                                  exuserId: userData['id'],
                                                 ));
 
                                               }

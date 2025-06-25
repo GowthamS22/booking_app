@@ -296,6 +296,122 @@ class CheckoutController extends GetxController {
     }
   }
 
+  Future<void> makeBookingPayment({
+    String? bookingId,
+    String? orderId,
+    String? userId,
+    String? notes,
+    String? promoCode,
+    String? paymentType,
+    double? paid,
+    double? balance,
+    bool printReceipt = false,
+  }) async {
+    try {
+
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+
+      // Insert Payment
+      final paymentResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_payments')
+          .insert({
+            'booking_id': bookingId,
+            'customer_id': userId,
+            'total': grandtotalPrice,
+            'paid_amount': paid,
+            'payment_type': paymentType,
+            'payment_via': 'APP',
+            'payment_response': '',
+            'status': true,
+            'notes': notes,
+            'created_by': authController.userId.toString(),
+            'updated_by': authController.userId.toString(),
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .select()
+          .single();
+
+      final paymentInserted = paymentResponse['id'];
+
+      try {
+
+        final bookingSlotsResponse = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('booking_slots')
+            .select('*')
+            .eq('booking_id', bookingId!);
+
+        // Insert booking slots and payments in a loop
+        if (bookingSlotsResponse != null && bookingSlotsResponse.isNotEmpty) {
+          for (final slot in bookingSlotsResponse) {
+            print('Inserting payment for slot ${slot['id']}');
+            //Example data — customize as needed
+            final response = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('booking_slots_payments')
+                .insert({
+                  'booking_payments_id': paymentInserted,
+                  'booking_slots_id': slot['id'],
+                  'booking_id': bookingId!,
+                  'customer_id': userId,
+                  'payment_type': paymentType,
+                  'payment_via': 'APP',
+                  'payment_response': '',
+                  'total': slot['price'],
+                  'paid_amount': slot['price'],
+                  'status': 'paid',
+                  'created_by': authController.userId.toString(),
+                  'updated_by': authController.userId.toString(),
+                  'created_at': DateTime.now().toIso8601String(),
+                  'updated_at': DateTime.now().toIso8601String(),
+                });
+
+            if (response != null) {
+              print('Successfully inserted payment for slot ${slot['id']}');
+            } else {
+              print('Insert returned null for slot ${slot['id']}');
+            }
+          }
+        }
+
+        final bookingUpdate = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('bookings')
+            .update({
+              'notes': notes,
+              'payment_type': paymentType,
+              'payment_status': 'Paid',
+              'status': 'Booked',
+            })
+            .eq('id', bookingId!);
+
+      } catch (e) {
+        print('❌ Main error: $e');
+      }
+
+      if(printReceipt==true) {
+        await printBookingReceipt(bookingId: bookingId!);
+      }
+
+      newBookingController.cartItems.clear();
+      newBookingController.clearSelectedSlots();
+
+      showBookingSuccessAlert();
+
+      isLoading.value = false;
+      update();
+
+      Future.delayed(Duration(seconds: 1), () => Get.offAllNamed('/'));
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      rethrow;
+    }
+  }
+
   double get membershipAmount {
     double val =
         customerController.selectedPlan.length > 0
@@ -994,117 +1110,6 @@ class CheckoutController extends GetxController {
       rethrow;
     } finally {
       isProcessingPayment.value = false;
-    }
-  }
-
-
-
-  Future<void> makeBookingPayment({
-    String? userId,
-    String? subBookingId,
-    String? paymentType,
-    String? promoCode,
-    String? notes,
-    double? paid,
-    double? balance,
-    List<BookingSlot>? bookingSlots,
-  }) async {
-    try {
-      if (paymentType == 'EFTPOS') {
-        // Process EFTPOS payment
-        await processTyroPayment(
-          amount: paid!,
-          reference: bookingSlots?.first.bookingId ?? '',
-          description: 'Booking payment for ${bookingSlots?.length ?? 0} slots',
-        );
-      }
-
-      // Continue with existing payment processing
-      //Insert Booking Payment Details
-      var paymentdocRef =
-          FirebaseFirestore.instance
-              .collection(authController.centerSlug.toString())
-              .doc('bookingPayments')
-              .collection('bookingPayment')
-              .doc();
-      await paymentdocRef.set({
-        'userId': userId,
-        'date': DateTime.now(),
-        'paymentType': paymentType,
-        'paymentVia': 'APP',
-        'subTotal': subTotal,
-        'discount': discount.value,
-        'gst': gstPrice,
-        'total': grandtotalPrice,
-        'paidAmount': paid,
-        'balance': balance,
-        'status': true,
-        'notes': notes.toString(),
-        'createdBy': authController.userId.toString(),
-        'updatedBy': authController.userId.toString(),
-        'createdAt': DateTime.now(),
-        'updatedAt': DateTime.now(),
-      });
-
-      // Update Booking Slots
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-      WriteBatch paymentBatch = FirebaseFirestore.instance.batch();
-      for (var slot in bookingSlots!) {
-        //Update Booking Slot Status
-        DocumentReference docRef = FirebaseFirestore.instance
-            .collection(authController.centerSlug.toString())
-            .doc('bookingSlots')
-            .collection('bookingSlot')
-            .doc(slot.id);
-        batch.update(docRef, {
-          'paymentStatus': 'Paid',
-          'status': 'Booked',
-          'updatedBy': authController.userId.toString(),
-          'updatedAt': FieldValue.serverTimestamp(), // Use serverTimestamp()
-        });
-
-        //Insert Booking Slot Payment
-        DocumentReference slotPaymentRef =
-            await FirebaseFirestore.instance
-                .collection(authController.centerSlug.toString())
-                .doc('bookingSlotPayments')
-                .collection('bookingSlotPayment')
-                .doc();
-        paymentBatch.set(slotPaymentRef, {
-          'bookingPaymentId': paymentdocRef.id,
-          'bookingId': slot.bookingId,
-          'subBookingId': slot.subBookingId,
-          'paymentType': paymentType,
-          'total': slot.price,
-          'paidAmount': slot.price,
-          'balance': 0,
-          'status': true,
-          'createdBy': authController.userId.toString(),
-          'updatedBy': authController.userId.toString(),
-          'createdAt': FieldValue.serverTimestamp(), // Use serverTimestamp()
-          'updatedAt': FieldValue.serverTimestamp(), // Use serverTimestamp()
-        });
-      }
-      await batch.commit();
-      await paymentBatch.commit();
-
-      // Print Receipt
-      printReceipt(bookingSlotItems: bookingSlots);
-
-      // Status Alert
-      showPaymentSuccessAlert();
-
-      // Update the Page
-      isLoading.value = false;
-      update();
-
-      // Redirect
-      Future.delayed(Duration(seconds: 1), () {
-        Get.offAllNamed('/');
-      });
-    } catch (e) {
-      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
-      rethrow;
     }
   }
 

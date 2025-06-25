@@ -31,6 +31,9 @@ class CheckoutScreen extends StatefulWidget {
   final String? membershipName;
   final bool? isMembershipApplied;
   final double? membershipPrice;
+  final String? exbookingId;
+  final String? exorderId;
+  final String? exuserId;
   CheckoutScreen({
     Key? key,
     required this.type,
@@ -43,6 +46,9 @@ class CheckoutScreen extends StatefulWidget {
     required this.membershipName,
     required this.isMembershipApplied,
     required this.membershipPrice,
+    this.exbookingId,
+    this.exorderId,
+    this.exuserId
   }) : super(key: key);
 
   @override
@@ -1255,15 +1261,95 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         try {
                                           // Continue with existing payment processing
                                           if (widget.type == 'ExistingBooking') {
-                                            populateCartWithSubSlots(widget.bookings,);
-                                            await checkoutController.makeBookingPayment(
-                                                  bookingSlots: defaultController.actionBookingSlots.where((slot) => slot.paymentStatus != "Paid",).toList(),
+
+                                            final prefs = await SharedPreferences.getInstance();
+                                            String? paymentDevices = prefs.getString('paymentDevices');
+                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
+
+                                            double? itemSubTotal  = cartItemsTotal;
+                                            double? itemTotal     = cartItemsTotal - discountAmount;
+                                            double? bookingTotal  = widget.billAmount - itemTotal;
+                                            double? overallTotal  = itemTotal + bookingTotal;
+
+                                            if (selectedMethod == 'EFTPOS') {
+                                              final total = overallTotal;
+                                              await paymentController.processPayment(
+                                                context: context,
+                                                amount: total.toDouble(),
+                                                reference: controller.bookingId,
+                                                apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                                merchantId: paymentDeviceData['merchant_id'],
+                                                terminalId: paymentDeviceData['terminal_id'],
+                                                integrationKey: paymentDeviceData['integration_key'],
+                                                posProductVendor: paymentDeviceData['product_vendor'],
+                                                posProductName: paymentDeviceData['product_name'],
+                                                posProductVersion: paymentDeviceData['product_version'],
+                                                ).then((value) async {
+
+                                                await checkoutController.makeBookingPayment(
+                                                  bookingId: widget.exbookingId,
+                                                  orderId: widget.exorderId,
+                                                  userId: widget.exuserId,
                                                   paymentType: selectedMethod,
                                                   promoCode: promoCodeController.text,
                                                   notes: notesController.text,
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
+                                                  printReceipt: widget.exorderId != null ? false : true,
                                                 );
+
+                                                if(widget.exorderId!=null && widget.exorderId!='') {
+                                                  checkoutController.productsPayment(
+                                                    order_id: widget.exorderId,
+                                                    price: itemSubTotal,
+                                                    taxes: (itemTotal) * 0.1,
+                                                    surcharge: 0,
+                                                    discount: discountAmount,
+                                                    billAmount: itemTotal,
+                                                    paidAmount: totalPaid,
+                                                    balanceAmount: double.parse(balanceAmountController.text,),
+                                                    paymentType: selectedMethod,
+                                                    paymentNotes: notesController.text,
+                                                    receiptToggle: receiptToggle,
+                                                    printBoth: true,
+                                                  );
+                                                }
+
+                                              });
+                                            }  else {
+
+                                              await checkoutController.makeBookingPayment(
+                                                bookingId: widget.exbookingId,
+                                                orderId: widget.exorderId,
+                                                userId: widget.exuserId,
+                                                paymentType: selectedMethod,
+                                                promoCode: promoCodeController.text,
+                                                notes: notesController.text,
+                                                paid: totalPaid,
+                                                balance: double.parse(balanceAmountController.text,),
+                                                printReceipt: widget.exorderId != null ? false : true,
+                                              );
+
+                                              if(widget.exorderId!=null && widget.exorderId!='') {
+                                                checkoutController.productsPayment(
+                                                  order_id: widget.exorderId,
+                                                  price: itemSubTotal,
+                                                  taxes: (itemTotal) * 0.1,
+                                                  surcharge: 0,
+                                                  discount: discountAmount,
+                                                  billAmount: itemTotal,
+                                                  paidAmount: totalPaid,
+                                                  balanceAmount: double.parse(balanceAmountController.text,),
+                                                  paymentType: selectedMethod,
+                                                  paymentNotes: notesController.text,
+                                                  receiptToggle: receiptToggle,
+                                                  printBoth: true,
+                                                );
+                                              }
+
+                                            }
+
+
                                           } else if (widget.type == 'New') {
 
                                             final prefs = await SharedPreferences.getInstance();
