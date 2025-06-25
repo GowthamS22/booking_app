@@ -531,13 +531,17 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                   await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
                                                 }
 
+                                                List<dynamic> jsonList = jsonDecode(value['booking']['bcart_items']);
+                                                List<BookingInfo> bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
+
+
                                                 Get.to(CheckoutScreen(
-                                                  type: 'Existing',
+                                                  type: 'ExistingBooking',
                                                   customerName: booking.customerName!,
                                                   mobileno: booking.customerMobile!,
                                                   selectedDateTime: DateTime.now(),
                                                   billAmount: totalAmount,
-                                                  bookings: [],
+                                                  bookings: bookings,
                                                   membershipID: '',
                                                   membershipName: '',
                                                   isMembershipApplied: false,

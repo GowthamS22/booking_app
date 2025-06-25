@@ -303,6 +303,30 @@ class BookingInfo {
     required this.bookingId,
     required this.subSlots,
   });
+
+  factory BookingInfo.fromJson(Map<String, dynamic> json) {
+    return BookingInfo(
+      courtName: json['courtName'],
+      selectedDateTime: DateTime.parse(json['selectedDateTime']),
+      selectedDays: List<String>.from(json['selectedDays'] ?? []),
+      repeatUntil: json['repeatUntil'] != null ? DateTime.parse(json['repeatUntil']) : null,
+      sameLikeAbove: json['sameLikeAbove'] ?? false,
+      bookingId: json['bookingId'],
+      subSlots: (json['subSlots'] as List)
+          .map((slotJson) => BookingSubSlotInfo.fromJson(slotJson))
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'courtName': courtName,
+    'selectedDateTime': selectedDateTime.toIso8601String(),
+    'selectedDays': selectedDays,
+    'repeatUntil': repeatUntil?.toIso8601String(),
+    'sameLikeAbove': sameLikeAbove,
+    'bookingId': bookingId,
+    'subSlots': subSlots.map((s) => s.toJson()).toList(),
+  };
 }
 
 class BookingSubSlotInfo {
@@ -317,4 +341,54 @@ class BookingSubSlotInfo {
     required this.price,
     required this.isPeak,
   });
+
+  factory BookingSubSlotInfo.fromJson(Map<String, dynamic> json) {
+    return BookingSubSlotInfo(
+      startTime: json['startTime'],
+      endTime: json['endTime'],
+      price: (json['price'] as num).toDouble(),
+      isPeak: json['isPeak'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'startTime': startTime,
+    'endTime': endTime,
+    'price': price,
+    'isPeak': isPeak,
+  };
 }
+
+// class BookingInfo {
+//   final String courtName;
+//   final DateTime selectedDateTime;
+//   List<String> selectedDays;
+//   DateTime? repeatUntil;
+//   bool sameLikeAbove;
+//   String bookingId;
+//   final List<BookingSubSlotInfo> subSlots;
+//
+//   BookingInfo({
+//     required this.courtName,
+//     required this.selectedDateTime,
+//     this.selectedDays = const [],
+//     this.repeatUntil,
+//     this.sameLikeAbove = false,
+//     required this.bookingId,
+//     required this.subSlots,
+//   });
+// }
+//
+// class BookingSubSlotInfo {
+//   final String startTime;
+//   final String endTime;
+//   final double price;
+//   final bool isPeak;
+//
+//   BookingSubSlotInfo({
+//     required this.startTime,
+//     required this.endTime,
+//     required this.price,
+//     required this.isPeak,
+//   });
+// }

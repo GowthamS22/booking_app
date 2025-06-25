@@ -1780,7 +1780,7 @@ class NewBookingController extends GetxController {
                 'updated_by': authController.userId.toString(),
                 'created_at': DateTime.now().toIso8601String(),
                 'updated_at': DateTime.now().toIso8601String(),
-                'bcart_items': jsonEncode(bookings),
+                'bcart_items': jsonEncode(bookings?.map((b) => b.toJson()).toList()),
                 // 'deleted_at':null,
                 // 'deleted_by':authController.userId
               })
