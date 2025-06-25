@@ -817,123 +817,124 @@ class _CustomerScreenState extends State<CustomerScreen> {
     );
   }
 
-  Widget _buildCustomerTable() {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: supabase
-          .schema('${centerSlug}_prod_schema')
-          .from('customers')
-          .stream(primaryKey: ['id'])
-          //.eq('status', true)
-          .map((data) => data as List<Map<String, dynamic>>),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text("Error: ${snapshot.error}"));
-        }
+  // Widget _buildCustomerTable() {
+  //   return StreamBuilder<List<Map<String, dynamic>>>(
+  //     stream: supabase
+  //         .schema('${centerSlug}_prod_schema')
+  //         .from('customers')
+  //         .stream(primaryKey: ['id'])
+  //         //.eq('status', true)
+  //         .map((data) => data as List<Map<String, dynamic>>),
+  //     builder: (context, snapshot) {
+  //       if (snapshot.connectionState == ConnectionState.waiting) {
+  //         return const Center(child: CircularProgressIndicator());
+  //       }
+  //       if (snapshot.hasError) {
+  //         return Center(child: Text("Error: ${snapshot.error}"));
+  //       }
 
-        List<Map<String, dynamic>> customers = snapshot.data ?? [];
+  //       List<Map<String, dynamic>> customers = snapshot.data ?? [];
 
-        // Filter by search
-        final searchText = _searchController.text.toLowerCase();
-        if (searchText.isNotEmpty) {
-          customers =
-              customers.where((c) {
-                final name =
-                    "${c['first_name'] ?? ''} ${c['last_name'] ?? ''}"
-                        .toLowerCase();
-                return name.contains(searchText);
-              }).toList();
-        }
+  //       // Filter by search
+  //       final searchText = _searchController.text.toLowerCase();
+  //       if (searchText.isNotEmpty) {
+  //         customers =
+  //             customers.where((c) {
+  //               final name =
+  //                   "${c['first_name'] ?? ''} ${c['last_name'] ?? ''}"
+  //                       .toLowerCase();
+  //               return name.contains(searchText);
+  //             }).toList();
+  //       }
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: Container(
-            padding: EdgeInsets.all(20),
-            width: MediaQuery.of(context).size.width / 1.06,
-            child: DataTable(
-              headingRowColor: MaterialStateProperty.all(Colors.black),
-              headingTextStyle: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-              columnSpacing: 32,
-              headingRowHeight: 70,
-              dataRowMinHeight: 50,
-              dataRowMaxHeight: 65,
-              columns: const [
-                DataColumn(label: Text("Name")),
-                DataColumn(label: Text("Mobile No.")),
-                DataColumn(label: Text("Total Booking")),
-                DataColumn(label: Text("Membership")),
-                DataColumn(label: Text("Total Spent (\$)")),
-                DataColumn(label: Text("Action")),
-              ],
-              rows:
-                  customers.map((customer) {
-                    final name =
-                        "${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}";
-                    final mobile = customer['mobile'] ?? '';
-                    final membership = customer['membershipplan_id'] ?? '-';
+  //       return SingleChildScrollView(
+  //         scrollDirection: Axis.vertical,
+  //         child: Container(
+  //           padding: EdgeInsets.all(20),
+  //           width: MediaQuery.of(context).size.width / 1.06,
+  //           child: DataTable(
+  //             headingRowColor: MaterialStateProperty.all(Colors.black),
+  //             headingTextStyle: GoogleFonts.inter(
+  //               color: Colors.white,
+  //               fontSize: 22,
+  //               fontWeight: FontWeight.bold,
+  //             ),
+  //             columnSpacing: 32,
+  //             headingRowHeight: 70,
+  //             dataRowMinHeight: 50,
+  //             dataRowMaxHeight: 65,
+  //             columns: const [
+  //               DataColumn(label: Text("Name")),
+  //               DataColumn(label: Text("Mobile No.")),
+  //               DataColumn(label: Text("Total Booking")),
+  //               DataColumn(label: Text("Membership")),
+  //               DataColumn(label: Text("Total Spent (\$)")),
+  //               DataColumn(label: Text("Action")),
+  //             ],
+  //             rows:
+  //                 customers.map((customer) {
+  //                   final name =
+  //                       "${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}";
+  //                   final mobile = customer['mobile'] ?? '';
+  //                   final membership = customer['membershipplan_id'] ?? '-';
 
-                    return DataRow(
-                      cells: [
-                        DataCell(
-                          Text(name, style: GoogleFonts.inter(fontSize: 22)),
-                        ),
-                        DataCell(
-                          Text(mobile, style: GoogleFonts.inter(fontSize: 22)),
-                        ),
-                        DataCell(
-                          Text("23", style: GoogleFonts.inter(fontSize: 22)),
-                        ), // TODO: Replace with actual bookings
-                        DataCell(
-                          Text(
-                            membership,
-                            style: GoogleFonts.inter(fontSize: 22),
-                          ),
-                        ),
-                        DataCell(
-                          Text(
-                            "\$7586.87",
-                            style: GoogleFonts.inter(fontSize: 22),
-                          ),
-                        ), // TODO: Replace with actual total spent
-                        DataCell(
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 28),
-                                onPressed: () {
-                                  // Edit action
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                  size: 28,
-                                ),
-                                onPressed: () async {
-                                  await supabase
-                                      .schema('${centerSlug}_prod_schema')
-                                      .from('customers')
-                                      .delete()
-                                      .eq('id', customer['id']);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  //                   return DataRow(
+  //                     cells: [
+  //                       DataCell(
+  //                         Text(name, style: GoogleFonts.inter(fontSize: 22)),
+  //                       ),
+  //                       DataCell(
+  //                         Text(mobile, style: GoogleFonts.inter(fontSize: 22)),
+  //                       ),
+  //                       DataCell(
+  //                         Text("23", style: GoogleFonts.inter(fontSize: 22)),
+  //                       ), // TODO: Replace with actual bookings
+  //                       DataCell(
+  //                         Text(
+  //                           membership,
+  //                           style: GoogleFonts.inter(fontSize: 22),
+  //                         ),
+  //                       ),
+  //                       DataCell(
+  //                         Text(
+  //                           "\$7586.87",
+  //                           style: GoogleFonts.inter(fontSize: 22),
+  //                         ),
+  //                       ), // TODO: Replace with actual total spent
+  //                       DataCell(
+  //                         Row(
+  //                           children: [
+  //                             IconButton(
+  //                               icon: const Icon(Icons.edit, size: 28),
+  //                               onPressed: () {
+  //                                 // Edit action
+  //                               },
+  //                             ),
+  //                             IconButton(
+  //                               icon: const Icon(
+  //                                 Icons.delete,
+  //                                 color: Colors.red,
+  //                                 size: 28,
+  //                               ),
+  //                               onPressed: () async {
+  //                                 await supabase
+  //                                     .schema('${centerSlug}_prod_schema')
+  //                                     .from('customers')
+  //                                     .delete()
+  //                                     .eq('id', customer['id']);
+  //                               },
+  //                             ),
+  //                           ],
+  //                         ),
+  //                       ),
+  //                     ],
+  //                   );
+  //                 }).toList(),
+  //           ),
+  //         ),
+  //       );
+  //     },
+  //   );
+
+  // }
 }
