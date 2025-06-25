@@ -1,9 +1,18 @@
+import 'dart:convert';
+
 import 'package:booking_app/config/constants.dart';
+import 'package:booking_app/controllers/new_booking_controller.dart';
 import 'package:booking_app/controllers/order_controller.dart';
+import 'package:booking_app/models/booking_model.dart';
+import 'package:booking_app/models/booking_with_all.dart';
+import 'package:booking_app/models/order.dart';
+import 'package:booking_app/models/user.dart';
+import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PendingPayment extends StatefulWidget {
   const PendingPayment({Key? key}) : super(key: key);
@@ -14,6 +23,7 @@ class PendingPayment extends StatefulWidget {
 
 class _PendingPaymentState extends State<PendingPayment> {
   final OrderController bookingController = Get.put(OrderController());
+  final NewBookingController newBookingController = Get.find<NewBookingController>();
   bool isGridView = false;
   String selectedFilter = 'All';
   final List<String> filterOptions = [
@@ -503,10 +513,39 @@ class _PendingPaymentState extends State<PendingPayment> {
                                           ),
                                         ),
                                         ElevatedButton(
-                                          onPressed: () {
+                                          onPressed: () async {
 
-                                            
 
+
+                                            final prefs = await SharedPreferences.getInstance();
+                                            await prefs.remove('shopping_cart');
+                                            await bookingController.getBookingInfo(bookingNo: booking.bookingNo).then((value) async {
+
+                                              if (value != null) {
+                                                final bookingData = BookingWithAll.fromJson(value['booking']);
+                                                final orderData   = value['order'] != null ? Orders.fromJson(value['order']) : value['order'];
+                                                final userData    = value['customer'];
+                                                double totalAmount = (bookingData.grandTotal ?? 0) + (orderData!=null ? double.parse(value['order']['total'].toString()) ?? 0 : 0);
+
+                                                if(orderData!=null) {
+                                                  await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
+                                                }
+
+                                                Get.to(CheckoutScreen(
+                                                  type: 'Existing',
+                                                  customerName: booking.customerName!,
+                                                  mobileno: booking.customerMobile!,
+                                                  selectedDateTime: DateTime.now(),
+                                                  billAmount: totalAmount,
+                                                  bookings: [],
+                                                  membershipID: '',
+                                                  membershipName: '',
+                                                  isMembershipApplied: false,
+                                                  membershipPrice: 0,
+                                                ));
+
+                                              }
+                                            },);
                                           },
                                           child: Text('Pay',style: TextStyle(fontSize: 25, color: Colors.white),),
                                           style: ElevatedButton.styleFrom(

@@ -3,6 +3,8 @@ import 'dart:ffi';
 import 'dart:math';
 import 'dart:async';
 
+import 'package:booking_app/controllers/cart_controller.dart';
+import 'package:booking_app/controllers/checkout_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -23,6 +25,9 @@ import 'package:booking_app/screens/checkout/checkout_screen.dart';
 
 class NewBookingController extends GetxController {
   final supabase = Supabase.instance.client;
+
+  final CartController cartController = Get.find<CartController>();
+
   RxBool isLoading = false.obs;
   RxBool checkout = false.obs;
   RxBool paymentProcess = false.obs;
@@ -269,12 +274,16 @@ class NewBookingController extends GetxController {
   }
 
   Future<void> getUserDatabyMobile(String mobile) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
     currentPlan.clear();
     try {
       // Step 1: Get user by mobile
       final userResponse =
           await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('customers')
               .select()
               .eq('mobile', mobile)
@@ -1338,55 +1347,34 @@ class NewBookingController extends GetxController {
     String? aboutus,
     BuildContext? context,
   }) async {
-    try {
-      final response =
-          await supabase
-              .schema('s22_prod_schema')
-              .from('customers')
-              .insert({
-                'user_id': null,
-                'email': email,
-                'first_name': firstName,
-                'last_name': lastName,
-                'address': address,
-                'mobile': mobile,
-                'postcode': postcode,
-                'password': password,
-                'aboutus': aboutus,
-                'date_of_birth': null,
-                'city': '',
-                'state': '',
-                'country': '',
-                'profile_picture': '',
-                'status': false,
-                'created_at': DateTime.now().toIso8601String(),
-              })
-              .select()
-              .single();
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    isLoading.value = true;
 
-      if (response != null) {
-        userData.value = User(
-          id: response['id'],
-          email: response['email'],
-          firstName: response['first_name'],
-          lastName: response['last_name'],
-          address: response['address'],
-          mobile: response['mobile'],
-          postcode: response['postcode'],
-          password: response['password'],
-          aboutus: response['aboutus'],
-          dateOfBirth: null,
-          city: response['city'],
-          state: response['state'],
-          country: response['country'],
-          imageUrl: response['profile_picture'],
-          status: response['status'],
-          createdAt: DateTime.parse(response['created_at']),
+    print(firstName);
+    print(mobile);
+
+    try {
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .insert({
+            'first_name': firstName,
+            'mobile': mobile,
+            'status': true,
+          })
+          .select('*')
+          .single();
+      if (response['id'] != null) {
+        userData.value.id = response['id'];
+        showCustomSnackbar(
+          'Success',
+          'User registered successfully',
+          Colors.green,
         );
       }
     } catch (e) {
-      print("error : $e");
-      showCustomSnackbar('Failed', '$e', Colors.red);
+      showCustomSnackbar('Error', e.toString(), Colors.red);
     } finally {
       isLoading.value = false;
     }
@@ -1746,6 +1734,7 @@ class NewBookingController extends GetxController {
     String? promoCode,
     String? paymentType,
     String? bookingId,
+    List<BookingInfo>? bookings,
   }) async {
 
     final SharedPreferences preferences = await SharedPreferences.getInstance();
@@ -1771,8 +1760,7 @@ class NewBookingController extends GetxController {
       // Step 3: Insert booking record
       print('cartItems before booking insert: $cartItems');
 
-      final bookingInsertResponse =
-          await supabase
+      final bookingInsertResponse = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('bookings')
               .insert({
@@ -1792,6 +1780,7 @@ class NewBookingController extends GetxController {
                 'updated_by': authController.userId.toString(),
                 'created_at': DateTime.now().toIso8601String(),
                 'updated_at': DateTime.now().toIso8601String(),
+                'bcart_items': jsonEncode(bookings),
                 // 'deleted_at':null,
                 // 'deleted_by':authController.userId
               })
@@ -1835,9 +1824,28 @@ class NewBookingController extends GetxController {
         print('Error inserting booking slots: $error');
       }
 
+      String? orderId = '';
+      double? total   = 0;
+
+      if(cartController.cartItems.length > 0) {
+        await createTempOrder(total:cartController.total,).then((value) {
+          orderId = value['id'];
+          total = value['total'];
+        },);
+
+        await mergeBookingtoOrder(
+            order_id: orderId,
+            customer_id: userData.value.id.toString(),
+            booking_id: insertedBookingId,
+            redirect: false
+        );
+
+      }
+
       // Now clear cart and navigate
       cartItems.clear();
       confirmBtn.value = false;
+      userData.value = User();
       showBookingSuccessAlert();
       fetchBookedSlots();
       isLoading.value = false;
@@ -1851,6 +1859,80 @@ class NewBookingController extends GetxController {
       print('Error : $e');
       showCustomSnackbar('Failed', e.toString(), Palette.dangerTxt);
     }
+  }
+
+  Future<PostgrestMap> createTempOrder({
+    double? total,
+  }) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+      final cartJson     = preferences.getString('shopping_cart');
+      final orderNotes   = preferences.getString('order_notes');
+      final orderId      = preferences.getString('order_id');
+
+      final orderResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .insert({
+            'token_number': orderId,
+            'order_date': DateFormat('yyyy-MM-dd').format(DateTime.now()), // <-- 'MM' for month, not 'mm'
+            'order_type': 'product',
+            'cart_items': jsonDecode(cartJson!),
+            'total': total,
+            'order_status': 'Pending',
+            'notes': orderNotes,
+          })
+          .select()
+          .single();
+
+      return orderResponse;
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      rethrow; // Optional: Let the caller handle the exception
+    }
+  }
+
+  Future<void> mergeBookingtoOrder({
+    String? order_id,
+    String? booking_id,
+    String? customer_id,
+    bool redirect = true,
+  }) async {
+
+    try {
+
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug                  = preferences.getString('centerSlug');
+
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .update({
+            'booking_id': booking_id,
+            'customer_id': customer_id,
+          })
+          .eq('id', order_id!)
+          .select()
+          .single();
+
+      if(redirect==true) {
+
+        update();
+
+        showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
+
+        // Redirect
+        Future.delayed(Duration(seconds: 1), () {
+          Get.offAllNamed('/');
+        });
+      }
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+    }
+
   }
 
   Future<int> getNextBookingNumber() async {

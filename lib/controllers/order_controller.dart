@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/palette.dart';
 import '../models/booking_model.dart';
@@ -173,4 +174,61 @@ class OrderController extends GetxController {
       isLoading.value = false;
     }
   }
+
+  Future<Map<String, dynamic>?> getBookingInfo({
+    String? bookingNo,
+  }) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+
+      if (centerSlug == null || bookingNo == null) {
+        throw Exception("Missing centerSlug or bookingNo");
+      }
+
+      // Fetch booking details
+      final bookingResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('*, booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
+          .eq('booking_no', bookingNo)
+          .maybeSingle(); // use maybeSingle to avoid throwing if no match
+
+      if (bookingResponse == null) {
+        throw Exception("Booking not found");
+      }
+
+      final bookingId   = bookingResponse['id'];
+      final customerId  = bookingResponse['customer_id'];
+
+      final userResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('*, membershipplan(*)')
+          .eq('id', customerId!)
+          .maybeSingle();
+
+      // Fetch related order
+      final orderResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('*')
+          .eq('booking_id', bookingId)
+          .maybeSingle();
+
+      // Return a combined object
+      return {
+        'booking': bookingResponse,
+        'order': orderResponse,
+        'customer': userResponse,
+      };
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      return null;
+    }
+  }
+
+
+
 }

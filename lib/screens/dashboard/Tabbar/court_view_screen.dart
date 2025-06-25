@@ -2899,6 +2899,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               paymentType: 'Pending', // Set payment type as Pending
                               promoCode: '',
                               notes: 'Payment pending - Pay Later option selected',
+                              bookings: updatedBookings
                             );
                             // // After booking, clear slots and reset form
                             // controller.clearSelectedSlots();
@@ -2915,8 +2916,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           } else {
                             // Create new user and then create booking with pending payment
                             controller.registerUser(
-                              mobile: controller.mobileNumberController.text,
-                              firstName: controller.nameController.text,
+                              mobile: mobile,
+                              firstName: customerName.toString(),
                             ).then((value) {
                               // Create booking with pending payment
                               populateCartWithSubSlots(bookings);
@@ -2928,6 +2929,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 promoCode: '',
                                 notes: 'Payment pending - Pay Later option selected',
                                 bookingId: controller.bookingId,
+                                bookings: updatedBookings
                               );
                             });
                             // // After booking, clear slots and reset form
@@ -2942,6 +2944,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             // cartController.clearCart();
                             // if (Navigator.canPop(context))
                             //   Navigator.pop(context);
+                            Navigator.pop(context);
                           }
                         },
                         style: OutlinedButton.styleFrom(
