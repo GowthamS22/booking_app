@@ -861,6 +861,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   controller.fetchBookedSlots();
                                                   fetchSlotInfo();
                                                 },
+                                                slotInfoMap: slotInfoMap,
                                               );
                                               controller.fetchBookedSlots();
                                               fetchSlotInfo();

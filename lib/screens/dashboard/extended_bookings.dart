@@ -126,6 +126,7 @@ Future<void> openExtendedbookingRightDrawer(
   BuildContext context,
   BookingSlot booking, {
   required dynamic controller,
+  required Map<String, Map<String, dynamic>> slotInfoMap,
   required double Function() updateTotalPrice,
   required void Function(double price, bool isApplied) onMembershipApplied,
   required DateTime mergedStartTime,
@@ -308,6 +309,7 @@ Future<void> openExtendedbookingRightDrawer(
                           controller.extendBooking(
                             originalBookingSlot: booking,
                             extensionInMinutes: selectedDuration.value,
+                            slotInfoMap: slotInfoMap,
                           );
                         },
                         style: ElevatedButton.styleFrom(

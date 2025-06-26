@@ -2704,6 +2704,7 @@ class NewBookingController extends GetxController {
   Future<void> extendBooking({
     required BookingSlot originalBookingSlot,
     required int extensionInMinutes,
+    required Map<String, Map<String, dynamic>> slotInfoMap, // <-- add this
   }) async {
     try {
       isLoading.value = true;
@@ -2776,11 +2777,8 @@ class NewBookingController extends GetxController {
         final endTime = startTime.add(Duration(minutes: slotMinutes));
         final slotKey =
             "${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}";
-        // final slotData = slotInfoMap[slotKey];
-        // final price =
-        //     slotData != null
-        //         ? (slotData['price'] ?? originalBookingSlot.price)
-        //         : originalBookingSlot.price;
+        final slotData = slotInfoMap[slotKey];
+        final price = slotData != null ? (slotData['price'] ?? originalBookingSlot.price) : originalBookingSlot.price;
 
         if (isSlotBookedByMe(startTime, endTime)) {
           // Already booked by this booking, count as secured
@@ -2798,7 +2796,7 @@ class NewBookingController extends GetxController {
             'court_id': originalBookingSlot.courtId,
             'start_time': startTime.toIso8601String(),
             'end_time': endTime.toIso8601String(),
-            'price': originalBookingSlot.price,
+            'price': price,
             'slot_type': 'Extended Time',
             'status': 'Booked',
             'is_extended_booking': true,
