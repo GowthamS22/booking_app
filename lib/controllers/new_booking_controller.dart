@@ -2703,6 +2703,10 @@ class NewBookingController extends GetxController {
     required int extensionInMinutes,
     required Map<String, Map<String, dynamic>> slotInfoMap, // <-- add this
   }) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+
     try {
       isLoading.value = true;
       update();
@@ -2711,6 +2715,8 @@ class NewBookingController extends GetxController {
       DateTime lastEndTime = originalBookingSlot.endTime!;
       int totalExtended = 0;
       List<Map<String, dynamic>> newSlotsData = [];
+      double extendedSlotsTotal = 0.0; // To store the total price of new slots
+      List<BookingSubSlotInfo> extendedSubSlots = []; // To store new sub-slots for bcart_items
 
       // Helper to check if a slot is already booked by this booking
       bool isSlotBookedByMe(DateTime start, DateTime end) {
@@ -2803,25 +2809,101 @@ class NewBookingController extends GetxController {
             'updated_at': DateTime.now().toIso8601String(),
           };
           newSlotsData.add(newSlot);
+          extendedSlotsTotal += price; // Add to the total price of new slots
+
+          // Add to extended sub-slots for bcart_items
+          extendedSubSlots.add(BookingSubSlotInfo(
+            startTime: "${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}",
+            endTime: "${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}",
+            price: price,
+            isPeak: slotData?['isPeak'] ?? false,
+          ));
+
           slotsSecured++;
           nextStart = endTime;
+
         }
       }
 
       if (newSlotsData.isNotEmpty) {
         try {
+
+          final bookingResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('bookings')
+              .select('*')
+              .eq('id', originalBookingSlot.bookingId!)
+              .single();
+
+          if(bookingResponse!=null) {
+
+            double currentGrandTotal = (bookingResponse['grand_total'] as num).toDouble();
+            double newGrandTotal = currentGrandTotal + extendedSlotsTotal;
+            String paymentStatus = bookingResponse['payment_status'] ?? 'Pending';
+
+            Map<String, dynamic> updateData = {
+              'total': newGrandTotal,
+              'sub_total': newGrandTotal,
+              'gst': newGrandTotal * 0.1,
+              'grand_total': newGrandTotal,
+              'updated_at': DateTime.now().toIso8601String(),
+            };
+
+            if (bookingResponse['bcart_items'] != null) {
+              List<dynamic> jsonList = jsonDecode(bookingResponse['bcart_items']);
+              List<BookingInfo> bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
+
+              // Find the existing booking info for this court
+              BookingInfo? existingBooking = bookings[0];
+
+              if (existingBooking != null) {
+                existingBooking.subSlots.addAll(extendedSubSlots);
+                updateData['bcart_items'] = jsonEncode(bookings.map((b) => b.toJson()).toList());
+              }
+            } else {
+              // If no bcart_items exists, create new one with extended slots
+              List<BookingInfo> newBookings = [
+                BookingInfo(
+                  courtName: "Court ${originalBookingSlot.courtId?.split('-').last}",
+                  selectedDateTime: originalBookingSlot.date!,
+                  bookingId: originalBookingSlot.bookingId!,
+                  subSlots: extendedSubSlots,
+                )
+              ];
+              updateData['bcart_items'] = jsonEncode(newBookings.map((b) => b.toJson()).toList());
+            }
+
+            // Update payment status
+            updateData['payment_status'] = 'Pending';
+
+            final bookingUpdateResponse = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('bookings')
+                .update(updateData)
+                .eq('id', originalBookingSlot.bookingId!)
+                .select('*')
+                .single();
+
+          }
+
           final response = await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('booking_slots')
               .insert(newSlotsData);
+
+          totalExtended = slotsSecured * slotMinutes;
+
           print('Insert response: $response');
+
         } catch (e) {
+
           print('Supabase insert error: $e');
           showCustomSnackbar(
             'Error',
             'Failed to insert booking slots: $e',
             Colors.red,
           );
+
         }
       }
 
@@ -2833,13 +2915,16 @@ class NewBookingController extends GetxController {
         'Booking extended successfully for $totalExtended minutes.',
         Colors.green.shade500,
       );
+
     } catch (e) {
+
       print('Error extending booking: $e');
       showCustomSnackbar(
         'Error',
         'Failed to extend booking. Please try again.',
         Colors.red.shade500,
       );
+
     } finally {
       isLoading.value = false;
       update();

@@ -51,6 +51,9 @@ class OrderController extends GetxController {
               first_name,
               last_name,
               mobile
+            ),
+            booking_payments (
+              total
             )
           ),
           platform_status!court_id (
@@ -108,8 +111,63 @@ class OrderController extends GetxController {
         return;
       }
 
+      // Get all unique booking_ids to fetch their orders
+      final bookingIds = data
+          .map((item) => item['booking_id']?.toString())
+          .where((id) => id != null)
+          .toSet()
+          .toList();
+
+      // Fetch all orders for these bookings
+      final ordersResponse = await supabase
+          .schema('s22_prod_schema')
+          .from('orders')
+          .select('booking_id, total, order_status')
+          .eq('order_status', 'Pending')
+          .inFilter('booking_id', bookingIds);
+
+      final ordersData = ordersResponse as List<dynamic>;
+
+      // Create a map of booking_id to sum of order totals
+      final ordersMap = <String, double>{};
+      for (final order in ordersData) {
+        final bookingId = order['booking_id']?.toString();
+        if (bookingId != null) {
+          final total = (order['total'] as num?)?.toDouble() ?? 0.0;
+          ordersMap.update(bookingId, (value) => value + total, ifAbsent: () => total);
+        }
+      }
+
+      // Process each booking slot to include orders total
+      final processedData = data.map((item) {
+        final bookingId = item['booking_id']?.toString();
+        final ordersTotal = bookingId != null ? ordersMap[bookingId] ?? 0.0 : 0.0;
+
+        // Create a deep copy of the item
+        final newItem = Map<String, dynamic>.from(item);
+        if (newItem['bookings'] != null) {
+          newItem['bookings'] = Map<String, dynamic>.from(newItem['bookings']);
+          final bookingGrandTotal = (newItem['bookings']['grand_total'] as num?)?.toDouble() ?? 0.0;
+
+          // Calculate grand total from booking_payments if they exist
+          final List<dynamic> bookingPayments = newItem['bookings']['booking_payments'] ?? [];
+          double finalGrandTotal = bookingGrandTotal;
+
+          if (bookingPayments.isNotEmpty) {
+            final double paymentsTotal = bookingPayments.fold(0.0, (sum, payment) {
+              return sum + (payment['total'] as num).toDouble();
+            });
+            finalGrandTotal = bookingGrandTotal - paymentsTotal;
+          }
+
+          newItem['bookings']['grand_total'] = finalGrandTotal + ordersTotal;
+        }
+
+        return newItem;
+      }).toList();
+
       // STEP 1: Sort by all relevant fields
-      data.sort((a, b) {
+      processedData.sort((a, b) {
         int cmp = (a['bookings']?['customer_id'] ?? '').toString().compareTo((b['bookings']?['customer_id'] ?? '').toString());
         if (cmp != 0) return cmp;
         cmp = (a['booking_id'] ?? '').toString().compareTo((b['booking_id'] ?? '').toString());
@@ -125,7 +183,7 @@ class OrderController extends GetxController {
 
       // STEP 2: Merge consecutive time slots
       final List<Map<String, dynamic>> merged = [];
-      for (final item in data) {
+      for (final item in processedData) {
         if (merged.isEmpty) {
           merged.add(item);
           continue;
@@ -200,6 +258,24 @@ class OrderController extends GetxController {
 
       final bookingId   = bookingResponse['id'];
       final customerId  = bookingResponse['customer_id'];
+      final originalGrandTotal = (bookingResponse['grand_total'] as num?)?.toDouble() ?? 0.0;
+
+      // Calculate grand total from booking_payments if they exist
+      final List<dynamic> bookingPayments = bookingResponse['booking_payments'] ?? [];
+      double finalGrandTotal = originalGrandTotal;
+
+      if (bookingPayments.isNotEmpty) {
+        final double paymentsTotal = bookingPayments.fold(0.0, (sum, payment) {
+          return sum + (payment['total'] as num).toDouble();
+        });
+        finalGrandTotal = originalGrandTotal - paymentsTotal;
+      }
+
+      // Update the booking response with the appropriate grand total
+      final updatedBookingResponse = {
+        ...bookingResponse,
+        'grand_total': finalGrandTotal,
+      };
 
       final userResponse = await supabase
           .schema('${centerSlug}_prod_schema')
@@ -213,12 +289,13 @@ class OrderController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('orders')
           .select('*')
+          .eq('order_status','Pending')
           .eq('booking_id', bookingId)
           .maybeSingle();
 
       // Return a combined object
       return {
-        'booking': bookingResponse,
+        'booking': updatedBookingResponse,
         'order': orderResponse,
         'customer': userResponse,
       };

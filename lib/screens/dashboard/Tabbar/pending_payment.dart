@@ -308,7 +308,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                           Expanded(
                             child: Center(
                               child: Text(
-                                '',
+                                'Action',
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontSize: 22,
