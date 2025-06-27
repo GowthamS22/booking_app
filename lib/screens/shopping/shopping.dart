@@ -1504,6 +1504,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                 .from('orders')
                 .stream(primaryKey: ['id'])
                 .order('created_at', ascending: false)
+                
                 .map((data) => data as List<Map<String, dynamic>>),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {

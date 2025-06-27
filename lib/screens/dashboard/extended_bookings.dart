@@ -158,9 +158,8 @@ Future<void> openExtendedbookingRightDrawer(
 
       // Function to calculate available durations dynamically
       List<int> calculateAvailableDurations() {
-        final List<int> possibleDurations = [30, 60, 90, 120]; // Up to 4 hours
+        final List<int> possibleDurations = [30, 60, 90, 120];
         final List<int> availableDurations = [];
-
         final endTime = mergedEndTime;
         if (endTime == null || bookingEnded) return availableDurations;
 
@@ -195,43 +194,43 @@ Future<void> openExtendedbookingRightDrawer(
 
         for (int duration in possibleDurations) {
           bool isDurationAvailable = true;
-          final lastSlotStr =
-          controller.timeSlots.isNotEmpty
-              ? controller.timeSlots.last
-              : null;
-
           for (int i = 0; i < duration; i += 30) {
             final checkTime = endTime.add(Duration(minutes: i));
             final checkTimeStr = DateFormat('HH:mm').format(checkTime);
 
+            // Check if this slot exists in the timeSlots
             bool isSlotValid = controller.timeSlots.contains(checkTimeStr);
-            // If this is the last slot, allow it even if the end time is not in the list
-            if (!isSlotValid &&
-                lastSlotStr != null &&
-                checkTimeStr == lastSlotStr &&
-                (i + 30 == duration)) {
-              isSlotValid = true;
-            }
 
-            if (!isSlotValid) {
-              print('    Slot not valid, breaking.');
+            // Check if this slot is booked by anyone (except the current booking)
+            bool isSlotBooked = controller.bookedSlots.any(
+                  (b) =>
+              b.court == booking.court &&
+                  b.startTime != null &&
+                  b.startTime!.year == checkTime.year &&
+                  b.startTime!.month == checkTime.month &&
+                  b.startTime!.day == checkTime.day &&
+                  b.startTime!.hour == checkTime.hour &&
+                  b.startTime!.minute == checkTime.minute &&
+                  b.bookingId !=
+                      booking.bookingId, // Only allow if it's the same booking
+            );
+
+            // Debug print for each slot
+            print(
+              'Checking duration $duration: $checkTimeStr valid=$isSlotValid booked=$isSlotBooked',
+            );
+
+            if (!isSlotValid || isSlotBooked) {
               isDurationAvailable = false;
-              break;
-            }
-            if (isSlotBookedByAnyone(checkTime)) {
-              if (!isSlotBookedByMe(checkTime)) {
-                isDurationAvailable = false;
-                break;
-              }
+              break; // Stop checking this duration if any slot is not available
             }
           }
-
           if (isDurationAvailable) {
             availableDurations.add(duration);
-          } else {
-            break;
           }
+          // Do NOT break here! Continue checking other durations.
         }
+        print('Available durations: $availableDurations');
         return availableDurations;
       }
 
@@ -241,7 +240,7 @@ Future<void> openExtendedbookingRightDrawer(
         return ValueListenableBuilder<int?>(
           valueListenable: selectedDuration,
           builder: (context, duration, child) {
-            // If no durations are available, show a message
+            //  If no durations are available, show a message
             if (durations.isEmpty) {
               return Container(
                 padding: const EdgeInsets.all(16),
@@ -603,83 +602,16 @@ Future<void> openExtendedbookingRightDrawer(
                                   : !bookingEnded
                                   ? TextButton(
                                 onPressed: () {
-                                  final endTime = mergedEndTime;
-                                  if (endTime == null) {
+                                  final availableDurations =
+                                  calculateAvailableDurations();
+                                  if (availableDurations.isEmpty) {
                                     showCourtUnavailableDialog(
                                       context,
                                       controller: controller,
                                     );
                                     return;
                                   }
-                                  final nextCalculatedStartTime = endTime
-                                      .add(const Duration(minutes: 30));
-                                  final nextPotentialSlotStr = DateFormat(
-                                    'HH:mm',
-                                  ).format(nextCalculatedStartTime);
-
-                                  final lastSlotStr =
-                                  controller.timeSlots.isNotEmpty
-                                      ? controller.timeSlots.last
-                                      : null;
-                                  bool isNextSlotValidAndFuture = false;
-                                  // If the next slot is in the list, or if the current end time is the last slot (allow extension to end boundary)
-                                  if (controller.timeSlots.contains(
-                                    nextPotentialSlotStr,
-                                  )) {
-                                    isNextSlotValidAndFuture = true;
-                                  } else if (lastSlotStr != null &&
-                                      DateFormat('HH:mm').format(endTime) ==
-                                          lastSlotStr) {
-                                    // If the current end time is the last slot, allow extension
-                                    isNextSlotValidAndFuture = true;
-                                  }
-                                  isNextSlotValidAndFuture =
-                                      isNextSlotValidAndFuture &&
-                                          !_isSlotInPastForExtension(
-                                            nextPotentialSlotStr,
-                                            booking.date!,
-                                          );
-
-                                  if (!isNextSlotValidAndFuture) {
-                                    showCourtUnavailableDialog(
-                                      context,
-                                      controller: controller,
-                                    );
-                                    return;
-                                  }
-
-                                  // Now check if this specific next potential slot is already booked
-                                  final isNextSlotBooked = controller
-                                      .bookedSlots
-                                      .any(
-                                        (b) =>
-                                    b.court == booking.court &&
-                                        b.startTime != null &&
-                                        // Compare the start time of booked slots with the the full DateTime of the next potential slot
-                                        b.startTime!.year ==
-                                            nextCalculatedStartTime
-                                                .year &&
-                                        b.startTime!.month ==
-                                            nextCalculatedStartTime
-                                                .month &&
-                                        b.startTime!.day ==
-                                            nextCalculatedStartTime
-                                                .day &&
-                                        b.startTime!.hour ==
-                                            nextCalculatedStartTime
-                                                .hour &&
-                                        b.startTime!.minute ==
-                                            nextCalculatedStartTime
-                                                .minute,
-                                  );
-                                  if (isNextSlotBooked) {
-                                    showCourtUnavailableDialog(
-                                      context,
-                                      controller: controller,
-                                    );
-                                  } else {
-                                    isNextSlotAvailable.value = true;
-                                  }
+                                  isNextSlotAvailable.value = true;
                                 },
                                 style: TextButton.styleFrom(
                                   backgroundColor: const Color(0xFFF4F3FF),
@@ -1095,67 +1027,67 @@ void showCourtUnavailableDialog(
                     ),
                   ),
                 ),
-                // const SizedBox(width: 8),
-                // // End Session Button
-                // Expanded(
-                //   child: OutlinedButton(
-                //     onPressed: () {
-                //       // TODO: End session logic
-                //       Navigator.pop(context);
-                //     },
-                //     style: OutlinedButton.styleFrom(
-                //       backgroundColor: Colors.red.shade50,
-                //       foregroundColor: Colors.red,
-                //       side: BorderSide(color: Colors.red.shade500),
-                //       shape: RoundedRectangleBorder(
-                //         borderRadius: BorderRadius.circular(10),
-                //       ),
-                //       minimumSize: Size.fromHeight(50),
-                //       padding: const EdgeInsets.symmetric(vertical: 10),
-                //     ),
-                //     child: Text(
-                //       'End Session',
-                //       style: GoogleFonts.inter(
-                //         fontWeight: FontWeight.w500,
-                //         fontSize: 22,
-                //         color: Colors.red.shade500,
-                //       ),
-                //     ),
-                //   ),
-                // ),
-                // const SizedBox(width: 8),
-                // Expanded(
-                //   child: SizedBox(
-                //     width: double.infinity,
-                //     child: ElevatedButton(
-                //       onPressed: () {
-                //         Navigator.pop(context);
-                //         showCourtAvailableDialog(
-                //           context,
-                //           controller: controller,
-                //         );
-                //       },
-                //       style: ElevatedButton.styleFrom(
-                //         backgroundColor: Colors.green.shade500,
-                //         foregroundColor: Colors.white,
-                //         shape: RoundedRectangleBorder(
-                //           borderRadius: BorderRadius.circular(10),
-                //         ),
-                //         minimumSize: Size.fromHeight(50),
-                //         padding: const EdgeInsets.symmetric(vertical: 10),
-                //       ),
-                //       child: Text(
-                //         'View Available Court',
-                //         textAlign: TextAlign.center,
-                //         style: GoogleFonts.inter(
-                //           fontWeight: FontWeight.w500,
-                //           fontSize: 22,
-                //           color: Colors.white,
-                //         ),
-                //       ),
-                //     ),
-                //   ),
-                // ),
+                const SizedBox(width: 8),
+                // End Session Button
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      // TODO: End session logic
+                      Navigator.pop(context);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.red.shade50,
+                      foregroundColor: Colors.red,
+                      side: BorderSide(color: Colors.red.shade500),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      minimumSize: Size.fromHeight(50),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                    ),
+                    child: Text(
+                      'End Session',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 22,
+                        color: Colors.red.shade500,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        showCourtAvailableDialog(
+                          context,
+                          controller: controller,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade500,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        minimumSize: Size.fromHeight(50),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                      child: Text(
+                        'View Available Court',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 22,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],

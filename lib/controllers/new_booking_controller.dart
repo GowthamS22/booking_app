@@ -2912,7 +2912,7 @@ class NewBookingController extends GetxController {
       Get.back(); // Close the drawer
       showCustomSnackbar(
         'Success',
-        'Booking extended successfully for $totalExtended minutes.',
+        'Booking extended successfully ',
         Colors.green.shade500,
       );
 
