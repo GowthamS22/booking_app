@@ -110,10 +110,10 @@ bool _isSlotInPastForExtension(String slot, DateTime selectedBookingDate) {
 
 // Helper function to check if a slot is in the past for extension (comparing against booking date)
 bool _isSlotInPastForExtensionBooking(
-  String slot,
-  DateTime bookingDate,
-  DateTime bookingEndTime,
-) {
+    String slot,
+    DateTime bookingDate,
+    DateTime bookingEndTime,
+    ) {
   final slotTime = _parseTimeForExtension(slot, bookingDate);
 
   // For extension, we compare against the booking's end time, not current time
@@ -123,19 +123,19 @@ bool _isSlotInPastForExtensionBooking(
 }
 
 Future<void> openExtendedbookingRightDrawer(
-  BuildContext context,
-  BookingSlot booking, {
-  required dynamic controller,
-  required double Function() updateTotalPrice,
-  required void Function(double price, bool isApplied) onMembershipApplied,
-  required DateTime mergedStartTime,
-  required DateTime mergedEndTime,
-  required VoidCallback onRefresh,
-}) async {
-
+    BuildContext context,
+    BookingSlot booking, {
+      required dynamic controller,
+      required Map<String, Map<String, dynamic>> slotInfoMap,
+      required double Function() updateTotalPrice,
+      required void Function(double price, bool isApplied) onMembershipApplied,
+      required DateTime mergedStartTime,
+      required DateTime mergedEndTime,
+      required VoidCallback onRefresh,
+    }) async {
   final timeFormat = DateFormat('hh:mm a');
   final dateFormat = DateFormat('dd MMM yyyy');
-  final bookingEnded = isBookingEnded(booking.endTime);
+  final bookingEnded = isBookingEnded(mergedEndTime);
 
   final SimpleController simpleController = Get.put(SimpleController());
   simpleController.fetchOrder(bookingId: booking.bookingId);
@@ -161,55 +161,77 @@ Future<void> openExtendedbookingRightDrawer(
         final List<int> possibleDurations = [30, 60, 90, 120]; // Up to 4 hours
         final List<int> availableDurations = [];
 
-        final endTime = booking.endTime;
+        final endTime = mergedEndTime;
         if (endTime == null || bookingEnded) return availableDurations;
 
-        // Check each possible duration
+        // Helper: is slot booked by this booking
+        bool isSlotBookedByMe(DateTime checkTime) {
+          return controller.bookedSlots.any(
+                (b) =>
+            b.court == booking.court &&
+                b.startTime != null &&
+                b.startTime!.year == checkTime.year &&
+                b.startTime!.month == checkTime.month &&
+                b.startTime!.day == checkTime.day &&
+                b.startTime!.hour == checkTime.hour &&
+                b.startTime!.minute == checkTime.minute &&
+                b.bookingId == booking.bookingId,
+          );
+        }
+
+        // Helper: is slot booked by anyone
+        bool isSlotBookedByAnyone(DateTime checkTime) {
+          return controller.bookedSlots.any(
+                (b) =>
+            b.court == booking.court &&
+                b.startTime != null &&
+                b.startTime!.year == checkTime.year &&
+                b.startTime!.month == checkTime.month &&
+                b.startTime!.day == checkTime.day &&
+                b.startTime!.hour == checkTime.hour &&
+                b.startTime!.minute == checkTime.minute,
+          );
+        }
+
         for (int duration in possibleDurations) {
           bool isDurationAvailable = true;
+          final lastSlotStr =
+          controller.timeSlots.isNotEmpty
+              ? controller.timeSlots.last
+              : null;
 
-          // Check if this duration is available by checking each 30-minute slot
-          for (int i = 30; i <= duration; i += 30) {
+          for (int i = 0; i < duration; i += 30) {
             final checkTime = endTime.add(Duration(minutes: i));
             final checkTimeStr = DateFormat('HH:mm').format(checkTime);
 
-            bool isSlotValid =
-                controller.timeSlots.contains(checkTimeStr) &&
-                !_isSlotInPastForExtensionBooking(
-                  checkTimeStr,
-                  booking.date!,
-                  endTime,
-                );
+            bool isSlotValid = controller.timeSlots.contains(checkTimeStr);
+            // If this is the last slot, allow it even if the end time is not in the list
+            if (!isSlotValid &&
+                lastSlotStr != null &&
+                checkTimeStr == lastSlotStr &&
+                (i + 30 == duration)) {
+              isSlotValid = true;
+            }
 
             if (!isSlotValid) {
+              print('    Slot not valid, breaking.');
               isDurationAvailable = false;
               break;
             }
-            final isSlotBooked = controller.bookedSlots.any(
-              (b) =>
-                  b.court == booking.court &&
-                  b.startTime != null &&
-                  b.startTime!.year == checkTime.year &&
-                  b.startTime!.month == checkTime.month &&
-                  b.startTime!.day == checkTime.day &&
-                  b.startTime!.hour == checkTime.hour &&
-                  b.startTime!.minute == checkTime.minute,
-            );
-
-            if (isSlotBooked) {
-              isDurationAvailable = false;
-              break;
+            if (isSlotBookedByAnyone(checkTime)) {
+              if (!isSlotBookedByMe(checkTime)) {
+                isDurationAvailable = false;
+                break;
+              }
             }
           }
 
           if (isDurationAvailable) {
             availableDurations.add(duration);
           } else {
-            // If this duration is not available, stop checking longer durations
             break;
           }
         }
-
         return availableDurations;
       }
 
@@ -287,6 +309,7 @@ Future<void> openExtendedbookingRightDrawer(
                           controller.extendBooking(
                             originalBookingSlot: booking,
                             extensionInMinutes: selectedDuration.value,
+                            slotInfoMap: slotInfoMap,
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -313,42 +336,42 @@ Future<void> openExtendedbookingRightDrawer(
                 Wrap(
                   spacing: 10,
                   children:
-                      durations.map((d) {
-                        final isSelected = selectedDuration.value == d;
-                        return TextButton(
-                          onPressed: () {
-                            selectedDuration.value = d;
-                          },
-                          style: TextButton.styleFrom(
-                            backgroundColor:
-                                isSelected
-                                    ? Colors.indigo.shade500
-                                    : Colors.indigo.shade50,
-                            foregroundColor:
-                                isSelected
-                                    ? Colors.white
-                                    : Colors.indigo.shade500,
-                            side: BorderSide(
-                              color: Colors.indigo.shade300,
-                              width: 1.5,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 15,
-                            ),
-                          ),
-                          child: Text(
-                            "$d mins",
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 22,
-                            ),
-                          ),
-                        );
-                      }).toList(),
+                  durations.map((d) {
+                    final isSelected = selectedDuration.value == d;
+                    return TextButton(
+                      onPressed: () {
+                        selectedDuration.value = d;
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor:
+                        isSelected
+                            ? Colors.indigo.shade500
+                            : Colors.indigo.shade50,
+                        foregroundColor:
+                        isSelected
+                            ? Colors.white
+                            : Colors.indigo.shade500,
+                        side: BorderSide(
+                          color: Colors.indigo.shade300,
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 15,
+                        ),
+                      ),
+                      child: Text(
+                        "$d mins",
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 22,
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
               ],
             );
@@ -412,7 +435,10 @@ Future<void> openExtendedbookingRightDrawer(
                                 ),
                               ),
                               TextSpan(
-                                text: booking.endTime != null ? formatRemainingTime(booking.endTime!) : 'N/A',
+                                text:
+                                mergedEndTime != null
+                                    ? formatRemainingTime(mergedEndTime)
+                                    : 'N/A',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   color: Colors.black,
@@ -424,46 +450,46 @@ Future<void> openExtendedbookingRightDrawer(
                           textAlign: TextAlign.center,
                         ),
                         if (!bookingEnded)
-                        GestureDetector(
-                          onTap: () {
-                            showNoShowDialog(
-                              context,
-                              booking.bookingId ?? '',
-                              controller,
-                              onRefresh: onRefresh,
-                            );
-                          },
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 7,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade100,
-                              border: Border.all(color: Colors.red.shade300),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'No show',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 22,
-                                    color: Colors.red.shade500,
-                                    fontWeight: FontWeight.w600,
+                          GestureDetector(
+                            onTap: () {
+                              showNoShowDialog(
+                                context,
+                                booking.bookingId ?? '',
+                                controller,
+                                onRefresh: onRefresh,
+                              );
+                            },
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                border: Border.all(color: Colors.red.shade300),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'No show',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      color: Colors.red.shade500,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(width: 6),
-                                Icon(
-                                  LucideIcons.userX,
-                                  color: Colors.red,
-                                  size: 23,
-                                ),
-                              ],
+                                  SizedBox(width: 6),
+                                  Icon(
+                                    LucideIcons.userX,
+                                    color: Colors.red,
+                                    size: 23,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     const Divider(height: 32),
@@ -521,12 +547,12 @@ Future<void> openExtendedbookingRightDrawer(
                                     LucideIcons.clock,
                                     "Time",
                                     mergedStartTime != null &&
-                                            mergedEndTime != null
+                                        mergedEndTime != null
                                         ? '${timeFormat.format(mergedStartTime.toLocal())} - ${timeFormat.format(mergedEndTime.toLocal())}'
                                         : (booking.startTime != null &&
-                                                booking.endTime != null
-                                            ? '${timeFormat.format(booking.startTime!.toLocal())} - ${timeFormat.format(booking.endTime!.toLocal())}'
-                                            : 'N/A'),
+                                        booking.endTime != null
+                                        ? '${timeFormat.format(booking.startTime!.toLocal())} - ${timeFormat.format(booking.endTime!.toLocal())}'
+                                        : 'N/A'),
                                   ),
                                   ValueListenableBuilder<bool>(
                                     valueListenable: isExtensionConfirmed,
@@ -555,7 +581,7 @@ Future<void> openExtendedbookingRightDrawer(
                                     LucideIcons.timer,
                                     "Duration",
                                     mergedStartTime != null &&
-                                            mergedEndTime != null
+                                        mergedEndTime != null
                                         ? '${mergedEndTime.difference(mergedStartTime.toLocal()).inMinutes} min'
                                         : 'N/A',
                                   ),
@@ -574,102 +600,112 @@ Future<void> openExtendedbookingRightDrawer(
                             builder: (context, isAvailable, child) {
                               return isAvailable
                                   ? buildExtendTimeButtons()
-                                  : !bookingEnded ? TextButton(
-                                    onPressed: () {
-                                      final endTime = booking.endTime;
-                                      if (endTime == null) {
-                                        showCourtUnavailableDialog(
-                                          context,
-                                          controller: controller,
-                                        );
-                                        return;
-                                      }
-                                      final nextCalculatedStartTime = endTime
-                                          .add(const Duration(minutes: 30));
-                                      final nextPotentialSlotStr = DateFormat(
-                                        'HH:mm',
-                                      ).format(nextCalculatedStartTime);
+                                  : !bookingEnded
+                                  ? TextButton(
+                                onPressed: () {
+                                  final endTime = mergedEndTime;
+                                  if (endTime == null) {
+                                    showCourtUnavailableDialog(
+                                      context,
+                                      controller: controller,
+                                    );
+                                    return;
+                                  }
+                                  final nextCalculatedStartTime = endTime
+                                      .add(const Duration(minutes: 30));
+                                  final nextPotentialSlotStr = DateFormat(
+                                    'HH:mm',
+                                  ).format(nextCalculatedStartTime);
 
-                                      final nextPotentialSlotDateTime =
-                                          _parseTimeForExtension(
+                                  final lastSlotStr =
+                                  controller.timeSlots.isNotEmpty
+                                      ? controller.timeSlots.last
+                                      : null;
+                                  bool isNextSlotValidAndFuture = false;
+                                  // If the next slot is in the list, or if the current end time is the last slot (allow extension to end boundary)
+                                  if (controller.timeSlots.contains(
+                                    nextPotentialSlotStr,
+                                  )) {
+                                    isNextSlotValidAndFuture = true;
+                                  } else if (lastSlotStr != null &&
+                                      DateFormat('HH:mm').format(endTime) ==
+                                          lastSlotStr) {
+                                    // If the current end time is the last slot, allow extension
+                                    isNextSlotValidAndFuture = true;
+                                  }
+                                  isNextSlotValidAndFuture =
+                                      isNextSlotValidAndFuture &&
+                                          !_isSlotInPastForExtension(
                                             nextPotentialSlotStr,
                                             booking.date!,
                                           );
-                                      bool isNextSlotValidAndFuture =
-                                          controller.timeSlots.contains(
-                                            nextPotentialSlotStr,
-                                          ) &&
-                                          !_isSlotInPastForExtensionBooking(
-                                            nextPotentialSlotStr,
-                                            booking.date!,
-                                            booking.endTime!,
-                                          );
 
-                                      if (!isNextSlotValidAndFuture) {
-                                        showCourtUnavailableDialog(
-                                          context,
-                                          controller: controller,
-                                        );
-                                        return;
-                                      }
+                                  if (!isNextSlotValidAndFuture) {
+                                    showCourtUnavailableDialog(
+                                      context,
+                                      controller: controller,
+                                    );
+                                    return;
+                                  }
 
-                                      // Now check if this specific next potential slot is already booked
-                                      final isNextSlotBooked = controller
-                                          .bookedSlots
-                                          .any(
-                                            (b) =>
-                                                b.court == booking.court &&
-                                                b.startTime != null &&
-                                                // Compare the start time of booked slots with the the full DateTime of the next potential slot
-                                                b.startTime!.year ==
-                                                    nextPotentialSlotDateTime
-                                                        .year &&
-                                                b.startTime!.month ==
-                                                    nextPotentialSlotDateTime
-                                                        .month &&
-                                                b.startTime!.day ==
-                                                    nextPotentialSlotDateTime
-                                                        .day &&
-                                                b.startTime!.hour ==
-                                                    nextPotentialSlotDateTime
-                                                        .hour &&
-                                                b.startTime!.minute ==
-                                                    nextPotentialSlotDateTime
-                                                        .minute,
-                                          );
-                                      if (isNextSlotBooked) {
-                                        showCourtUnavailableDialog(
-                                          context,
-                                          controller: controller,
-                                        );
-                                      } else {
-                                        isNextSlotAvailable.value = true;
-                                      }
-                                    },
-                                    style: TextButton.styleFrom(
-                                      backgroundColor: const Color(0xFFF4F3FF),
-                                      foregroundColor: Colors.indigo.shade500,
-                                      side: BorderSide(
-                                        color: Colors.indigo.shade300,
-                                        width: 1.5,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      minimumSize: const Size.fromHeight(40),
-                                    ),
-                                    child: Text(
-                                      'Extend Time',
-                                      style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 23,
-                                        color: Colors.indigo.shade500,
-                                      ),
-                                    ),
-                                  ) : SizedBox.shrink();
+                                  // Now check if this specific next potential slot is already booked
+                                  final isNextSlotBooked = controller
+                                      .bookedSlots
+                                      .any(
+                                        (b) =>
+                                    b.court == booking.court &&
+                                        b.startTime != null &&
+                                        // Compare the start time of booked slots with the the full DateTime of the next potential slot
+                                        b.startTime!.year ==
+                                            nextCalculatedStartTime
+                                                .year &&
+                                        b.startTime!.month ==
+                                            nextCalculatedStartTime
+                                                .month &&
+                                        b.startTime!.day ==
+                                            nextCalculatedStartTime
+                                                .day &&
+                                        b.startTime!.hour ==
+                                            nextCalculatedStartTime
+                                                .hour &&
+                                        b.startTime!.minute ==
+                                            nextCalculatedStartTime
+                                                .minute,
+                                  );
+                                  if (isNextSlotBooked) {
+                                    showCourtUnavailableDialog(
+                                      context,
+                                      controller: controller,
+                                    );
+                                  } else {
+                                    isNextSlotAvailable.value = true;
+                                  }
+                                },
+                                style: TextButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF4F3FF),
+                                  foregroundColor: Colors.indigo.shade500,
+                                  side: BorderSide(
+                                    color: Colors.indigo.shade300,
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  minimumSize: const Size.fromHeight(40),
+                                ),
+                                child: Text(
+                                  'Extend Time',
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 23,
+                                    color: Colors.indigo.shade500,
+                                  ),
+                                ),
+                              )
+                                  : SizedBox.shrink();
                             },
                           ),
                         ],
@@ -678,8 +714,7 @@ Future<void> openExtendedbookingRightDrawer(
 
                     const SizedBox(height: 20),
 
-
-                    if(simpleController.order.value!=null)
+                    if (simpleController.order.value != null)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -701,7 +736,8 @@ Future<void> openExtendedbookingRightDrawer(
                           ),
                           const SizedBox(height: 20),
                           Obx(() {
-                            final cartItems = simpleController.order.value?.cartItems ?? [];
+                            final cartItems =
+                                simpleController.order.value?.cartItems ?? [];
 
                             return ListView.builder(
                               shrinkWrap: true,
@@ -710,13 +746,18 @@ Future<void> openExtendedbookingRightDrawer(
                               itemBuilder: (_, index) {
                                 final item = cartItems[index];
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
+                                  ),
                                   child: Row(
                                     children: [
                                       Expanded(
                                         child: Text(
                                           item.product.name,
-                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
@@ -733,10 +774,13 @@ Future<void> openExtendedbookingRightDrawer(
                                         width: 150,
                                         child: Text(
                                           '\$${item.appliedPrice.toStringAsFixed(2)}',
-                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                           textAlign: TextAlign.right,
                                         ),
-                                      )
+                                      ),
                                     ],
                                   ),
                                 );
@@ -746,36 +790,35 @@ Future<void> openExtendedbookingRightDrawer(
                         ],
                       ),
 
-
                     Spacer(),
                     if (!bookingEnded)
-                    ElevatedButton(
-                      onPressed: () {
-                        showCancelDialog(
-                          context,
-                          booking.bookingId ?? '',
-                          controller as NewBookingController,
-                          onRefresh: onRefresh,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade50,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 60),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: Colors.red.shade300),
+                      ElevatedButton(
+                        onPressed: () {
+                          showCancelDialog(
+                            context,
+                            booking.bookingId ?? '',
+                            controller as NewBookingController,
+                            onRefresh: onRefresh,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade50,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 60),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(color: Colors.red.shade300),
+                          ),
+                        ),
+                        child: Text(
+                          "Cancel Booking",
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            color: Colors.red.shade500,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                      child: Text(
-                        "Cancel Booking",
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.red.shade500,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -788,212 +831,212 @@ Future<void> openExtendedbookingRightDrawer(
 }
 
 void showCancelDialog(
-  BuildContext context,
-  String bookingId,
-  NewBookingController controller, {
-  required VoidCallback onRefresh,
-}) {
+    BuildContext context,
+    String bookingId,
+    NewBookingController controller, {
+      required VoidCallback onRefresh,
+    }) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder:
         (_) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      contentPadding: const EdgeInsets.all(20),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Cancel Booking?',
+            style: GoogleFonts.inter(
+              fontSize: 23,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          contentPadding: const EdgeInsets.all(20),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 30),
+          Text(
+            'Are you sure you want to cancel this booking?',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 22,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Reason for cancellation',
+              hintStyle: GoogleFonts.inter(
+                color: Colors.grey[500],
+                fontSize: 20,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
             children: [
-              Text(
-                'Cancel Booking?',
-                style: GoogleFonts.inter(
-                  fontSize: 23,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 30),
-              Text(
-                'Are you sure you want to cancel this booking?',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 22,
-                  color: Colors.grey.shade500,
-                ),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                maxLines: 3,
-                decoration: InputDecoration(
-                  hintText: 'Reason for cancellation',
-                  hintStyle: GoogleFonts.inter(
-                    color: Colors.grey[500],
-                    fontSize: 20,
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: Size.fromHeight(50),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.all(12),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        minimumSize: Size.fromHeight(50),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'No',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                  child: Text(
+                    'No',
+                    style: GoogleFonts.inter(
+                      fontSize: 22,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await controller.cancelBooking(bookingId);
-                        Navigator.of(context).pop(); // Close dialog
-                        Navigator.of(context).pop(); // Close drawer
-                        onRefresh(); // Call the refresh callback
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade500,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        minimumSize: Size.fromHeight(50),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'Yes',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await controller.cancelBooking(bookingId);
+                    Navigator.of(context).pop(); // Close dialog
+                    Navigator.of(context).pop(); // Close drawer
+                    onRefresh(); // Call the refresh callback
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade500,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: Size.fromHeight(50),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Yes',
+                    style: GoogleFonts.inter(
+                      fontSize: 22,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
-        ),
+        ],
+      ),
+    ),
   );
 }
 
 void showNoShowDialog(
-  BuildContext context,
-  String bookingId,
-  NewBookingController controller,{
-  required VoidCallback onRefresh,
-}) {
+    BuildContext context,
+    String bookingId,
+    NewBookingController controller, {
+      required VoidCallback onRefresh,
+    }) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder:
         (_) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      contentPadding: const EdgeInsets.all(20),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Are you sure?',
+            style: GoogleFonts.inter(
+              fontSize: 23,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          contentPadding: const EdgeInsets.all(20),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+          const SizedBox(height: 30),
+          Text(
+            'This action will cancel the booking and \nfree up the court for others. \nThe customer will not be charged.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 22,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
             children: [
-              Text(
-                'Are you sure?',
-                style: GoogleFonts.inter(
-                  fontSize: 23,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 30),
-              Text(
-                'This action will cancel the booking and \nfree up the court for others. \nThe customer will not be charged.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 22,
-                  color: Colors.grey.shade500,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade100,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        minimumSize: Size.fromHeight(50),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade100,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: Size.fromHeight(50),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(
+                      fontSize: 22,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await controller.markNoShow(bookingId);
-                        Navigator.of(context).pop(); // Close dialog
-                        Navigator.of(context).pop(); // Close drawer
-                        onRefresh(); // Call the refresh callback
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade500,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        minimumSize: Size.fromHeight(50),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: Text(
-                        'Yes',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await controller.markNoShow(bookingId);
+                    Navigator.of(context).pop(); // Close dialog
+                    Navigator.of(context).pop(); // Close drawer
+                    onRefresh(); // Call the refresh callback
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade500,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    minimumSize: Size.fromHeight(50),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: Text(
+                    'Yes',
+                    style: GoogleFonts.inter(
+                      fontSize: 22,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
-        ),
+        ],
+      ),
+    ),
   );
 }
 
 void showCourtUnavailableDialog(
-  BuildContext context, {
-  required dynamic controller,
-}) {
+    BuildContext context, {
+      required dynamic controller,
+    }) {
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -1016,8 +1059,8 @@ void showCourtUnavailableDialog(
             const SizedBox(height: 12),
             Text(
               'The selected court is already booked for the next slot. '
-              'This session \n cannot be extended. You can either end this session now '
-              'or move the \n customer to another available court.',
+                  'This session \n cannot be extended. You can either end this session now '
+                  'or move the \n customer to another available court.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 22,
@@ -1052,67 +1095,67 @@ void showCourtUnavailableDialog(
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                // End Session Button
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      // TODO: End session logic
-                      Navigator.pop(context);
-                    },
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.red.shade50,
-                      foregroundColor: Colors.red,
-                      side: BorderSide(color: Colors.red.shade500),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      minimumSize: Size.fromHeight(50),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    child: Text(
-                      'End Session',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 22,
-                        color: Colors.red.shade500,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        showCourtAvailableDialog(
-                          context,
-                          controller: controller,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade500,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        minimumSize: Size.fromHeight(50),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                      ),
-                      child: Text(
-                        'View Available Court',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 22,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                // const SizedBox(width: 8),
+                // // End Session Button
+                // Expanded(
+                //   child: OutlinedButton(
+                //     onPressed: () {
+                //       // TODO: End session logic
+                //       Navigator.pop(context);
+                //     },
+                //     style: OutlinedButton.styleFrom(
+                //       backgroundColor: Colors.red.shade50,
+                //       foregroundColor: Colors.red,
+                //       side: BorderSide(color: Colors.red.shade500),
+                //       shape: RoundedRectangleBorder(
+                //         borderRadius: BorderRadius.circular(10),
+                //       ),
+                //       minimumSize: Size.fromHeight(50),
+                //       padding: const EdgeInsets.symmetric(vertical: 10),
+                //     ),
+                //     child: Text(
+                //       'End Session',
+                //       style: GoogleFonts.inter(
+                //         fontWeight: FontWeight.w500,
+                //         fontSize: 22,
+                //         color: Colors.red.shade500,
+                //       ),
+                //     ),
+                //   ),
+                // ),
+                // const SizedBox(width: 8),
+                // Expanded(
+                //   child: SizedBox(
+                //     width: double.infinity,
+                //     child: ElevatedButton(
+                //       onPressed: () {
+                //         Navigator.pop(context);
+                //         showCourtAvailableDialog(
+                //           context,
+                //           controller: controller,
+                //         );
+                //       },
+                //       style: ElevatedButton.styleFrom(
+                //         backgroundColor: Colors.green.shade500,
+                //         foregroundColor: Colors.white,
+                //         shape: RoundedRectangleBorder(
+                //           borderRadius: BorderRadius.circular(10),
+                //         ),
+                //         minimumSize: Size.fromHeight(50),
+                //         padding: const EdgeInsets.symmetric(vertical: 10),
+                //       ),
+                //       child: Text(
+                //         'View Available Court',
+                //         textAlign: TextAlign.center,
+                //         style: GoogleFonts.inter(
+                //           fontWeight: FontWeight.w500,
+                //           fontSize: 22,
+                //           color: Colors.white,
+                //         ),
+                //       ),
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ],
@@ -1123,9 +1166,9 @@ void showCourtUnavailableDialog(
 }
 
 void showCourtAvailableDialog(
-  BuildContext context, {
-  required dynamic controller,
-}) {
+    BuildContext context, {
+      required dynamic controller,
+    }) {
   int selectedTimeIndex = 0; // Default to 30 mins
   int selectedCourtIndex = 0;
   int selectedSlotIndex = 0;
@@ -1168,8 +1211,8 @@ void showCourtAvailableDialog(
 
           // Check if this slot is already booked
           final isSlotBooked = controller.bookedSlots.any(
-            (b) =>
-                b.court == courtName &&
+                (b) =>
+            b.court == courtName &&
                 b.startTime != null &&
                 b.startTime!.year == checkTime.year &&
                 b.startTime!.month == checkTime.month &&
@@ -1200,9 +1243,9 @@ void showCourtAvailableDialog(
 
   // Function to get available time slots for selected court and duration
   List<String> getAvailableTimeSlots(
-    String selectedCourt,
-    int selectedDuration,
-  ) {
+      String selectedCourt,
+      int selectedDuration,
+      ) {
     final availableSlots = <String>[];
     final timeFormat = DateFormat('hh:mm a');
 
@@ -1228,8 +1271,8 @@ void showCourtAvailableDialog(
 
         // Check if this slot is already booked for the selected court
         final isSlotBooked = controller.bookedSlots.any(
-          (b) =>
-              b.court == selectedCourt &&
+              (b) =>
+          b.court == selectedCourt &&
               b.startTime != null &&
               b.startTime!.year == checkTime.year &&
               b.startTime!.month == checkTime.month &&
@@ -1268,12 +1311,12 @@ void showCourtAvailableDialog(
 
           // Get available time slots for selected court and duration
           final availableSlots =
-              availableCourts.isNotEmpty
-                  ? getAvailableTimeSlots(
-                    availableCourts[selectedCourtIndex],
-                    timeDurations[selectedTimeIndex],
-                  )
-                  : <String>[];
+          availableCourts.isNotEmpty
+              ? getAvailableTimeSlots(
+            availableCourts[selectedCourtIndex],
+            timeDurations[selectedTimeIndex],
+          )
+              : <String>[];
 
           // Reset indices if they're out of bounds
           if (selectedCourtIndex >= availableCourts.length) {
@@ -1354,9 +1397,9 @@ void showCourtAvailableDialog(
                               ),
                               decoration: BoxDecoration(
                                 color:
-                                    isSelected
-                                        ? Colors.indigo.shade500
-                                        : Colors.indigo.shade50,
+                                isSelected
+                                    ? Colors.indigo.shade500
+                                    : Colors.indigo.shade50,
                                 border: Border.all(
                                   color: Colors.indigo.shade200,
                                   width: 1,
@@ -1367,9 +1410,9 @@ void showCourtAvailableDialog(
                                 times[index],
                                 style: GoogleFonts.inter(
                                   color:
-                                      isSelected
-                                          ? Colors.white
-                                          : Colors.indigo.shade500,
+                                  isSelected
+                                      ? Colors.white
+                                      : Colors.indigo.shade500,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,
                                 ),
@@ -1434,9 +1477,9 @@ void showCourtAvailableDialog(
                             child: ListView.builder(
                               scrollDirection: Axis.horizontal,
                               itemCount:
-                                  availableCourts.length > 4
-                                      ? 4
-                                      : availableCourts.length,
+                              availableCourts.length > 4
+                                  ? 4
+                                  : availableCourts.length,
                               itemBuilder: (context, index) {
                                 final isSelected = selectedCourtIndex == index;
                                 return GestureDetector(
@@ -1454,9 +1497,9 @@ void showCourtAvailableDialog(
                                     ),
                                     decoration: BoxDecoration(
                                       color:
-                                          isSelected
-                                              ? Colors.green.shade500
-                                              : Colors.green.shade50,
+                                      isSelected
+                                          ? Colors.green.shade500
+                                          : Colors.green.shade50,
                                       border: Border.all(
                                         color: Colors.green.shade300,
                                       ),
@@ -1466,9 +1509,9 @@ void showCourtAvailableDialog(
                                       availableCourts[index],
                                       style: GoogleFonts.inter(
                                         color:
-                                            isSelected
-                                                ? Colors.white
-                                                : Colors.green.shade500,
+                                        isSelected
+                                            ? Colors.white
+                                            : Colors.green.shade500,
                                         fontWeight: FontWeight.w600,
                                         fontSize: 15,
                                       ),
@@ -1486,9 +1529,9 @@ void showCourtAvailableDialog(
                               child: ListView.builder(
                                 scrollDirection: Axis.horizontal,
                                 itemCount:
-                                    availableCourts.length > 8
-                                        ? 4
-                                        : availableCourts.length - 4,
+                                availableCourts.length > 8
+                                    ? 4
+                                    : availableCourts.length - 4,
                                 itemBuilder: (context, index) {
                                   final actualIndex = index + 4;
                                   final isSelected =
@@ -1508,9 +1551,9 @@ void showCourtAvailableDialog(
                                       ),
                                       decoration: BoxDecoration(
                                         color:
-                                            isSelected
-                                                ? Colors.green.shade500
-                                                : Colors.green.shade50,
+                                        isSelected
+                                            ? Colors.green.shade500
+                                            : Colors.green.shade50,
                                         border: Border.all(
                                           color: Colors.green.shade300,
                                         ),
@@ -1520,9 +1563,9 @@ void showCourtAvailableDialog(
                                         availableCourts[actualIndex],
                                         style: GoogleFonts.inter(
                                           color:
-                                              isSelected
-                                                  ? Colors.white
-                                                  : Colors.green.shade500,
+                                          isSelected
+                                              ? Colors.white
+                                              : Colors.green.shade500,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 15,
                                         ),
@@ -1541,7 +1584,7 @@ void showCourtAvailableDialog(
                               runSpacing: 10,
                               children: List.generate(
                                 availableCourts.length - 8,
-                                (index) {
+                                    (index) {
                                   final actualIndex = index + 8;
                                   final isSelected =
                                       selectedCourtIndex == actualIndex;
@@ -1559,9 +1602,9 @@ void showCourtAvailableDialog(
                                       ),
                                       decoration: BoxDecoration(
                                         color:
-                                            isSelected
-                                                ? Colors.green.shade500
-                                                : Colors.green.shade50,
+                                        isSelected
+                                            ? Colors.green.shade500
+                                            : Colors.green.shade50,
                                         border: Border.all(
                                           color: Colors.green.shade300,
                                         ),
@@ -1571,9 +1614,9 @@ void showCourtAvailableDialog(
                                         availableCourts[actualIndex],
                                         style: GoogleFonts.inter(
                                           color:
-                                              isSelected
-                                                  ? Colors.white
-                                                  : Colors.green.shade500,
+                                          isSelected
+                                              ? Colors.white
+                                              : Colors.green.shade500,
                                           fontWeight: FontWeight.w600,
                                           fontSize: 15,
                                         ),
@@ -1639,8 +1682,8 @@ void showCourtAvailableDialog(
                             spacing: 4,
                             runSpacing: 4,
                             children: List.generate(availableSlots.length, (
-                              index,
-                            ) {
+                                index,
+                                ) {
                               final isSelected = selectedSlotIndex == index;
                               return GestureDetector(
                                 onTap: () {
@@ -1655,9 +1698,9 @@ void showCourtAvailableDialog(
                                   ),
                                   decoration: BoxDecoration(
                                     color:
-                                        isSelected
-                                            ? Colors.indigo.shade500
-                                            : Colors.indigo.shade50,
+                                    isSelected
+                                        ? Colors.indigo.shade500
+                                        : Colors.indigo.shade50,
                                     border: Border.all(
                                       color: Colors.indigo.shade200,
                                       width: 1,
@@ -1668,9 +1711,9 @@ void showCourtAvailableDialog(
                                     availableSlots[index],
                                     style: GoogleFonts.inter(
                                       color:
-                                          isSelected
-                                              ? Colors.white
-                                              : Colors.indigo.shade500,
+                                      isSelected
+                                          ? Colors.white
+                                          : Colors.indigo.shade500,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 15,
                                     ),
@@ -1715,23 +1758,23 @@ void showCourtAvailableDialog(
                         Expanded(
                           child: ElevatedButton(
                             onPressed:
-                                availableCourts.isNotEmpty &&
-                                        availableSlots.isNotEmpty
-                                    ? () {
-                                      // TODO: Implement booking logic here
-                                      // You can access:
-                                      // - Selected duration: timeDurations[selectedTimeIndex]
-                                      // - Selected court: availableCourts[selectedCourtIndex]
-                                      // - Selected slot: availableSlots[selectedSlotIndex]
-                                      Navigator.pop(context);
-                                    }
-                                    : null,
+                            availableCourts.isNotEmpty &&
+                                availableSlots.isNotEmpty
+                                ? () {
+                              // TODO: Implement booking logic here
+                              // You can access:
+                              // - Selected duration: timeDurations[selectedTimeIndex]
+                              // - Selected court: availableCourts[selectedCourtIndex]
+                              // - Selected slot: availableSlots[selectedSlotIndex]
+                              Navigator.pop(context);
+                            }
+                                : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor:
-                                  availableCourts.isNotEmpty &&
-                                          availableSlots.isNotEmpty
-                                      ? Colors.green.shade500
-                                      : Colors.grey.shade300,
+                              availableCourts.isNotEmpty &&
+                                  availableSlots.isNotEmpty
+                                  ? Colors.green.shade500
+                                  : Colors.grey.shade300,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               minimumSize: Size.fromHeight(60),
                               shape: RoundedRectangleBorder(
@@ -1742,10 +1785,10 @@ void showCourtAvailableDialog(
                               "Confirm",
                               style: GoogleFonts.inter(
                                 color:
-                                    availableCourts.isNotEmpty &&
-                                            availableSlots.isNotEmpty
-                                        ? Colors.white
-                                        : Colors.grey.shade500,
+                                availableCourts.isNotEmpty &&
+                                    availableSlots.isNotEmpty
+                                    ? Colors.white
+                                    : Colors.grey.shade500,
                                 fontSize: 22,
                                 fontWeight: FontWeight.w600,
                               ),

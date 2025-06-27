@@ -2701,6 +2701,7 @@ class NewBookingController extends GetxController {
   Future<void> extendBooking({
     required BookingSlot originalBookingSlot,
     required int extensionInMinutes,
+    required Map<String, Map<String, dynamic>> slotInfoMap, // <-- add this
   }) async {
     try {
       isLoading.value = true;
@@ -2708,38 +2709,120 @@ class NewBookingController extends GetxController {
 
       final int numberOfSlots = extensionInMinutes ~/ 30;
       DateTime lastEndTime = originalBookingSlot.endTime!;
-
+      int totalExtended = 0;
       List<Map<String, dynamic>> newSlotsData = [];
 
-      for (int i = 0; i < numberOfSlots; i++) {
-        final startTime = lastEndTime.add(Duration(minutes: 30));
-        final endTime = startTime.add(Duration(minutes: extensionInMinutes));
-        final price = originalBookingSlot.price;
+      // Helper to check if a slot is already booked by this booking
+      bool isSlotBookedByMe(DateTime start, DateTime end) {
+        return bookedSlots.any(
+              (slot) =>
+          slot.courtId == originalBookingSlot.courtId &&
+              slot.date?.year == start.year &&
+              slot.date?.month == start.month &&
+              slot.date?.day == start.day &&
+              slot.startTime == start &&
+              slot.endTime == end &&
+              slot.bookingId == originalBookingSlot.bookingId,
+        );
+      }
 
-        final newSlot = {
-          'booking_id': originalBookingSlot.bookingId,
-          'service_id': originalBookingSlot.serviceId,
-          'court_id': originalBookingSlot.courtId,
-          'start_time': startTime.toIso8601String(),
-          'end_time': endTime.toIso8601String(),
-          'price': price,
-          'slot_type': 'Extended Time',
-          'status': 'Booked',
-          'is_extended_booking': true,
-          'created_by': authController.userId.toString(),
-          'updated_by': authController.userId.toString(),
-          'created_at': DateTime.now().toIso8601String(),
-          'updated_at': DateTime.now().toIso8601String(),
-        };
-        newSlotsData.add(newSlot);
-        lastEndTime = endTime;
+      // Helper to check if a slot is booked by anyone
+      bool isSlotBookedByAnyone(DateTime start, DateTime end) {
+        return bookedSlots.any(
+              (slot) =>
+          slot.courtId == originalBookingSlot.courtId &&
+              slot.date?.year == start.year &&
+              slot.date?.month == start.month &&
+              slot.date?.day == start.day &&
+              slot.startTime == start &&
+              slot.endTime == end,
+        );
+      }
+
+      // Find all consecutive slots after the original booking that are already booked by the user
+      List<BookingSlot> mySlots =
+      bookedSlots
+          .where(
+            (slot) =>
+        slot.bookingId == originalBookingSlot.bookingId &&
+            slot.courtId == originalBookingSlot.courtId &&
+            slot.date?.year == originalBookingSlot.date?.year &&
+            slot.date?.month == originalBookingSlot.date?.month &&
+            slot.date?.day == originalBookingSlot.date?.day,
+      )
+          .toList();
+      mySlots.sort((a, b) => a.startTime!.compareTo(b.startTime!));
+
+      // Merge consecutive slots
+      DateTime extensionStart = originalBookingSlot.endTime!;
+      for (int i = 0; i < mySlots.length; i++) {
+        if (mySlots[i].startTime!.isAtSameMomentAs(extensionStart)) {
+          extensionStart = mySlots[i].endTime!;
+          // Check for further consecutive slots
+          i = -1; // Restart loop to catch chains
+        }
+      }
+
+      // Always use 30 minutes for each extension slot
+      final slotMinutes = 30;
+      int slotsNeeded = extensionInMinutes ~/ slotMinutes;
+      int slotsSecured = 0;
+      DateTime nextStart = extensionStart;
+
+      while (slotsSecured < slotsNeeded) {
+        final startTime = nextStart;
+        final endTime = startTime.add(Duration(minutes: slotMinutes));
+        final slotKey =
+            "${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}";
+        final slotData = slotInfoMap[slotKey];
+        final price = slotData != null ? (slotData['price'] ?? originalBookingSlot.price) : originalBookingSlot.price;
+
+        if (isSlotBookedByMe(startTime, endTime)) {
+          // Already booked by this booking, count as secured
+          slotsSecured++;
+          nextStart = endTime;
+          continue;
+        } else if (isSlotBookedByAnyone(startTime, endTime)) {
+          // Booked by someone else, stop extension
+          break;
+        } else {
+          // Free, book it
+          final newSlot = {
+            'booking_id': originalBookingSlot.bookingId,
+            'service_id': originalBookingSlot.serviceId,
+            'court_id': originalBookingSlot.courtId,
+            'start_time': startTime.toIso8601String(),
+            'end_time': endTime.toIso8601String(),
+            'price': price,
+            'slot_type': 'Extended Time',
+            'status': 'Booked',
+            'is_extended_booking': true,
+            'created_by': authController.userId.toString(),
+            'updated_by': authController.userId.toString(),
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          };
+          newSlotsData.add(newSlot);
+          slotsSecured++;
+          nextStart = endTime;
+        }
       }
 
       if (newSlotsData.isNotEmpty) {
-        await supabase
-            .schema('s22_prod_schema')
-            .from('booking_slots')
-            .insert(newSlotsData);
+        try {
+          final response = await supabase
+              .schema('s22_prod_schema')
+              .from('booking_slots')
+              .insert(newSlotsData);
+          print('Insert response: $response');
+        } catch (e) {
+          print('Supabase insert error: $e');
+          showCustomSnackbar(
+            'Error',
+            'Failed to insert booking slots: $e',
+            Colors.red,
+          );
+        }
       }
 
       await fetchBookedSlots();
@@ -2747,7 +2830,7 @@ class NewBookingController extends GetxController {
       Get.back(); // Close the drawer
       showCustomSnackbar(
         'Success',
-        'Booking extended successfully for $extensionInMinutes minutes.',
+        'Booking extended successfully for $totalExtended minutes.',
         Colors.green.shade500,
       );
     } catch (e) {
