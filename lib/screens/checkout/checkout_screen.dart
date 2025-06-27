@@ -149,6 +149,58 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     await prefs.remove('shopping_cart');
   }
 
+  void showCancelBookingConfirmationDialog() {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        title: const Text("Confirm", style: TextStyle(fontSize: 25),),
+        content: const Text(
+          "Are you sure you want to cancel this booking and go to the Dashboard?",
+          style: TextStyle(fontSize: 22),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 20,
+            children: [
+              TextButton(
+                onPressed: () {
+                  Get.back(); // Close dialog
+                },
+                child: const Text("No", style: TextStyle(fontSize: 22),),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  minimumSize: const Size(200, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final defaultController = Get.find<DefaultController>();
+                  defaultController.tabIndex.value = 0;
+                  defaultController.dashboardTabController?.index = 0;
+                  Get.offAllNamed('/');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  minimumSize: const Size(200, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text("Yes", style: TextStyle(fontSize: 22, color: Colors.white),),
+              ),
+            ],
+          )
+        ],
+      ),
+      barrierDismissible: false,
+    );
+  }
+
   Color? borderColor;
   Color? backgroundColor;
   Color? textColor;
@@ -189,6 +241,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 children: [
                   //SizedBox(width: 22 * ffem),
                   Container(
+                    height: 60,
                     decoration: BoxDecoration(
                       color: Colors.white, // Navy blue
                       borderRadius: BorderRadius.circular(6),
@@ -200,7 +253,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      icon: const Icon(Icons.arrow_back, color: Colors.black),
+                      icon: Container(
+                        child: Row(
+                          spacing: 10,
+                          children: [
+                            Icon(Icons.arrow_back, color: Colors.black, size: 35,),
+                            Text('Go back', style: TextStyle(fontSize: 23),)
+                          ],
+                        ),
+                      ),
                       onPressed: () => Get.back(result: true),
                     ),
                   ),
@@ -231,25 +292,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // Items count
                   GestureDetector(
                     onTap: () {
-                      final defaultController = Get.find<DefaultController>();
-                      defaultController.tabIndex.value = 0; // Reset to Dashboard
-                      defaultController.dashboardTabController?.index = 0;
-                      Get.offAllNamed('/');
+                      showCancelBookingConfirmationDialog();
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade500),
                         borderRadius: BorderRadius.circular(6),
                         color: Colors.white,
                       ),
                       child: Row(
-                        spacing: 10,
                         children: [
                           Icon(LucideIcons.layoutDashboard, size: 40),
+                          const SizedBox(width: 10),
                           Text(
                             'Dashboard',
                             style: GoogleFonts.inter(
