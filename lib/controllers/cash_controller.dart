@@ -1,3 +1,4 @@
+import 'package:booking_app/config/constants.dart';
 import 'package:booking_app/config/palette.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -73,6 +74,9 @@ class CashController extends GetxController {
           .eq('id', currentRecord['id']);
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('openCloseId');
+      await prefs.remove('pin');
+      authController.pin.value =  '';
+      authController.openCloseId = '';
       return true;
     } catch (e) {
       Get.snackbar('Error', 'Failed to close cash: ${e.toString()}');

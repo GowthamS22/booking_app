@@ -89,6 +89,18 @@ class _CloseCashState extends State<CloseCash> {
   }
 
   Future<void> _submitCloseCash() async {
+
+    // Validate required fields
+    if ((cashSales != cashSum) && cashDifferenceReasonController.text.isEmpty) {
+      showCustomSnackbar('Error', 'Please enter reason for cash difference', Colors.redAccent);
+      return;
+    }
+
+    if ((eftposSales != eftposFromDevice) && eftposDifferenceReasonController.text.isEmpty) {
+      showCustomSnackbar('Error', 'Please enter reason for EFTPOS difference', Colors.redAccent);
+      return;
+    }
+
     // Validate required fields
     if (showCashDifferenceReason && cashDifferenceReasonController.text.isEmpty) {
       showCustomSnackbar('Error', 'Please enter reason for cash difference', Colors.redAccent);
@@ -247,40 +259,38 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    controller: TextEditingController(text: openingBalance.toStringAsFixed(2)),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
-                                      ),
-                                    ),
-                                    readOnly: true,
+                                child: TextFormField(
+                                  controller: TextEditingController(text: openingBalance.toStringAsFixed(2)),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
                                   ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                  readOnly: true,
                                 ),
                               )
                             ],
@@ -298,40 +308,38 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    controller: TextEditingController(text: cashSales.toStringAsFixed(2)),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
-                                      ),
-                                    ),
-                                    readOnly: true,
+                                child: TextFormField(
+                                  controller: TextEditingController(text: cashSales.toStringAsFixed(2)),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
                                   ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                  readOnly: true,
                                 ),
                               )
                             ],
@@ -349,47 +357,45 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    controller: cashInDrawerController,
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      hintText: '0.00',
-                                      hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
-                                      ),
-                                    ),
-                                    readOnly: true,
-                                    onTap: () {
-                                      setState(() {
-                                        showDenomination = true;
-                                      });
-                                    },
+                                child: TextFormField(
+                                  controller: cashInDrawerController,
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
                                   ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    hintText: '0.00',
+                                    hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                  readOnly: true,
+                                  onTap: () {
+                                    setState(() {
+                                      showDenomination = true;
+                                    });
+                                  },
                                 ),
                               )
                             ],
@@ -408,35 +414,33 @@ class _CloseCashState extends State<CloseCash> {
                                 ),
                                 Container(
                                   width: 500,
-                                  child: Expanded(
-                                    child: TextFormField(
-                                      controller: cashDifferenceReasonController,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.indigo.shade500,
+                                  child: TextFormField(
+                                    controller: cashDifferenceReasonController,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo.shade500,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0,
+                                        ),
                                       ),
-                                      textAlign: TextAlign.right,
-                                      decoration: InputDecoration(
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.0,
-                                          ),
+                                      enabledBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0,
                                         ),
-                                        enabledBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.0,
-                                          ),
-                                        ),
-                                        focusedBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Palette.newColor,
-                                            width: 2.0,
-                                          ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Palette.newColor,
+                                          width: 2.0,
                                         ),
                                       ),
                                     ),
@@ -457,40 +461,38 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    controller: TextEditingController(text: eftposSales.toStringAsFixed(2)),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
-                                      ),
-                                    ),
-                                    readOnly: true,
+                                child: TextFormField(
+                                  controller: TextEditingController(text: eftposSales.toStringAsFixed(2)),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
                                   ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                  readOnly: true,
                                 ),
                               )
                             ],
@@ -508,44 +510,42 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    onChanged: (value) {
-                                      setState(() {
-                                        eftposFromDevice = double.tryParse(value) ?? 0.0;
-                                        showEftposDifferenceReason = (eftposSales != eftposFromDevice);
-                                      });
-                                    },
-                                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
+                                child: TextFormField(
+                                  onChanged: (value) {
+                                    setState(() {
+                                      eftposFromDevice = double.tryParse(value) ?? 0.0;
+                                      showEftposDifferenceReason = (eftposSales != eftposFromDevice);
+                                    });
+                                  },
+                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    hintText: '0.00',
+                                    hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
                                     ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      hintText: '0.00',
-                                      hintStyle: TextStyle(fontSize: 25),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
                                       ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
                                       ),
                                     ),
                                   ),
@@ -567,35 +567,33 @@ class _CloseCashState extends State<CloseCash> {
                                 ),
                                 Container(
                                   width: 500,
-                                  child: Expanded(
-                                    child: TextFormField(
-                                      controller: eftposDifferenceReasonController,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.indigo.shade500,
+                                  child: TextFormField(
+                                    controller: eftposDifferenceReasonController,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo.shade500,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0,
+                                        ),
                                       ),
-                                      textAlign: TextAlign.right,
-                                      decoration: InputDecoration(
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.0,
-                                          ),
+                                      enabledBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0,
                                         ),
-                                        enabledBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.0,
-                                          ),
-                                        ),
-                                        focusedBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Palette.newColor,
-                                            width: 2.0,
-                                          ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Palette.newColor,
+                                          width: 2.0,
                                         ),
                                       ),
                                     ),
@@ -616,40 +614,38 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    controller: TextEditingController(text: overallOnAccount.toStringAsFixed(2)),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
-                                    ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
-                                      ),
-                                    ),
-                                    readOnly: true,
+                                child: TextFormField(
+                                  controller: TextEditingController(text: overallOnAccount.toStringAsFixed(2)),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
                                   ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                  ),
+                                  readOnly: true,
                                 ),
                               )
                             ],
@@ -667,44 +663,42 @@ class _CloseCashState extends State<CloseCash> {
                               ),
                               Container(
                                 width: 500,
-                                child: Expanded(
-                                  child: TextFormField(
-                                    onChanged: (value) {
-                                      setState(() {
-                                        otherSpend = double.tryParse(value) ?? 0.0;
-                                        showOtherSpendReason = (otherSpend > 0);
-                                      });
-                                    },
-                                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.indigo.shade500,
+                                child: TextFormField(
+                                  onChanged: (value) {
+                                    setState(() {
+                                      otherSpend = double.tryParse(value) ?? 0.0;
+                                      showOtherSpendReason = (otherSpend > 0);
+                                    });
+                                  },
+                                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.indigo.shade500,
+                                  ),
+                                  textAlign: TextAlign.right,
+                                  decoration: InputDecoration(
+                                    prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
+                                    hintText: '0.00',
+                                    hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
+                                    filled: true,
+                                    fillColor: Colors.white,
+                                    border: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
+                                      ),
                                     ),
-                                    textAlign: TextAlign.right,
-                                    decoration: InputDecoration(
-                                      prefixIcon: Icon(Icons.attach_money_sharp, color: Colors.grey, size: 35),
-                                      hintText: '0.00',
-                                      hintStyle: TextStyle(fontSize: 25, color: Colors.grey),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      border: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
+                                    enabledBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Colors.grey.shade300,
+                                        width: 1.0,
                                       ),
-                                      enabledBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Colors.grey.shade300,
-                                          width: 1.0,
-                                        ),
-                                      ),
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: Palette.newColor,
-                                          width: 2.0,
-                                        ),
+                                    ),
+                                    focusedBorder: UnderlineInputBorder(
+                                      borderSide: BorderSide(
+                                        color: Palette.newColor,
+                                        width: 2.0,
                                       ),
                                     ),
                                   ),
@@ -726,35 +720,33 @@ class _CloseCashState extends State<CloseCash> {
                                 ),
                                 Container(
                                   width: 500,
-                                  child: Expanded(
-                                    child: TextFormField(
-                                      controller: otherSpendReasonController,
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 25,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.indigo.shade500,
+                                  child: TextFormField(
+                                    controller: otherSpendReasonController,
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.indigo.shade500,
+                                    ),
+                                    textAlign: TextAlign.right,
+                                    decoration: InputDecoration(
+                                      filled: true,
+                                      fillColor: Colors.white,
+                                      border: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0,
+                                        ),
                                       ),
-                                      textAlign: TextAlign.right,
-                                      decoration: InputDecoration(
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.0,
-                                          ),
+                                      enabledBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Colors.grey.shade300,
+                                          width: 1.0,
                                         ),
-                                        enabledBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Colors.grey.shade300,
-                                            width: 1.0,
-                                          ),
-                                        ),
-                                        focusedBorder: UnderlineInputBorder(
-                                          borderSide: BorderSide(
-                                            color: Palette.newColor,
-                                            width: 2.0,
-                                          ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Palette.newColor,
+                                          width: 2.0,
                                         ),
                                       ),
                                     ),

@@ -63,12 +63,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 shape: BoxShape.circle,
               ),
               constraints: const BoxConstraints(
-                minWidth: 25,
+                minWidth: 30,
                 minHeight: 25,
               ),
               child: Text(
                 defaultController.pendingPaymentCount.value > 99
-                    ? '99+'
+                    ? '99'
                     : defaultController.pendingPaymentCount.value.toString(),
                 style: const TextStyle(
                   color: Colors.white,
@@ -183,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Row(
               children: [
                 Container(
-                  width: MediaQuery.of(context).size.width / 1.8,
+                  width: MediaQuery.of(context).size.width / 1.7,
                   height: MediaQuery.of(context).size.height * .06,
                   //    margin: const EdgeInsets.only(left: 16, top: 16),
                   decoration: BoxDecoration(
