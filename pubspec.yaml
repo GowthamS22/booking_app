@@ -59,6 +59,8 @@ dependencies:
   webview_flutter:
   flutter_inappwebview:
   toastification:
+  smooth_page_indicator:
+  qr_code_scanner_plus:
 
 dev_dependencies:
   flutter_test:
@@ -91,6 +93,8 @@ flutter:
     - assets/images/products/
     - assets/images/pic/
     - assets/images/splash_logo.png
+    - assets/images/dropin_logo.png
+    - assets/images/slider/
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

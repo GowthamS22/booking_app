@@ -57,19 +57,31 @@ class CustomerController extends GetxController {
   RxList<Map<String, dynamic>> membershipPlans = <Map<String, dynamic>>[].obs;
 
   Future<void> fetchMembershipPlanDetails() async {
+    final SharedPreferences pref = await SharedPreferences.getInstance();
+    String? centerSlug           = pref.getString('centerSlug');
     try {
       final response = await supabase
-      //.schema('${centerSlug}_prod_schema')
-          .schema('s22_prod_schema')
+          .schema('${centerSlug}_prod_schema')
           .from('membershipplan')
-          .select('id, name')
-          .eq('status', true);
+          .select('*')
+          .order('price');
 
-      final data = response as List<dynamic>;
-      membershipPlans.value =
-          data.map((plan) => {'id': plan['id'], 'name': plan['name']}).toList();
+      if (response.isEmpty) {
+        print('No membership plans found');
+        membershipPlans.clear();
+      }
+
+      membershipPlans.assignAll(List<Map<String, dynamic>>.from(response));
     } catch (e) {
       print('Error fetching membership plans: $e');
+      // Handle error, e.g., show a snackbar
+      showCustomSnackbar(
+        'Error',
+        'Failed to load membership plans: $e',
+        Colors.red,
+      );
+    } finally {
+      update();
     }
   }
 
@@ -308,13 +320,15 @@ class CustomerController extends GetxController {
     update();
   }
 
-  Future<void> fetchCustomerDetails() async {
+  Future<void> fetchCustomerDetails({bool? hasMembership}) async {
     try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+
       isLoading.value = true;
 
-      final response = await supabase
-      //.schema('${centerSlug}_prod_schema')
-          .schema('s22_prod_schema')
+      var query = supabase
+          .schema('${centerSlug}_prod_schema')
           .from('customers')
           .select('''
             id,
@@ -334,13 +348,22 @@ class CustomerController extends GetxController {
           ''')
           .eq('status', true);
 
+      // Apply membership filter if provided
+      if (hasMembership != null) {
+        if (hasMembership) {
+          query = query.neq('membership_id', null!); // Customers WITH membership
+        } else {
+          query = query.eq('membership_id', null!); // Customers WITHOUT membership
+        }
+      }
+
+      final response = await query;
+
       final data = response as List<dynamic>;
 
-      final result =
-      data.map((customer) {
+      final result = data.map((customer) {
         final bookingList = customer['bookings'] as List<dynamic>? ?? [];
-        final paymentList =
-            customer['booking_slots_payments'] as List<dynamic>? ?? [];
+        final paymentList = customer['booking_slots_payments'] as List<dynamic>? ?? [];
 
         final totalBookings = bookingList.length;
         final totalSpent = paymentList.fold<double>(
@@ -367,23 +390,60 @@ class CustomerController extends GetxController {
   }
 
   // Add new customer
-  Future<bool> addCustomer({
+  Future<Map<String, dynamic>?> addCustomer({
     required String firstName,
     required String mobile,
-    required String membershipPlanId,
+    String? membershipPlanId,
   }) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
     try {
-      await supabase
-      // .schema('${centerSlug}_prod_schema')
-          .schema('s22_prod_schema')
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
           .from('customers')
           .insert({
-        'first_name': firstName,
-        'mobile': mobile,
-        'membershipplan_id': membershipPlanId,
-        'status': true,
-      });
+            'first_name': firstName,
+            'mobile': mobile,
+            'membershipplan_id': membershipPlanId,
+            'status': true,
+          })
+          .select('*')
+          .single();
+
       await fetchCustomerDetails();
+      return response;
+    } catch (e) {
+      print('Error adding customer: $e');
+      return null;
+    }
+  }
+
+  // Add new customer
+  Future<bool> updateCustomer({
+    required String customerId,
+    required String name,
+    required String mobile,
+    String? membershipPlanId,
+  }) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+
+    try {
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .update({
+            'first_name': name,
+            'mobile': mobile,
+            'membershipplan_id': membershipPlanId,
+            'status': true,
+          })
+          .eq('id', customerId);
+
+      await fetchCustomerDetails();
+      showCustomSnackbar('Success', 'Customer Updated Successfully', Colors.green);
       return true;
     } catch (e) {
       print('Error adding customer: $e');
@@ -393,10 +453,11 @@ class CustomerController extends GetxController {
 
   // Soft delete customer by setting status to false
   Future<void> softDeleteCustomer(String customerId) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
     try {
       await supabase
-      // .schema('${centerSlug}_prod_schema')
-          .schema('s22_prod_schema')
+          .schema('${centerSlug}_prod_schema')
           .from('customers')
           .update({'status': false})
           .eq('id', customerId);

@@ -145,18 +145,12 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color:
-                      controller.selectedIndex == 2
-                          ? Colors.indigo.shade50
-                          : Colors.transparent,
+                  color: controller.selectedIndex == 2 ? Colors.indigo.shade50 : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.users,
-                  color:
-                      controller.selectedIndex == 2
-                          ? Colors.indigo.shade900
-                          : Colors.grey,
+                  color: controller.selectedIndex == 2 ? Colors.indigo.shade900 : Colors.grey,
                   size: 40,
                 ),
               ),
@@ -171,18 +165,12 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color:
-                      controller.selectedIndex == 3
-                          ? Colors.indigo.shade50
-                          : Colors.transparent,
+                  color: controller.selectedIndex == 3 ? Colors.indigo.shade50 : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
-                  LucideIcons.settings,
-                  color:
-                      controller.selectedIndex == 3
-                          ? Colors.indigo.shade900
-                          : Colors.grey,
+                  LucideIcons.crown,
+                  color: controller.selectedIndex == 3 ? Colors.indigo.shade900 : Colors.grey,
                   size: 40,
                 ),
               ),
@@ -197,18 +185,32 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 width: 80,
                 height: 70,
                 decoration: BoxDecoration(
-                  color:
-                      controller.selectedIndex == 4
-                          ? Colors.indigo.shade50
-                          : Colors.transparent,
+                  color: controller.selectedIndex == 4 ? Colors.indigo.shade50 : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  LucideIcons.settings,
+                  color: controller.selectedIndex == 4 ? Colors.indigo.shade900 : Colors.grey,
+                  size: 40,
+                ),
+              ),
+            ),
+          ),
+          SidebarXItem(
+            onTap: () {
+              defaultController.changeTabIndex(5);
+            },
+            iconWidget: Center(
+              child: Container(
+                width: 80,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: controller.selectedIndex == 5 ? Colors.indigo.shade50 : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   LucideIcons.coins,
-                  color:
-                      controller.selectedIndex == 4
-                          ? Colors.indigo.shade900
-                          : Colors.grey,
+                  color: controller.selectedIndex == 5 ? Colors.indigo.shade900 : Colors.grey,
                   size: 40,
                 ),
               ),

@@ -267,7 +267,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   return Center(child: Text(bookingController.error.value));
                 }
 
-                final bookings = bookingController.bookings;
+                final bookings = bookingController.bookings.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled'),).toList();
 
                 if (bookings.isEmpty) {
                   return Center(

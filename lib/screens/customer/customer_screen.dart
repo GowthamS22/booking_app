@@ -1,4 +1,6 @@
+import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/controllers/customer_controller.dart';
+import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -27,6 +29,8 @@ class _CustomerScreenState extends State<CustomerScreen> {
   TextEditingController editMobileController = TextEditingController();
   String? editMembershipPlanId;
   List<Map<String, dynamic>> filteredCustomers = [];
+  String? selectedMembershipId;
+  double _selectedPrice = 0.0;
 
   @override
   void initState() {
@@ -111,7 +115,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 ),
               ],
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 10),
             _buildTopBar(),
             SizedBox(height: 20),
             // Custom Header Row
@@ -164,7 +168,6 @@ class _CustomerScreenState extends State<CustomerScreen> {
                       ),
                     ),
                   ),
-
                   Expanded(
                     child: Align(
                       alignment: Alignment.center,
@@ -227,7 +230,6 @@ class _CustomerScreenState extends State<CustomerScreen> {
                       itemBuilder: (context, index) {
                         final customer = filteredCustomers[index];
                         final isEditing = editingCustomerId == customer['id'];
-
                         return Column(
                           children: [
                             Container(
@@ -490,44 +492,30 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                           onPressed: () async {
                                             if (isEditing) {
                                               // Save logic
-                                              final updatedName =
-                                              editNameController.text
-                                                  .trim();
-                                              final updatedMobile =
-                                              editMobileController.text
-                                                  .trim();
-                                              final updatedMembershipPlanId =
-                                                  editMembershipPlanId;
+                                              final updatedName = editNameController.text.trim();
+                                              final updatedMobile = editMobileController.text.trim();
+                                              final updatedMembershipPlanId = editMembershipPlanId;
                                               // Call your update method (e.g., customerController.updateCustomer)
-                                              // await customerController.updateCustomer(
-                                              //   id: customer['id'],
-                                              //   name: updatedName,
-                                              //   mobile: updatedMobile,
-                                              //   membershipPlanId:
-                                              //   updatedMembershipPlanId,
-                                              // );
+                                              await customerController.updateCustomer(
+                                                customerId: customer['id'],
+                                                name: updatedName,
+                                                mobile: updatedMobile,
+                                                membershipPlanId: updatedMembershipPlanId,
+                                              );
                                               setState(() {
                                                 editingCustomerId = null;
                                               });
                                             } else {
                                               // Enter edit mode
                                               setState(() {
-                                                editingCustomerId =
-                                                customer['id'];
-                                                editNameController.text =
-                                                    customer['name'] ?? '';
-                                                editMobileController.text =
-                                                    customer['mobile'] ?? '';
+                                                editingCustomerId = customer['id'];
+                                                editNameController.text = customer['name'] ?? '';
+                                                editMobileController.text = customer['mobile'] ?? '';
                                                 // Find the plan ID by matching the name
-                                                final plan = customerController
-                                                    .membershipPlans
-                                                    .firstWhereOrNull(
-                                                      (plan) =>
-                                                  plan['name'] ==
-                                                      customer['membership'],
+                                                final plan = customerController.membershipPlans.firstWhereOrNull(
+                                                      (plan) => plan['name'] == customer['membership'],
                                                 );
-                                                editMembershipPlanId =
-                                                plan?['id'];
+                                                editMembershipPlanId = plan?['id'];
                                               });
                                             }
                                           },
@@ -573,13 +561,12 @@ class _CustomerScreenState extends State<CustomerScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Spacer(),
-
         Expanded(
           child: SizedBox(
             width: MediaQuery.of(context).size.width * 0.6,
             child: TextField(
               controller: _searchController,
-              style: GoogleFonts.roboto(fontSize: 14),
+              style: GoogleFonts.roboto(fontSize: 22),
               decoration: InputDecoration(
                 hintText: 'search "john"',
                 hintStyle: GoogleFonts.inter(
@@ -589,12 +576,12 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
-                  vertical: 7,
+                  vertical: 15,
                 ),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: Colors.grey.shade200),
                 ),
                 enabledBorder: OutlineInputBorder(
@@ -626,29 +613,28 @@ class _CustomerScreenState extends State<CustomerScreen> {
         //   ),
         //   child: const Icon(LucideIcons.filter, size: 30),
         // ),
-        const SizedBox(width: 10),
-        Container(
-          height: 50,
-          width: 50,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: const Icon(LucideIcons.upload, size: 30),
-        ),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 13),
-          decoration: BoxDecoration(
-            color: Colors.indigo.shade500,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey),
-          ),
-          child: GestureDetector(
-            onTap: () {
-              openMembershipDrawer(context);
-            },
+        // Container(
+        //   height: 60,
+        //   width: 60,
+        //   decoration: BoxDecoration(
+        //     color: Colors.white,
+        //     borderRadius: BorderRadius.circular(12),
+        //     border: Border.all(color: Colors.grey.shade300),
+        //   ),
+        //   child: const Icon(LucideIcons.upload, size: 30),
+        // ),
+        // const SizedBox(width: 10),
+        GestureDetector(
+          onTap: () {
+            openMembershipDrawer(context);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 13),
+            decoration: BoxDecoration(
+              color: Palette.newColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey),
+            ),
             child: Text(
               'Add Customer',
               style: GoogleFonts.inter(
@@ -664,9 +650,16 @@ class _CustomerScreenState extends State<CustomerScreen> {
   }
 
   Future<void> openMembershipDrawer(BuildContext context) async {
+    final plans = customerController.membershipPlans;
+    String? selectedPlan = '';
+    selectedMembershipId = '';
+
+    // Form key for validation
+    final _formKey = GlobalKey<FormState>();
+
     await showGeneralDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       barrierLabel: 'Customer Add',
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
@@ -686,109 +679,63 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 color: Colors.white,
                 child: StatefulBuilder(
                   builder: (context, setState) {
-                    return Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'New Customer',
-                            style: GoogleFonts.inter(
-                              fontSize: 23,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Enter details for new customer',
-                            style: GoogleFonts.inter(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                          const Divider(height: 24),
-                          Text(
-                            'Name',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 22,
-                              color: Colors.black,
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: customerController.nameController,
-                            style: GoogleFonts.inter(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.grey.shade900,
-                            ),
-                            decoration: InputDecoration(
-                              // labelText: "Name",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade100,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Mobile',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 22,
-                              color: Colors.black,
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: customerController.mobileController,
-                            style: GoogleFonts.inter(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.grey.shade900,
-                            ),
-                            decoration: InputDecoration(
-                              //labelText: "Name",
-                              // hintText: "e.g Sara Williams",
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.all(
-                                  Radius.circular(10),
-                                ),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade100,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            'Membership Type',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 22,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          Obx(() {
-                            return DropdownButtonFormField<String>(
-                              value: selectedMembershipPlanId,
+                    return Form(
+                      key: _formKey,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'New Customer',
                               style: GoogleFonts.inter(
-                                fontSize: 20,
+                                fontSize: 23,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Enter details for new customer',
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            const Divider(height: 24),
+
+                            // Name Field
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Name ',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '*',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: customerController.nameController,
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
                                 fontWeight: FontWeight.w400,
                                 color: Colors.grey.shade900,
                               ),
-                              isExpanded: true,
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.all(
@@ -798,140 +745,381 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                     color: Colors.grey.shade100,
                                   ),
                                 ),
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 14,
+                                errorStyle: GoogleFonts.inter( // Add this
+                                  fontSize: 22, // Set your desired size
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              items:
-                              customerController.membershipPlans.map((
-                                  plan,
-                                  ) {
-                                return DropdownMenuItem<String>(
-                                  value: plan['id'],
-                                  child: Text(
-                                    plan['name'] ?? '',
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter customer name';
+                                }
+                                return null;
+                              },
+                            ),
+
+                            // Mobile Field
+                            const SizedBox(height: 10),
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Mobile ',
                                     style: GoogleFonts.inter(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w400,
-                                      color: Colors.grey.shade900,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Colors.black,
                                     ),
+                                  ),
+                                  TextSpan(
+                                    text: '*',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: customerController.mobileController,
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.grey.shade900,
+                              ),
+                              keyboardType: TextInputType.phone,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(10),
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade100,
+                                  ),
+                                ),
+                                errorStyle: GoogleFonts.inter( // Add this
+                                  fontSize: 22, // Set your desired size
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter mobile number';
+                                }
+                                // Add more sophisticated phone validation if needed
+                                return null;
+                              },
+                            ),
+
+                            // Membership Type Dropdown
+                            const SizedBox(height: 10),
+                            Text(
+                              'Membership Type',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 22,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Obx(() {
+                              return DropdownButtonFormField<String>(
+                                value: selectedMembershipPlanId,
+                                style: GoogleFonts.inter(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.grey.shade900,
+                                ),
+                                isExpanded: true,
+                                decoration: InputDecoration(
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(10),
+                                    ),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade100,
+                                    ),
+                                  ),
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 14,
+                                  ),
+                                  hintText: 'Select a membership (optional)',
+                                ),
+                                items: [
+                                  DropdownMenuItem<String>(
+                                    value: null,
+                                    child: Text(
+                                      'None',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w400,
+                                        color: Colors.grey.shade500,
+                                      ),
+                                    ),
+                                  ),
+                                  ...customerController.membershipPlans.map((plan) {
+                                    return DropdownMenuItem<String>(
+                                      value: plan['id'],
+                                      child: Text(
+                                        plan['name'] ?? '',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w400,
+                                          color: Colors.grey.shade900,
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ],
+                                onChanged: (value) {
+                                  selectedMembershipPlanId = value;
+                                  setState(() {});
+                                },
+                              );
+                            }),
+
+                            // Display selected membership details
+                            if (selectedMembershipPlanId != null && selectedMembershipPlanId!.isNotEmpty)
+                              ...customerController.membershipPlans.where((plan) => plan['id'] == selectedMembershipPlanId).map((plan) {
+                                Color borderColor;
+                                Color backgroundColor;
+                                Color textColor;
+
+                                if (plan['name'].toString().toLowerCase().contains('gold')) {
+                                  borderColor = Colors.amber.shade500;
+                                  backgroundColor = Colors.amber.shade50;
+                                  textColor = Colors.amber.shade500;
+                                } else if (plan['name'].toString().toLowerCase().contains('platinum')) {
+                                  borderColor = Colors.indigo.shade500;
+                                  backgroundColor = Colors.indigo.shade50;
+                                  textColor = Colors.indigo.shade500;
+                                } else {
+                                  borderColor = Colors.grey.shade300;
+                                  backgroundColor = Colors.grey.shade100;
+                                  textColor = Colors.black;
+                                }
+
+                                return Container(
+                                  margin: const EdgeInsets.only(top: 16, bottom: 12),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: borderColor,
+                                      width: 1.5,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: backgroundColor,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            LucideIcons.crown,
+                                            color: textColor,
+                                            size: 30,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            " ${plan['name']} Membership",
+                                            style: GoogleFonts.inter(
+                                              fontWeight: FontWeight.w700,
+                                              color: textColor,
+                                              fontSize: 23,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            '\$${plan['price']}',
+                                            style: GoogleFonts.inter(
+                                              color: textColor,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 23,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            plan['billing_cycle'],
+                                            style: GoogleFonts.inter(
+                                              color: textColor,
+                                              fontSize: 23,
+                                              fontWeight: FontWeight.w400,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        plan['description'],
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.w500,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      ...List<Widget>.from(
+                                        (plan['highlights'] as List).map((highlight) {
+                                          return Row(
+                                            children: [
+                                              Icon(
+                                                LucideIcons.dot,
+                                                size: 22,
+                                                color: Colors.black,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  highlight,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Colors.black,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }),
+                                      ),
+                                    ],
                                   ),
                                 );
                               }).toList(),
-                              onChanged: (value) {
-                                selectedMembershipPlanId = value;
-                                setState(() {});
-                              },
-                            );
-                          }),
-                          Spacer(),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey.shade300,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: Size.fromHeight(50),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    "Cancel",
-                                    style: GoogleFonts.inter(
-                                      fontSize: 23,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () async {
-                                    final name =
-                                    customerController.nameController.text
-                                        .trim();
-                                    final mobile =
-                                    customerController.mobileController.text
-                                        .trim();
-                                    final membershipId =
-                                        selectedMembershipPlanId;
-                                    if (name.isEmpty ||
-                                        mobile.isEmpty ||
-                                        membershipId == null) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Please fill all fields.',
-                                          ),
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                    final success = await customerController
-                                        .addCustomer(
-                                      firstName: name,
-                                      mobile: mobile,
-                                      membershipPlanId: membershipId,
-                                    );
-                                    if (success) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Customer added successfully!',
-                                          ),
-                                        ),
-                                      );
-                                      customerController.nameController.clear();
-                                      customerController.mobileController
-                                          .clear();
-                                      selectedMembershipPlanId = null;
-                                      setState(() {});
+
+                            Spacer(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
                                       Navigator.pop(context);
-                                    } else {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Failed to add customer.',
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.indigo,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: Size.fromHeight(50),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.grey.shade300,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: Size.fromHeight(60),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    "Add",
-                                    style: GoogleFonts.inter(
-                                      fontSize: 23,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
+                                    child: Text(
+                                      "Cancel",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 23,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () async {
+                                      if (_formKey.currentState!.validate()) {
+                                        final name = customerController.nameController.text.trim();
+                                        final mobile = customerController.mobileController.text.trim();
+                                        final membershipId = selectedMembershipPlanId;
+
+                                        showDialog(
+                                          context: context,
+                                          barrierDismissible: false,
+                                          builder: (BuildContext context) {
+                                            return Center(
+                                              child: CircularProgressIndicator(),
+                                            );
+                                          },
+                                        );
+
+                                        try {
+                                          final customer = await customerController.addCustomer(
+                                            firstName: name,
+                                            mobile: mobile,
+                                            membershipPlanId: membershipId!,
+                                          );
+
+                                          Navigator.pop(context); // Dismiss loading indicator
+
+                                          if (customer != null) {
+                                            showCustomSnackbar('Success', 'Customer added successfully!', Colors.green);
+
+                                            // Clear form only if not going to payment
+                                            if (membershipId == null || membershipId.isEmpty) {
+                                              customerController.nameController.clear();
+                                              customerController.mobileController.clear();
+                                              selectedMembershipPlanId = null;
+                                              setState(() {});
+                                              Navigator.pop(context);
+                                            } else {
+                                              // Find the selected membership plan details
+                                              final selectedPlan = customerController.membershipPlans.firstWhere(
+                                                    (plan) => plan['id'] == membershipId,
+                                                orElse: () => {},
+                                              );
+
+                                              // Navigate to CheckoutScreen with membership details
+                                              Get.to(
+                                                CheckoutScreen(
+                                                  type: 'Membership',
+                                                  customerName: name,
+                                                  mobileno: mobile,
+                                                  selectedDateTime: DateTime.now(),
+                                                  billAmount: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
+                                                  bookings: [],
+                                                  membershipID: membershipId,
+                                                  membershipName: selectedPlan['name'] ?? '',
+                                                  isMembershipApplied: true,
+                                                  membershipPrice: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
+                                                  exuserId: customer['id'],
+                                                ),
+                                              );
+
+                                              // Optionally clear form after navigation
+                                              customerController.nameController.clear();
+                                              customerController.mobileController.clear();
+                                              selectedMembershipPlanId = null;
+                                              setState(() {});
+                                            }
+
+                                          } else {
+                                            showCustomSnackbar('Error', 'Failed to add customer', Colors.red);
+                                          }
+                                        } catch (e) {
+                                          Navigator.pop(context);
+                                          showCustomSnackbar('Error', 'An error occurred: ${e.toString()}', Colors.red);
+                                        }
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Palette.newColor,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: Size.fromHeight(60),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      selectedMembershipPlanId != null && selectedMembershipPlanId!.isNotEmpty
+                                          ? "Add & Pay"
+                                          : "Add",
+                                      style: GoogleFonts.inter(
+                                        fontSize: 23,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

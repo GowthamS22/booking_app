@@ -1327,7 +1327,55 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                                         try {
                                           // Continue with existing payment processing
-                                          if (widget.type == 'ExistingBooking') {
+                                          if (widget.type == 'Membership') {
+
+                                            final prefs = await SharedPreferences.getInstance();
+                                            String? paymentDevices = prefs.getString('paymentDevices');
+                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
+
+                                            double? overallTotal  = widget.billAmount;
+
+                                            if (selectedMethod == 'EFTPOS') {
+                                              final total = overallTotal;
+                                              await paymentController.processPayment(
+                                                context: context,
+                                                amount: total.toDouble(),
+                                                reference: controller.bookingId,
+                                                apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                                                merchantId: paymentDeviceData['merchant_id'],
+                                                terminalId: paymentDeviceData['terminal_id'],
+                                                integrationKey: paymentDeviceData['integration_key'],
+                                                posProductVendor: paymentDeviceData['product_vendor'],
+                                                posProductName: paymentDeviceData['product_name'],
+                                                posProductVersion: paymentDeviceData['product_version'],
+                                              ).then((value) async {
+
+                                                await checkoutController.processMembershipPayment(
+                                                  userId: widget.exuserId,
+                                                  paymentType: selectedMethod,
+                                                  notes: notesController.text,
+                                                  paid: totalPaid,
+                                                  balance: double.parse(balanceAmountController.text,),
+                                                  isMembershipApplied: widget.isMembershipApplied,
+                                                  membershipId:widget.membershipID,
+                                                );
+
+                                              });
+                                            }  else {
+
+                                              await checkoutController.processMembershipPayment(
+                                                userId: widget.exuserId,
+                                                paymentType: selectedMethod,
+                                                notes: notesController.text,
+                                                paid: totalPaid,
+                                                balance: double.parse(balanceAmountController.text,),
+                                                isMembershipApplied: widget.isMembershipApplied,
+                                                membershipId:widget.membershipID,
+                                              );
+
+                                            }
+
+                                          } else if (widget.type == 'ExistingBooking') {
 
                                             final prefs = await SharedPreferences.getInstance();
                                             String? paymentDevices = prefs.getString('paymentDevices');
@@ -2304,20 +2352,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
               actions: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 90,
-                    vertical: 15,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                    },
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 90,
+                      vertical: 15,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
                     child: Text(
                       'Cancel',
                       style: GoogleFonts.inter(
@@ -2329,28 +2377,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 100,
-                    vertical: 15,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.indigo.shade500,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  child: GestureDetector(
-                    onTap: () {
-                      final parsed = double.tryParse(input);
-                      if (parsed != null && parsed > 0) {
-                        print(parsed);
-                        setState(() {
-                          totalPaid = parsed;
-                          customAmountString = parsed.toString();
-                        });
-                        Navigator.of(context).pop();
-                      }
-                    },
+                GestureDetector(
+                  onTap: () {
+                    final parsed = double.tryParse(input);
+                    if (parsed != null && parsed > 0) {
+                      print(parsed);
+                      setState(() {
+                        totalPaid = parsed;
+                        customAmountString = parsed.toString();
+                      });
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 100,
+                      vertical: 15,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.indigo.shade500,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey),
+                    ),
                     child: Text(
                       'Ok',
                       style: GoogleFonts.inter(

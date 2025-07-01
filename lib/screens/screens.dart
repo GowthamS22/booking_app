@@ -11,3 +11,4 @@ export 'network/network_screen.dart';
 export 'checkout/checkout_screen.dart';
 export 'customer/customer_screen.dart';
 export 'report/report_screen.dart';
+export 'auth/onboarding_slider.dart';

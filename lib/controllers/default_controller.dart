@@ -297,6 +297,7 @@ class DefaultController extends GetxController
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
           .select('id')
+          .eq('closed', false)
           .neq('payment_status', 'Paid');
 
       pendingPaymentCount.value = res.length ?? 0;
@@ -386,11 +387,15 @@ class DefaultController extends GetxController
   }
 
   Future<void> fetchServiceList() async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
+
     isLoading.value = true;
 
     try {
       final response = await supabase
-          .schema('s22_prod_schema')
+          .schema('${centerSlug}_prod_schema')
           .from('sports')
           .select(
             'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,peak_hour_status',
@@ -427,8 +432,10 @@ class DefaultController extends GetxController
   }
 
   Future<void> setDefaultSerivce() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
     final response = await supabase
-        .schema('s22_prod_schema')
+        .schema('${centerSlug}_prod_schema')
         .from('sports')
         .select('id, sport_name')
         .eq('status', true)
@@ -1694,12 +1701,13 @@ class DefaultController extends GetxController
   // Function to get service name from local cache or Firestore
   Future<String> getServiceName(String serviceId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? serviceName = prefs.getString('service_$serviceId');
+    String? serviceName     = prefs.getString('service_$serviceId');
+    String? centerSlug      = prefs.getString('centerSlug');
     if (serviceName == null) {
       // Service name not found in cache, fetch it from Supabase
       final response =
           await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('sports')
               .select('sport_name')
               .eq('id', serviceId)
@@ -1721,12 +1729,14 @@ class DefaultController extends GetxController
   // Function to get court name from local cache or Firestore
   Future<String> getCourtName(String courtId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? courtName = prefs.getString('court_$courtId');
+    String? courtName       = prefs.getString('court_$courtId');
+    String? centerSlug      = prefs.getString('centerSlug');
+
     if (courtName == null) {
       // Court name not found in cache, fetch it from Supabase
       final response =
           await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('sports')
               .select('platform_name')
               .eq('id', courtId)

@@ -99,7 +99,7 @@ class OrdersListController extends GetxController {
 
       // Get the current center schema from shared preferences
       final prefs = await SharedPreferences.getInstance();
-      final centerSlug = prefs.getString('centerSlug') ?? 's22';
+      final centerSlug = prefs.getString('centerSlug');
       final schema = '${centerSlug}_prod_schema';
 
       // Fetch current bookings (slots that include the current time)

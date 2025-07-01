@@ -22,7 +22,11 @@ class Root extends GetWidget<AuthController> {
         return OpeningCashScreen();
       }
     } else {
-      return PinScreen();
+      if(Get.find<AuthController>().centerSlug.toString() != '') {
+        return PinScreen();
+      } else {
+        return OnboardingSlider();
+      }
     }
 
     // } else {

@@ -100,9 +100,11 @@ class AuthController extends GetxController {
     }
   }
 
+
+
   Future<void> pinLogin({required String memberPin}) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-    String? centerSlug                  = 's22'; //preferences.getString('centerSlug');
+    String? centerSlug                  = 's22';
     try {
 
       final userResponse = await supabase
@@ -167,11 +169,11 @@ class AuthController extends GetxController {
           await preferences.setString('userName', userName.toString());
           await preferences.setString('staffID', staffID.toString());
           await preferences.setString('emailID', emailID.toString());
-          await preferences.setString('centerSlug', 's22');
+          await preferences.setString('centerSlug', centerSlug!);
 
           // // 4️⃣ Check for openCloseCash with status == true
           final openCloseResponse = await supabase
-                  .schema('s22_prod_schema')
+                  .schema('${centerSlug}_prod_schema')
                   .from('open_close_cash')
                   .select('*')
                   .eq('status', 'Current')
@@ -250,8 +252,10 @@ class AuthController extends GetxController {
   }
 
   Future<bool> validateOpenCashStatus() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
     final response = await supabase
-        .schema('s22_prod_schema')
+        .schema('${centerSlug}_prod_schema')
         .from('open_close_cash')
         .select()
         .eq('status', 'Current');
@@ -268,14 +272,15 @@ class AuthController extends GetxController {
   }
 
   Future<void> addOpenCash({double? openingAmount}) async {
-    final preferences = await SharedPreferences.getInstance();
+    final preferences   = await SharedPreferences.getInstance();
+    String? centerSlug  = preferences.getString('centerSlug');
     // final now = DateTime.now();
 
     try {
       // Insert into Supabase
       final insertResponse =
           await supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('open_close_cash')
               .insert({
                 //'date': now.toIso8601String(),

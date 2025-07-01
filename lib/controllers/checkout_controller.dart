@@ -160,11 +160,26 @@ class CheckoutController extends GetxController {
       }
 
       if (isMembershipApplied == true && membershipId != null && userId != null) {
+
+        final planDetails = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershipplan')
+            .select('*')
+            .eq('id', membershipId)
+            .single();
+
+        final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
+
         await supabase
             .schema('${centerSlug}_prod_schema')
             .from('customers')
             .update({
-              'membershipplan_id': membershipId
+              'membershipplan_id': membershipId,
+              'membership_data': {
+                'purchased_date': currentDate,
+                'plan_details': planDetails, // Include the plan details if needed
+                // Add any other membership data fields you want to include
+              }
             })
             .eq('id', userId);
       }
@@ -431,6 +446,55 @@ class CheckoutController extends GetxController {
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
       rethrow;
+    }
+  }
+
+  Future<void> processMembershipPayment({
+    String? userId,
+    String? notes,
+    String? paymentType,
+    double? paid,
+    double? balance,
+    bool? isMembershipApplied,
+    String? membershipId,
+  }) async {
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    try {
+        if (isMembershipApplied == true && membershipId != null && userId != null) {
+
+          final planDetails = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membershipplan')
+              .select('*')
+              .eq('id', membershipId)
+              .single();
+
+          final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
+
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .update({
+                  'membershipplan_id': membershipId,
+                  'membership_data': {
+                    'purchased_date': currentDate,
+                    'plan_details': planDetails, // Include the plan details if needed
+                  }
+              })
+              .eq('id', userId);
+        }
+
+        isLoading.value = false;
+        update();
+        showCustomSnackbar('Success', 'Membership Added Successfully', Colors.green);
+        Future.delayed(Duration(seconds: 1), () => Get.offAllNamed('/'));
+
+    } catch (e) {
+      print("e : $e");
+      showCustomSnackbar('Failed', e.toString(), Palette.dangerTxt);
     }
   }
 
@@ -1063,82 +1127,6 @@ class CheckoutController extends GetxController {
 
   //Product payment section
 
-
-
-  Future<void> processTyroPayment({
-    required double amount,
-    required String reference,
-    String? description,
-  }) async {
-    try {
-      isProcessingPayment.value = true;
-      paymentStatus.value = 'Initiating payment...';
-
-      // Initiate payment with Tyro
-      final paymentResponse = await tyroService.initiatePayment(
-        amount: amount,
-        reference: reference,
-        description: description,
-      );
-
-      // Store payment details in Supabase
-      await supabase
-          .schema('s22_prod_schema')
-          .from('payment_transactions')
-          .insert({
-            'payment_id': paymentResponse['id'],
-            'amount': amount,
-            'reference': reference,
-            'status': paymentResponse['status'],
-            'payment_type': 'EFTPOS',
-            'payment_provider': 'Tyro',
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-
-      // Poll for payment status
-      bool isPaymentComplete = false;
-      int attempts = 0;
-      const maxAttempts = 30; // 30 seconds timeout
-
-      while (!isPaymentComplete && attempts < maxAttempts) {
-        await Future.delayed(Duration(seconds: 1));
-        attempts++;
-
-        final statusResponse = await tyroService.getPaymentStatus(
-          paymentResponse['id'],
-        );
-        paymentStatus.value = statusResponse['status'];
-
-        if (statusResponse['status'] == 'completed') {
-          isPaymentComplete = true;
-          // Update payment status in Supabase
-          await supabase
-              .schema('s22_prod_schema')
-              .from('payment_transactions')
-              .update({
-                'status': 'completed',
-                'updated_at': DateTime.now().toIso8601String(),
-              })
-              .eq('payment_id', paymentResponse['id']);
-        } else if (statusResponse['status'] == 'failed') {
-          throw Exception('Payment failed: ${statusResponse['error_message']}');
-        }
-      }
-
-      if (!isPaymentComplete) {
-        throw Exception('Payment timeout');
-      }
-
-      paymentStatus.value = 'Payment completed successfully';
-    } catch (e) {
-      paymentStatus.value = 'Payment failed: ${e.toString()}';
-      rethrow;
-    } finally {
-      isProcessingPayment.value = false;
-    }
-  }
-
   void showBookingSuccessAlert() {
     Get.dialog(
       Theme(
@@ -1207,433 +1195,6 @@ class CheckoutController extends GetxController {
         ),
       ),
     );
-  }
-
-  void printReceipt({List<BookingSlot>? bookingSlotItems}) async {
-    // print(
-    //   'checking the printer inside ${shoppingController.productsCartModal.length}',
-    // );
-
-    List<BookingSlot> listItems = [];
-    for (var item in bookingSlotItems!) {
-      listItems.add(
-        BookingSlot(
-          id: item.id,
-          userId: item.userId,
-          name: item.name,
-          mobile: item.mobile,
-          bookingId: item.bookingId,
-          subBookingId: item.subBookingId,
-          date: item.date,
-          price: item.price,
-          service: item.service,
-          serviceId: item.serviceId,
-          court: item.court,
-          courtId: item.courtId,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          slotType: item.slotType,
-          repeatDays: item.repeatDays,
-          repeatEnd: item.repeatEnd,
-          repeatId: item.repeatId,
-          repeatGroupId: item.repeatGroupId,
-          paymentStatus: item.paymentStatus,
-          status: item.status,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-          createdBy: item.createdBy,
-          updatedBy: item.updatedBy,
-        ),
-      );
-    }
-
-    List<BookingSlot> mergedSlots =
-        bookingSlotItems.length > 0 ? mergeBookingSlots(listItems) : [];
-    if (bookingSlotItems.length > 0) {
-      mergedSlots.removeWhere(
-        (bookingSlot) => (bookingSlot.slotType == 'Repeat-Item'),
-      );
-    }
-
-    double bookingTotal =
-        bookingSlotItems.length > 0
-            ? bookingSlotItems.fold(0, (double sum, BookingSlot bookingSlot) {
-              return sum + (bookingSlot.price ?? 0);
-            })
-            : 0;
-
-    final profile = await CapabilityProfile.load();
-    final printer = NetworkPrinter(PaperSize.mm80, profile);
-    var storeName = 'My Store';
-    var storeAddress = '123 Main Street, City';
-    var storeMobile = 'Phone: 123-456-7890';
-    var imageUrl = '';
-    var abn = '';
-    var email = '@email.com';
-
-    var dateAndTime = DateFormat('yMd').format(DateTime.now());
-    dynamic currentTime = DateFormat('hh:mm:ss').format(DateTime.now());
-
-    final response =
-        await supabase
-            .schema('s22_prod_schema')
-            .from('store_details')
-            .select()
-            .single();
-
-    if (response != null) {
-      final data = response;
-
-      storeName = data['name'];
-      storeAddress = data['address'] ?? '123 Main Street, City';
-      storeMobile = 'Phone : ${data['phone']}';
-      //imageUrl = data['imageUrl'];
-      email = data['email'] ?? '';
-      abn = 'ABN : ${data['abn']}' ?? '';
-    } else {
-      // Handle error or null
-    }
-
-    // DocumentReference docRef = FirebaseFirestore.instance
-    //     .collection(authController.centerSlug.toString())
-    //     .doc('admins');
-
-    // await docRef.get().then((value) {
-    //   storeName = value.get('name');
-    //   storeAddress = value.get('address');
-    //   storeMobile = 'Phone : ${value.get('phone')}';
-    //   imageUrl = value.get('imageUrl');
-    //   email = value.get('email');
-    //   abn = 'ABN : ${value.get('abn')}';
-    // });
-
-    for (var printerIPs in printerController.pairedPrinters) {
-      print('checking the IP Address ${printerIPs['ip']}');
-
-      final printerIp = '${printerIPs['ip']}';
-      final PosPrintResult res = await printer.connect(printerIp, port: 9100);
-      if (res != PosPrintResult.success) {
-        //shoppingController.productsCartModal.clear();
-        showCustomSnackbar(
-          'Printer Error',
-          'Failed to connect to the printer.',
-          Colors.red,
-        );
-        return;
-      }
-
-      //current date
-      printer.row([
-        PosColumn(
-          text: '${dateAndTime}',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '${currentTime}',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-      printer.feed(1);
-
-      // Print header with store information
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$storeName',
-          width: 6,
-          styles: PosStyles(
-            align: PosAlign.center,
-            underline: false,
-            height: PosTextSize.size2,
-            width: PosTextSize.size2,
-          ),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-      printer.feed(1);
-
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$storeAddress',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$abn',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$storeMobile',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      if (mergedSlots.length > 0) {
-        // Print products text
-        printer.feed(1);
-        printer.hr();
-        printer.text(
-          'Bookings#',
-          styles: PosStyles(align: PosAlign.right),
-          linesAfter: 1,
-        );
-      }
-
-      if (mergedSlots.length > 0) {
-        // Print order items
-        for (var item in mergedSlots) {
-          printer.row([
-            PosColumn(
-              text: '${item.court}',
-              width: 6,
-              styles: PosStyles(align: PosAlign.center, underline: false),
-            ),
-            PosColumn(
-              text:
-                  '${DateFormat('hh:mm ').format(item.startTime!)} ${DateFormat('hh:mm a').format(item.endTime!)}',
-              width: 3,
-              styles: PosStyles(align: PosAlign.center, underline: false),
-            ),
-            PosColumn(
-              text:
-                  '${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(item.price)}',
-              width: 3,
-              styles: PosStyles(align: PosAlign.center, underline: false),
-            ),
-          ]);
-          printer.emptyLines(1);
-        }
-      }
-
-      // if (shoppingController.productsCartModal.length > 0) {
-      //   // Print products text
-      //   printer.feed(1);
-      //   printer.hr();
-      //
-      //   printer.text(
-      //     'Products#',
-      //     styles: PosStyles(align: PosAlign.right),
-      //     linesAfter: 1,
-      //   );
-      // }
-
-      // Print order items
-      // for (var item in shoppingController.productsCartModal) {
-      //   print('checking the item ${item.name}');
-      //   printer.row([
-      //     PosColumn(
-      //       text: '${item.name}',
-      //       width: 6,
-      //       styles: PosStyles(align: PosAlign.center, underline: false),
-      //     ),
-      //     PosColumn(
-      //       text: '${item.salePrice}',
-      //       width: 3,
-      //       styles: PosStyles(align: PosAlign.center, underline: false),
-      //     ),
-      //     PosColumn(
-      //       text: ' X ${item.count!.value}',
-      //       width: 3,
-      //       styles: PosStyles(align: PosAlign.center, underline: false),
-      //     ),
-      //   ]);
-      //
-      //   printer.emptyLines(1);
-      // }
-
-      printer.feed(1);
-      printer.hr();
-
-      // Print total
-      // printer.row([
-      //   PosColumn(
-      //     text: '',
-      //     width: 3,
-      //     styles: PosStyles(align: PosAlign.center, underline: false),
-      //   ),
-      //   PosColumn(
-      //     text: 'Total : ',
-      //     width: 6,
-      //     styles: PosStyles(align: PosAlign.center, underline: false),
-      //   ),
-      //   PosColumn(
-      //     text:
-      //         '${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(bookingTotal + shoppingController.totalPrice!.value)}',
-      //     width: 3,
-      //     styles: PosStyles(align: PosAlign.center, underline: false),
-      //   ),
-      // ]);
-
-      printer.feed(1);
-      printer.hr();
-
-      // static text
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 1,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: 'Thank You For Your Business!!',
-          width: 10,
-          styles: PosStyles(
-            align: PosAlign.center,
-            underline: false,
-            height: PosTextSize.size2,
-            width: PosTextSize.size1,
-          ),
-        ),
-        PosColumn(
-          text: '',
-          width: 1,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      printer.cut();
-      printer.disconnect();
-      printer.drawer();
-
-      showCustomSnackbar(
-        'Print Successful',
-        'The receipt has been printed successfully.',
-        Colors.green,
-      );
-      //shoppingController.productsCartModal.clear();
-    }
-
-    // printer.text('$storeName\n$storeAddress\n$storeMobile\n', styles: PosStyles(align: PosAlign.center));
-
-    // Print logo (if available)
-    // Replace 'logo.png' with your actual logo file path
-    // final ByteData data = await rootBundle.load('assets/logo.png');
-    // final Uint8List logoBytes = data.buffer.asUint8List();
-    // printer.image(logoBytes);
-
-    // printer.text(total, styles: PosStyles(align: PosAlign.right));
-  }
-
-  Future<void> makeMembershipPayment({
-    String? userId,
-    String? userMembershipId,
-    String? paymentType,
-    String? promoCode,
-    String? notes,
-    double? total,
-    double? paid,
-    double? balance,
-  }) async {
-    try {
-      //Update Usermembership Status
-      await FirebaseFirestore.instance
-          .collection(authController.centerSlug.toString())
-          .doc('userMemberships')
-          .collection('userMembership')
-          .doc(userMembershipId)
-          .update({'paymentStatus': 'Paid', 'status': 'Active'})
-          .then((value) async {
-            await FirebaseFirestore.instance
-                .collection(authController.centerSlug.toString())
-                .doc('membershipPayments')
-                .collection('membershipPayment')
-                .doc()
-                .set({
-                  'membershipId': userMembershipId.toString(),
-                  'paymentType': paymentType,
-                  'total': total,
-                  'paidAmount': paid,
-                  'status': true,
-                  'paymentResponse': '',
-                  'notes': notes.toString(),
-                  'createdBy': authController.userId.toString(),
-                  'updatedBy': authController.userId.toString(),
-                  'createdAt': DateTime.now(),
-                  'updatedAt': DateTime.now(),
-                })
-                .then((value) async {
-                  await FirebaseFirestore.instance
-                      .collection(authController.centerSlug.toString())
-                      .doc('userDetails')
-                      .collection('user')
-                      .doc(userId)
-                      .update({
-                        'userMembershipId': userMembershipId.toString(),
-                      });
-                });
-          });
-
-      showCustomSnackbar(
-        'Success',
-        'Membership Created Successfully',
-        Colors.green,
-      );
-
-      // Update the Page
-      isLoading.value = false;
-      update();
-
-      // Redirect
-      Future.delayed(Duration(seconds: 1), () {
-        Get.offAllNamed('/');
-      });
-    } catch (e) {
-      print(e.toString());
-    } finally {
-      update();
-    }
   }
 
   /*void printBookingReceipt({List<BookingSlot>? bookingSlotItems}) async {
@@ -1951,10 +1512,12 @@ class CheckoutController extends GetxController {
   }
 
   Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
     final futures =
         selectedBSlots!.map((item) {
           return supabase
-              .schema('s22_prod_schema')
+              .schema('${centerSlug}_prod_schema')
               .from('booking_slots')
               .select('id')
               .eq('service_id', item.serviceId!)

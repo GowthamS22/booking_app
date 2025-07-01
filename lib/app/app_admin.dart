@@ -1,5 +1,6 @@
 import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/screens/closecash/closecash.dart';
+import 'package:booking_app/screens/customer/membership.dart';
 import 'package:booking_app/screens/dashboard/dashboardScreen.dart';
 import 'package:booking_app/widgets/sidebar_menu.dart';
 import 'package:flutter/material.dart';
@@ -32,15 +33,15 @@ class _AppAdminState extends State<AppAdmin> {
     switch (index) {
       case 0:
         return DashboardScreen();
-      // case 1:
-      //   return OrderScreen();
       case 1:
         return ShoppingScreen();
       case 2:
         return CustomerScreen();
       case 3:
-        return PrinterScreen();
+        return MembershipScreen();
       case 4:
+        return PrinterScreen();
+      case 5:
         return CloseCash();
       default:
         return DashboardScreen();

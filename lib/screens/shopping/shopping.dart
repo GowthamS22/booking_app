@@ -1503,8 +1503,8 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                 .schema('${centerSlug}_prod_schema')
                 .from('orders')
                 .stream(primaryKey: ['id'])
+                .eq('closed', false)
                 .order('created_at', ascending: false)
-                
                 .map((data) => data as List<Map<String, dynamic>>),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {

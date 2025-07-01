@@ -24,6 +24,8 @@ class OrderController extends GetxController {
   }
 
   Future<void> fetchBookings(String filterType) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug                  = preferences.getString('centerSlug');
     try {
       isLoading.value = true;
       error.value = '';
@@ -32,7 +34,7 @@ class OrderController extends GetxController {
       final nowStr = _formatDateTime(now);
 
       var query = supabase
-          .schema('s22_prod_schema')
+          .schema('${centerSlug}_prod_schema')
           .from('booking_slots')
           .select('''
           start_time,
@@ -54,7 +56,8 @@ class OrderController extends GetxController {
             ),
             booking_payments (
               total
-            )
+            ),
+            closed
           ),
           platform_status!court_id (
             platform_id,
@@ -78,24 +81,34 @@ class OrderController extends GetxController {
         final slotEnd = slotStart.add(Duration(minutes: 30));
         query = query
             .eq('status', 'Booked')
+            .eq('bookings.closed', false)
             .lte('start_time', slotStart.toIso8601String())
             .gte('end_time', slotEnd.toIso8601String());
       } else if (filterType == 'upcoming') {
-        query = query.eq('status', 'Booked').gt('start_time', nowStr);
+        query = query
+            .eq('bookings.closed', false)
+            .eq('status', 'Booked')
+            .gt('start_time', nowStr);
       } else if (filterType == 'scheduled') {
         final future = _formatDateTime(now.add(Duration(days: 90)));
         query = query
+            .eq('bookings.closed', false)
             .eq('status', 'Booked')
             .gt('start_time', nowStr)
             .lte('start_time', future);
       } else if (filterType == 'all') {
-        query = query.inFilter('status', ['Booked', 'Cancelled', 'No Show']);
+        query = query
+            .eq('bookings.closed', false)
+            .inFilter('status', ['Booked', 'Cancelled', 'No Show']);
       } else if (filterType == 'unpaid') {
         // Filter by payment_status in the bookings table
-        query = query.neq('bookings.payment_status', 'Paid');
+        query = query
+            .eq('bookings.closed', false)
+            .neq('bookings.payment_status', 'Paid');
       } else if (filterType == 'paid') {
         // Add a new filter for paid bookings if needed
         query = query
+            .eq('bookings.closed', false)
             .eq('bookings.payment_status', 'Paid')
             .eq('status', 'Booked');
       }
@@ -120,7 +133,7 @@ class OrderController extends GetxController {
 
       // Fetch all orders for these bookings
       final ordersResponse = await supabase
-          .schema('s22_prod_schema')
+          .schema('${centerSlug}_prod_schema')
           .from('orders')
           .select('booking_id, total, order_status')
           .eq('order_status', 'Pending')
