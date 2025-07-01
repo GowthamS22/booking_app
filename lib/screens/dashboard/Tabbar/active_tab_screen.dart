@@ -28,6 +28,8 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
   ];
   List<bool> selectedRows = [];
   bool selectAll = false;
+  TextEditingController searchController = TextEditingController();
+  String searchQuery = '';
 
   @override
   void initState() {
@@ -36,6 +38,11 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
       bookingController.bookings.length,
       (_) => false,
     );
+    searchController.addListener(() {
+      setState(() {
+        searchQuery = searchController.text.trim().toLowerCase();
+      });
+    });
   }
 
   @override
@@ -92,6 +99,12 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
+                      controller: searchController,
+                      onChanged: (value) {
+                        setState(() {
+                          searchQuery = value.trim().toLowerCase();
+                        });
+                      },
                       style: GoogleFonts.roboto(fontSize: 25),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
@@ -268,8 +281,14 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                 }
 
                 final bookings = bookingController.bookings.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled'),).toList();
+                final filteredBookings = searchQuery.isEmpty
+                    ? bookings
+                    : bookings.where((b) =>
+                        (b.customerName?.toLowerCase().contains(searchQuery) ?? false) ||
+                        (b.customerMobile?.toLowerCase().contains(searchQuery) ?? false)
+                      ).toList();
 
-                if (bookings.isEmpty) {
+                if (filteredBookings.isEmpty) {
                   return Center(
                     child: Text(
                       "No bookings available.",
@@ -292,9 +311,9 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                           crossAxisSpacing: 20,
                           childAspectRatio: 1.0,
                         ),
-                        itemCount: bookings.length,
+                        itemCount: filteredBookings.length,
                         itemBuilder: (context, index) {
-                          final b = bookings[index];
+                          final b = filteredBookings[index];
                           return GestureDetector(
                             child: BookingCardWidget(booking: b),
                           );
@@ -416,10 +435,10 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                   shrinkWrap: true,
                                   physics:
                                       const AlwaysScrollableScrollPhysics(),
-                                  itemCount: bookings.length,
+                                  itemCount: filteredBookings.length,
                                   itemBuilder: (context, index) {
-                                    final booking = bookings[index];
-                                    final b = bookings[index];
+                                    final booking = filteredBookings[index];
+                                    final b = filteredBookings[index];
                                     final remaining =
                                         b.endTime!
                                             .difference(DateTime.now())
