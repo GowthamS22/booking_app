@@ -59,7 +59,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   void initState() {
     super.initState();
     selectedSlots.clear();
-    controller.cartItems.clear();
+    controller.clearSelectedSlots();
     cartController.clearCart();
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
