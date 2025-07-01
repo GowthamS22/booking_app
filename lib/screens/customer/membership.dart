@@ -610,6 +610,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     String existingMembershipPlanId = '';
     DateTime? membershipValidityDate;
     bool isSameMembershipSelected = false; // New flag to track if same membership is selected
+    String existingCustomer = '';
 
     membershipController.nameController.text = '';
     membershipController.mobileController.text = '';
@@ -954,13 +955,33 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                   //border: Border.all(color: borderColor!,),
                                                 ),
                                                 child: Text(
-                                                  membershipValidityDate != null
-                                                      ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
-                                                      : '$membershipPlan : (No Validity Info)',
+                                                  () {
+                                                    if (membershipValidityDate == null) {
+                                                      return '$membershipPlan : (No Validity Info)';
+                                                    }
+
+                                                    final now = DateTime.now();
+                                                    final today = DateTime(now.year, now.month, now.day);
+                                                    final expiry = DateTime(
+                                                      membershipValidityDate!.year,
+                                                      membershipValidityDate!.month,
+                                                      membershipValidityDate!.day,
+                                                    );
+
+                                                    final difference = expiry.difference(today).inDays;
+
+                                                    if (difference > 0) {
+                                                      return '$membershipPlan : (Valid for $difference days)';
+                                                    } else if (difference == 0) {
+                                                      return '$membershipPlan : (Expires Today)';
+                                                    } else {
+                                                      return '$membershipPlan : (Expired)';
+                                                    }
+                                                  }(),
                                                   style: GoogleFonts.inter(
                                                     fontSize: 22,
                                                     fontWeight: FontWeight.w700,
-                                                    //color: textColor,
+                                                    // color: textColor,
                                                   ),
                                                 ),
                                               ),
@@ -1021,6 +1042,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                               membershipController.nameController.text = suggestion['name'] ?? '';
                                               membershipController.mobileController.text = suggestion['mobile'] ?? '';
                                               setState(() {
+                                                existingCustomer = suggestion['id'];
                                                 hasMembership  = suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty;
                                                 membershipPlan = hasMembership ? suggestion['membership_plan'] : null;
                                                 existingMembershipPlanId = suggestion['membershipplan_id'].toString();
@@ -1097,6 +1119,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                 color: Colors.red,
                                                 fontWeight: FontWeight.w600,
                                               ),
+                                              textAlign: TextAlign.center,
                                             )
                                           else
                                             Text(
@@ -1145,6 +1168,45 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                       showCustomSnackbar('Error', 'Please select a membership type', Colors.red);
                                                       return;
                                                     }
+
+                                                    // Check if trying to downgrade (based on price)
+                                                    if (hasMembership) {
+                                                      // Get current membership details
+                                                      final currentPlan = membershipController.membershipPlans.firstWhere(
+                                                            (plan) => plan['id'] == existingMembershipPlanId,
+                                                        orElse: () => {},
+                                                      );
+
+                                                      // Get selected membership details
+                                                      final selectedPlan = membershipController.membershipPlans.firstWhere(
+                                                            (plan) => plan['id'] == selectedMembershipPlanId,
+                                                        orElse: () => {},
+                                                      );
+
+                                                      if (currentPlan.isNotEmpty && selectedPlan.isNotEmpty) {
+                                                        final currentPrice = double.tryParse(currentPlan['price']?.toString() ?? '0') ?? 0;
+                                                        final selectedPrice = double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0;
+
+                                                        if (selectedPrice < currentPrice) {
+                                                          showCustomSnackbar(
+                                                            'Cannot Downgrade',
+                                                            'You cannot select a cheaper membership plan (\$$selectedPrice) than your current \$$currentPrice plan',
+                                                            Colors.orange,
+                                                          );
+                                                          return;
+                                                        }
+
+                                                        if (selectedPrice == currentPrice && selectedMembershipPlanId == existingMembershipPlanId) {
+                                                          showCustomSnackbar(
+                                                            'Warning',
+                                                            'You already have this ${currentPlan['name']} membership plan',
+                                                            Colors.orange,
+                                                          );
+                                                          return;
+                                                        }
+                                                      }
+                                                    }
+
                                                     if (isSameMembershipSelected) {
                                                       showCustomSnackbar('Warning','Already have this membership plan',Colors.orange);
                                                       return;
@@ -1154,16 +1216,20 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                     final membershipId = selectedMembershipPlanId;
 
                                                     try {
-                                                      final customer = await membershipController.addCustomer(
-                                                        firstName: name,
-                                                        mobile: mobile,
-                                                        membershipPlanId: membershipId!,
-                                                      );
+                                                      String? customerId = '';
+                                                      if(existingCustomer!='' && existingCustomer!=null) {
+                                                        customerId = existingCustomer;
+                                                      } else {
+                                                        final customer = await membershipController.addCustomer(
+                                                          firstName: name,
+                                                          mobile: mobile,
+                                                        );
+                                                        customerId = customer!['id'];
+                                                      }
 
                                                       Navigator.pop(context); // Dismiss loading indicator
 
-                                                      if (customer != null) {
-                                                        //showCustomSnackbar('Success', 'Customer added successfully!', Colors.green);
+                                                      if (customerId != null && customerId != '') {
 
                                                         // Clear form only if not going to payment
                                                         if (membershipId == null || membershipId.isEmpty) {
@@ -1192,7 +1258,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                               membershipName: selectedPlan['name'] ?? '',
                                                               isMembershipApplied: true,
                                                               membershipPrice: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
-                                                              exuserId: customer['id'],
+                                                              exuserId: customerId,
                                                             ),
                                                           );
 
@@ -1220,7 +1286,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                     borderRadius: BorderRadius.circular(10),
                                                   ),
                                                 ),
-                                                child: Text(existingMembershipPlanId==null ? 'Buy Now' : 'Upgrade',
+                                                child: Text(existingMembershipPlanId=='' || existingMembershipPlanId==null ? 'Buy Now' : 'Upgrade',
                                                   style: GoogleFonts.inter(
                                                     fontSize: 23,
                                                     color: Colors.white,

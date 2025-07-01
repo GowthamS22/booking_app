@@ -179,6 +179,7 @@ class NewBookingController extends GetxController {
         .schema('${centerSlug}_prod_schema')
         .from('customers')
         .select('''
+          id,
           mobile, 
           first_name, 
           membershipplan_id,
@@ -192,7 +193,8 @@ class NewBookingController extends GetxController {
             non_peak_price,
             validity
           )
-        ''');
+        ''')
+        .eq('status',true);
 
     bookingId = 'BCK-2025-TMP';
 
@@ -223,6 +225,7 @@ class NewBookingController extends GetxController {
         }
 
         userList.add({
+          'id': user['id'] ?? '',
           'name': user['first_name'] ?? '',
           'mobile': user['mobile'] ?? '',
           'membership_plan': plan?['name'] ?? '',
@@ -251,6 +254,7 @@ class NewBookingController extends GetxController {
         .schema('${centerSlug}_prod_schema')
         .from('customers')
         .select('''
+        id,
         mobile,
         first_name,
         membershipplan_id,
@@ -265,6 +269,7 @@ class NewBookingController extends GetxController {
           validity
         )
       ''')
+        .eq('status',true)
         .or('first_name.ilike.%$query%,mobile.ilike.%$query%') // Dynamic search on name or mobile
         .limit(10); // Pagination or limit to reduce data size
 
@@ -292,6 +297,7 @@ class NewBookingController extends GetxController {
       }
 
       return {
+        'id': user['id'] ?? '',
         'name': user['first_name'] ?? '',
         'mobile': user['mobile'] ?? '',
         'membership_plan': plan?['name'] ?? '',

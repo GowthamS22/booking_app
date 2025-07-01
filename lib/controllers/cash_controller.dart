@@ -242,7 +242,8 @@ class CashController extends GetxController {
             .schema(schema)
             .from('bookings')
             .select('grand_total')
-            .eq('payment_type', paymentType);
+            .eq('payment_type', paymentType)
+            .eq('closed', false);
 
         final bookings = bookingsResponse as List<dynamic>;
         bookingsTotal = bookings.fold<double>(

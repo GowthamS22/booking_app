@@ -206,11 +206,11 @@ class MembershipController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('customers')
           .insert({
-        'first_name': firstName,
-        'mobile': mobile,
-        'membershipplan_id': membershipPlanId,
-        'status': true,
-      })
+            'first_name': firstName,
+            'mobile': mobile,
+            'membershipplan_id': membershipPlanId,
+            'status': true,
+          })
           .select('*')
           .single();
 
@@ -238,11 +238,11 @@ class MembershipController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('customers')
           .update({
-        'first_name': name,
-        'mobile': mobile,
-        'membershipplan_id': membershipPlanId,
-        'status': true,
-      })
+            'first_name': name,
+            'mobile': mobile,
+            'membershipplan_id': membershipPlanId,
+            'status': true,
+          })
           .eq('id', customerId);
 
       await fetchCustomerDetails();
@@ -281,6 +281,7 @@ class MembershipController extends GetxController {
         .schema('${centerSlug}_prod_schema')
         .from('customers')
         .select('''
+        id,
         mobile,
         first_name,
         membershipplan_id,
@@ -295,6 +296,7 @@ class MembershipController extends GetxController {
           validity
         )
       ''')
+        .eq('status',true)
         .or('first_name.ilike.%$query%,mobile.ilike.%$query%') // Dynamic search on name or mobile
         .limit(10); // Pagination or limit to reduce data size
 
@@ -322,6 +324,7 @@ class MembershipController extends GetxController {
       }
 
       return {
+        'id': user['id'] ?? '',
         'name': user['first_name'] ?? '',
         'mobile': user['mobile'] ?? '',
         'membership_plan': plan?['name'] ?? '',

@@ -403,55 +403,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                   // Membership
                                   Expanded(
                                     child: Center(
-                                      child:
-                                      isEditing
-                                          ? Obx(
-                                            () => DropdownButtonFormField<
-                                            String
-                                        >(
-                                          value: editMembershipPlanId,
-                                          items:
-                                          customerController
-                                              .membershipPlans
-                                              .map((plan) {
-                                            return DropdownMenuItem<
-                                                String
-                                            >(
-                                              value: plan['id'],
-                                              child: Text(
-                                                plan['name'] ??
-                                                    '',
-                                              ),
-                                            );
-                                          })
-                                              .toList(),
-                                          onChanged: (value) {
-                                            setState(() {
-                                              editMembershipPlanId =
-                                                  value;
-                                            });
-                                          },
-                                          style: GoogleFonts.inter(
-                                            fontSize: 23,
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.grey.shade900,
-                                          ),
-                                          decoration: InputDecoration(
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(
-                                                10,
-                                              ),
-                                            ),
-                                            contentPadding:
-                                            EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                          : Text(
+                                      child: Text(
                                         customer['membership'] ?? '',
                                         style: GoogleFonts.inter(
                                           fontSize: 23,
@@ -654,6 +606,10 @@ class _CustomerScreenState extends State<CustomerScreen> {
     String? selectedPlan = '';
     selectedMembershipId = '';
 
+    customerController.nameController.clear();
+    customerController.mobileController.clear();
+    selectedMembershipPlanId = null;
+
     // Form key for validation
     final _formKey = GlobalKey<FormState>();
 
@@ -815,72 +771,72 @@ class _CustomerScreenState extends State<CustomerScreen> {
                             ),
 
                             // Membership Type Dropdown
-                            const SizedBox(height: 10),
-                            Text(
-                              'Membership Type',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 22,
-                                color: Colors.black,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Obx(() {
-                              return DropdownButtonFormField<String>(
-                                value: selectedMembershipPlanId,
-                                style: GoogleFonts.inter(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.grey.shade900,
-                                ),
-                                isExpanded: true,
-                                decoration: InputDecoration(
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(10),
-                                    ),
-                                    borderSide: BorderSide(
-                                      color: Colors.grey.shade100,
-                                    ),
-                                  ),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 14,
-                                  ),
-                                  hintText: 'Select a membership (optional)',
-                                ),
-                                items: [
-                                  DropdownMenuItem<String>(
-                                    value: null,
-                                    child: Text(
-                                      'None',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w400,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                    ),
-                                  ),
-                                  ...customerController.membershipPlans.map((plan) {
-                                    return DropdownMenuItem<String>(
-                                      value: plan['id'],
-                                      child: Text(
-                                        plan['name'] ?? '',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.grey.shade900,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ],
-                                onChanged: (value) {
-                                  selectedMembershipPlanId = value;
-                                  setState(() {});
-                                },
-                              );
-                            }),
+                            // const SizedBox(height: 10),
+                            // Text(
+                            //   'Membership Type',
+                            //   style: GoogleFonts.inter(
+                            //     fontWeight: FontWeight.w600,
+                            //     fontSize: 22,
+                            //     color: Colors.black,
+                            //   ),
+                            // ),
+                            // const SizedBox(height: 8),
+                            // Obx(() {
+                            //   return DropdownButtonFormField<String>(
+                            //     value: selectedMembershipPlanId,
+                            //     style: GoogleFonts.inter(
+                            //       fontSize: 20,
+                            //       fontWeight: FontWeight.w400,
+                            //       color: Colors.grey.shade900,
+                            //     ),
+                            //     isExpanded: true,
+                            //     decoration: InputDecoration(
+                            //       border: OutlineInputBorder(
+                            //         borderRadius: BorderRadius.all(
+                            //           Radius.circular(10),
+                            //         ),
+                            //         borderSide: BorderSide(
+                            //           color: Colors.grey.shade100,
+                            //         ),
+                            //       ),
+                            //       contentPadding: EdgeInsets.symmetric(
+                            //         horizontal: 16,
+                            //         vertical: 14,
+                            //       ),
+                            //       hintText: 'Select a membership (optional)',
+                            //     ),
+                            //     items: [
+                            //       DropdownMenuItem<String>(
+                            //         value: null,
+                            //         child: Text(
+                            //           'None',
+                            //           style: GoogleFonts.inter(
+                            //             fontSize: 20,
+                            //             fontWeight: FontWeight.w400,
+                            //             color: Colors.grey.shade500,
+                            //           ),
+                            //         ),
+                            //       ),
+                            //       ...customerController.membershipPlans.map((plan) {
+                            //         return DropdownMenuItem<String>(
+                            //           value: plan['id'],
+                            //           child: Text(
+                            //             plan['name'] ?? '',
+                            //             style: GoogleFonts.inter(
+                            //               fontSize: 20,
+                            //               fontWeight: FontWeight.w400,
+                            //               color: Colors.grey.shade900,
+                            //             ),
+                            //           ),
+                            //         );
+                            //       }).toList(),
+                            //     ],
+                            //     onChanged: (value) {
+                            //       selectedMembershipPlanId = value;
+                            //       setState(() {});
+                            //     },
+                            //   );
+                            // }),
 
                             // Display selected membership details
                             if (selectedMembershipPlanId != null && selectedMembershipPlanId!.isNotEmpty)
@@ -1027,69 +983,81 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                         final mobile = customerController.mobileController.text.trim();
                                         final membershipId = selectedMembershipPlanId;
 
-                                        showDialog(
-                                          context: context,
-                                          barrierDismissible: false,
-                                          builder: (BuildContext context) {
-                                            return Center(
-                                              child: CircularProgressIndicator(),
-                                            );
-                                          },
-                                        );
+                                        // showDialog(
+                                        //   context: context,
+                                        //   barrierDismissible: false,
+                                        //   builder: (BuildContext context) {
+                                        //     return Center(
+                                        //       child: CircularProgressIndicator(),
+                                        //     );
+                                        //   },
+                                        // );
 
                                         try {
                                           final customer = await customerController.addCustomer(
                                             firstName: name,
                                             mobile: mobile,
-                                            membershipPlanId: membershipId!,
                                           );
-
-                                          Navigator.pop(context); // Dismiss loading indicator
 
                                           if (customer != null) {
                                             showCustomSnackbar('Success', 'Customer added successfully!', Colors.green);
-
-                                            // Clear form only if not going to payment
-                                            if (membershipId == null || membershipId.isEmpty) {
-                                              customerController.nameController.clear();
-                                              customerController.mobileController.clear();
-                                              selectedMembershipPlanId = null;
-                                              setState(() {});
-                                              Navigator.pop(context);
-                                            } else {
-                                              // Find the selected membership plan details
-                                              final selectedPlan = customerController.membershipPlans.firstWhere(
-                                                    (plan) => plan['id'] == membershipId,
-                                                orElse: () => {},
-                                              );
-
-                                              // Navigate to CheckoutScreen with membership details
-                                              Get.to(
-                                                CheckoutScreen(
-                                                  type: 'Membership',
-                                                  customerName: name,
-                                                  mobileno: mobile,
-                                                  selectedDateTime: DateTime.now(),
-                                                  billAmount: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
-                                                  bookings: [],
-                                                  membershipID: membershipId,
-                                                  membershipName: selectedPlan['name'] ?? '',
-                                                  isMembershipApplied: true,
-                                                  membershipPrice: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
-                                                  exuserId: customer['id'],
-                                                ),
-                                              );
-
-                                              // Optionally clear form after navigation
-                                              customerController.nameController.clear();
-                                              customerController.mobileController.clear();
-                                              selectedMembershipPlanId = null;
-                                              setState(() {});
-                                            }
-
-                                          } else {
-                                            showCustomSnackbar('Error', 'Failed to add customer', Colors.red);
                                           }
+
+                                          // Optionally clear form after navigation
+                                          customerController.nameController.clear();
+                                          customerController.mobileController.clear();
+                                          selectedMembershipPlanId = null;
+                                          setState(() {});
+
+                                          Navigator.pop(context);
+
+                                          // Dismiss loading indicator
+
+                                          // if (customer != null) {
+                                          //   showCustomSnackbar('Success', 'Customer added successfully!', Colors.green);
+                                          //
+                                          //   // Clear form only if not going to payment
+                                          //   if (membershipId == null || membershipId.isEmpty) {
+                                          //     customerController.nameController.clear();
+                                          //     customerController.mobileController.clear();
+                                          //     selectedMembershipPlanId = null;
+                                          //     setState(() {});
+                                          //     Navigator.pop(context);
+                                          //   } else {
+                                          //     // Find the selected membership plan details
+                                          //     final selectedPlan = customerController.membershipPlans.firstWhere(
+                                          //           (plan) => plan['id'] == membershipId,
+                                          //       orElse: () => {},
+                                          //     );
+                                          //
+                                          //     // Navigate to CheckoutScreen with membership details
+                                          //     Get.to(
+                                          //       CheckoutScreen(
+                                          //         type: 'Membership',
+                                          //         customerName: name,
+                                          //         mobileno: mobile,
+                                          //         selectedDateTime: DateTime.now(),
+                                          //         billAmount: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
+                                          //         bookings: [],
+                                          //         membershipID: membershipId,
+                                          //         membershipName: selectedPlan['name'] ?? '',
+                                          //         isMembershipApplied: true,
+                                          //         membershipPrice: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
+                                          //         exuserId: customer['id'],
+                                          //       ),
+                                          //     );
+                                          //
+                                          //     // Optionally clear form after navigation
+                                          //     customerController.nameController.clear();
+                                          //     customerController.mobileController.clear();
+                                          //     selectedMembershipPlanId = null;
+                                          //     setState(() {});
+                                          //   }
+                                          //
+                                          // } else {
+                                          //   showCustomSnackbar('Error', 'Failed to add customer', Colors.red);
+                                          // }
+
                                         } catch (e) {
                                           Navigator.pop(context);
                                           showCustomSnackbar('Error', 'An error occurred: ${e.toString()}', Colors.red);
@@ -1104,10 +1072,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                     ),
-                                    child: Text(
-                                      selectedMembershipPlanId != null && selectedMembershipPlanId!.isNotEmpty
-                                          ? "Add & Pay"
-                                          : "Add",
+                                    child: Text("Add",
                                       style: GoogleFonts.inter(
                                         fontSize: 23,
                                         color: Colors.white,

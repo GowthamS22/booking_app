@@ -1460,13 +1460,33 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ),
                                               ),
                                               child: Text(
-                                                membershipValidityDate != null
-                                                    ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
-                                                    : '$membershipPlan : (No Validity Info)',
+                                                    () {
+                                                  if (membershipValidityDate == null) {
+                                                    return '$membershipPlan : (No Validity Info)';
+                                                  }
+
+                                                  final now = DateTime.now();
+                                                  final today = DateTime(now.year, now.month, now.day);
+                                                  final expiry = DateTime(
+                                                    membershipValidityDate!.year,
+                                                    membershipValidityDate!.month,
+                                                    membershipValidityDate!.day,
+                                                  );
+
+                                                  final difference = expiry.difference(today).inDays;
+
+                                                  if (difference > 0) {
+                                                    return '$membershipPlan : (Valid for $difference days)';
+                                                  } else if (difference == 0) {
+                                                    return '$membershipPlan : (Expires Today)';
+                                                  } else {
+                                                    return '$membershipPlan : (Expired)';
+                                                  }
+                                                }(),
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 14,
+                                                  fontSize: 13,
                                                   fontWeight: FontWeight.w700,
-                                                  color: textColor,
+                                                  // color: textColor,
                                                 ),
                                               ),
                                             ),
