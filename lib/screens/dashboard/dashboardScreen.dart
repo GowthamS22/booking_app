@@ -49,38 +49,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPendingPaymentTab() {
-    return Obx(() => Tab(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Text('Pending Payment'),
-          if (defaultController.pendingPaymentCount.value > 0) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 30,
-                minHeight: 25,
-              ),
-              child: Text(
-                defaultController.pendingPaymentCount.value > 99
-                    ? '99'
-                    : defaultController.pendingPaymentCount.value.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
+    return Obx(
+      () => Tab(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text('Pending Payment'),
+            if (defaultController.pendingPaymentCount.value > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
                 ),
-                textAlign: TextAlign.center,
+                constraints: const BoxConstraints(minWidth: 30, minHeight: 25),
+                child: Text(
+                  defaultController.pendingPaymentCount.value > 99
+                      ? '99'
+                      : defaultController.pendingPaymentCount.value.toString(),
+                  style: const TextStyle(color: Colors.white, fontSize: 22),
+                  textAlign: TextAlign.center,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
-    ));
+    );
   }
 
   @override
@@ -201,6 +197,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   // margin: const EdgeInsets.only(right: 16),
                   child: TabBar(
                     controller: defaultController.dashboardTabController,
+                    onTap: (index) {
+                      defaultController.dashboardTabController?.animateTo(
+                        index,
+                      );
+                    },
                     //isScrollable: true,
                     indicator: BoxDecoration(
                       color: Colors.indigo.shade500,
