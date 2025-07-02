@@ -3165,6 +3165,9 @@ class NewBookingController extends GetxController {
           'Failed to insert booking slots: $e',
           Colors.red,
         );
+      } finally {
+        isLoading.value = false;
+        update();
       }
     }
   }
