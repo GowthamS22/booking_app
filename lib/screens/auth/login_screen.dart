@@ -41,10 +41,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     setState(() {
                       authController.isLoading.value = true;
                     });
-                    authController.signIn(
+                    /*authController.signIn(
                       email: emailController.text,
                       password: passwordController.text,
-                    );
+                    );*/
                   }
                 },
                 style: ButtonStyle(

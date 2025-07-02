@@ -3,10 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/palette.dart';
@@ -33,74 +30,6 @@ class AuthController extends GetxController {
   RxBool isLoading = false.obs;
   RxBool startLoading = false.obs;
   RxBool pinLoading = false.obs;
-
-  FirebaseAuth _auth = FirebaseAuth.instance;
-
-  void signIn({String? email, String? password}) async {
-    SharedPreferences preferences = await SharedPreferences.getInstance();
-
-    try {
-      await _auth.signInWithEmailAndPassword(
-        email: email.toString(),
-        password: password.toString(),
-      );
-
-      centerName = RxString(_auth.currentUser!.displayName.toString());
-      centerSlug = RxString('shop_1');
-      emailID.value = _auth.currentUser!.email.toString();
-
-      DocumentSnapshot profileSnap =
-          await FirebaseFirestore.instance
-              .collection(centerSlug.toString())
-              .doc('admins')
-              .get();
-
-      logoURL.value = profileSnap['imageUrl'] ?? '';
-      gst.value = profileSnap['gst'];
-
-      preferences.setString('centerName', centerName.toString());
-      preferences.setString('centerSlug', centerSlug.toString());
-      preferences.setString('emailID', emailID.toString());
-      preferences.setString('logoURL', logoURL.toString());
-      preferences.setString('gst', gst.toString());
-
-      //Status Alert
-      showCustomSnackbar('Success', 'Login Successful', Colors.green);
-
-      //Redirect to Home
-      Get.offAllNamed('/');
-    } on FirebaseAuthException catch (e) {
-      if (e.message!.contains(
-        'The password is invalid or the user does not have a password',
-      )) {
-        showCustomSnackbar(
-          'Failed',
-          'The password entered is incorrect',
-          Colors.red,
-        );
-      } else if (e.message!.contains(
-        'There is no user record corresponding to this identifier. The user may have been deleted',
-      )) {
-        showCustomSnackbar(
-          'Failed',
-          'The email id and password is incorrect',
-          Colors.red,
-        );
-      } else if (e.message!.contains('The email address is badly formatted')) {
-        showCustomSnackbar(
-          'Failed',
-          'The email id format is incorrect',
-          Colors.red,
-        );
-      } else {
-        showCustomSnackbar('Failed', 'Something went wrong!!', Colors.red);
-      }
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-
 
   Future<void> pinLogin({required String memberPin}) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
@@ -206,7 +135,7 @@ class AuthController extends GetxController {
         showCustomSnackbar('Failed', 'Invalid PIN entered.', Colors.red);
       }
     } catch (e) {
-      showCustomSnackbar('Failed', e.toString(), Colors.red);
+      showCustomSnackbar('Failed', 'Unable to Login', Colors.red);
     } finally {
       pinLoading.value = false;
       isLoading.value = false;

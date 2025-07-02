@@ -236,7 +236,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.white10,
-                            hintText: 'Enter center slug',
+                            hintText: 'Enter client id',
                             hintStyle: TextStyle(color: Colors.white70, fontSize: 25),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),

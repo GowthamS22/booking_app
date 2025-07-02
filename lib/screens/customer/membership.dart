@@ -602,14 +602,13 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> openMembershipDrawer(BuildContext context) async {
-
     String? selectedMembershipPlanId;
-
     bool hasMembership = false;
     String membershipPlan = '';
     String existingMembershipPlanId = '';
     DateTime? membershipValidityDate;
-    bool isSameMembershipSelected = false; // New flag to track if same membership is selected
+    DateTime? membershipValidityStartDate;
+    bool isSameMembershipSelected = false;
     String existingCustomer = '';
 
     membershipController.nameController.text = '';
@@ -618,6 +617,22 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final plans = membershipController.membershipPlans;
     String? selectedPlan = '';
     selectedMembershipId = '';
+
+    // Helper method to calculate prorated credit
+    double calculateProratedCredit(double originalPrice, DateTime startDate, DateTime endDate) {
+      final totalDays = endDate.difference(startDate).inDays;
+      final remainingDays = endDate.difference(DateTime.now()).inDays;
+
+      if (remainingDays <= 0) return 0;
+
+      return (originalPrice / totalDays) * remainingDays;
+    }
+
+    // Helper method to calculate upgrade cost
+    double calculateUpgradeCost(double currentPlanPrice, double newPlanPrice, DateTime validityStart, DateTime validityEnd) {
+      final proratedCredit = calculateProratedCredit(currentPlanPrice, validityStart, validityEnd);
+      return (newPlanPrice - proratedCredit).clamp(0, newPlanPrice); // Ensure we don't go negative
+    }
 
     // Form key for validation
     final _formKey = GlobalKey<FormState>();
@@ -639,7 +654,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
           child: Align(
             alignment: Alignment.centerRight,
             child: FractionallySizedBox(
-              widthFactor: 0.4, // Right half of screen
+              widthFactor: 0.4,
               child: Material(
                 color: Colors.white,
                 child: StatefulBuilder(
@@ -914,11 +929,151 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                           const SizedBox(height: 20),
                                         ],
 
+                                        // Show upgrade calculation if applicable
+                                        if (hasMembership &&
+                                            selectedMembershipPlanId != null &&
+                                            selectedMembershipPlanId != existingMembershipPlanId &&
+                                            membershipValidityDate != null) ...[
+                                          Builder(
+                                            builder: (context) {
+                                              final currentPlan = membershipController.membershipPlans.firstWhere(
+                                                    (plan) => plan['id'] == existingMembershipPlanId,
+                                                orElse: () => {},
+                                              );
+
+                                              final selectedPlan = membershipController.membershipPlans.firstWhere(
+                                                    (plan) => plan['id'] == selectedMembershipPlanId,
+                                                orElse: () => {},
+                                              );
+
+                                              if (currentPlan.isNotEmpty && selectedPlan.isNotEmpty) {
+                                                final currentPrice = double.tryParse(currentPlan['price']?.toString() ?? '0') ?? 0;
+                                                final selectedPrice = double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0;
+
+                                                if (selectedPrice > currentPrice) {
+                                                  final upgradeAmount = calculateUpgradeCost(
+                                                      currentPrice,
+                                                      selectedPrice,
+                                                      membershipValidityStartDate!, // Assuming membership started today
+                                                      membershipValidityDate!
+                                                  );
+
+                                                  final creditAmount = currentPrice - upgradeAmount;
+
+                                                  return Container(
+                                                    padding: const EdgeInsets.all(12),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blue.shade50,
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      border: Border.all(color: Colors.blue.shade100),
+                                                    ),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          'Upgrade Calculation',
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: Colors.blue.shade800,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 8),
+                                                        Row(
+                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              'Current Plan:',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 20,
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '\$$currentPrice (${currentPlan['name']})',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 20,
+                                                                fontWeight: FontWeight.w600,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Row(
+                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              'New Plan:',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 20,
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '\$$selectedPrice (${selectedPlan['name']})',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 20,
+                                                                fontWeight: FontWeight.w600,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 4),
+                                                        Row(
+                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              'Unused Credit:',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 20,
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '\$${creditAmount.toStringAsFixed(2)}',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 20,
+                                                                fontWeight: FontWeight.w600,
+                                                                color: Colors.green.shade800,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const Divider(height: 16, thickness: 1),
+                                                        Row(
+                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              'Amount to Pay:',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 22,
+                                                                fontWeight: FontWeight.w700,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              '\$${upgradeAmount.toStringAsFixed(2)}',
+                                                              style: GoogleFonts.inter(
+                                                                fontSize: 22,
+                                                                fontWeight: FontWeight.w700,
+                                                                color: Palette.newColor,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                }
+                                              }
+                                              return const SizedBox();
+                                            },
+                                          ),
+                                          const SizedBox(height: 20),
+                                        ],
 
                                         // Mobile Field
                                         Row(
-                                          mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             RichText(
                                               text: TextSpan(
@@ -944,18 +1099,15 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                             ),
                                             if (hasMembership) ...[
                                               Container(
-                                                padding:
-                                                const EdgeInsets.symmetric(
+                                                padding: const EdgeInsets.symmetric(
                                                   horizontal: 6,
                                                   vertical: 2,
                                                 ),
                                                 decoration: BoxDecoration(
-                                                  //color: backgroundColor,
                                                   borderRadius: BorderRadius.circular(6),
-                                                  //border: Border.all(color: borderColor!,),
                                                 ),
                                                 child: Text(
-                                                  () {
+                                                      () {
                                                     if (membershipValidityDate == null) {
                                                       return '$membershipPlan : (No Validity Info)';
                                                     }
@@ -981,7 +1133,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                   style: GoogleFonts.inter(
                                                     fontSize: 22,
                                                     fontWeight: FontWeight.w700,
-                                                    // color: textColor,
                                                   ),
                                                 ),
                                               ),
@@ -1025,8 +1176,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                     borderRadius: BorderRadius.circular(8),
                                                     borderSide: BorderSide(color: Colors.grey.shade300),
                                                   ),
-                                                  errorStyle: GoogleFonts.inter( // Add this
-                                                    fontSize: 22, // Set your desired size
+                                                  errorStyle: GoogleFonts.inter(
+                                                    fontSize: 22,
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
@@ -1043,18 +1194,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                               membershipController.mobileController.text = suggestion['mobile'] ?? '';
                                               setState(() {
                                                 existingCustomer = suggestion['id'];
-                                                hasMembership  = suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty;
+                                                hasMembership = suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty;
                                                 membershipPlan = hasMembership ? suggestion['membership_plan'] : null;
                                                 existingMembershipPlanId = suggestion['membershipplan_id'].toString();
                                                 membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '') : null;
+                                                membershipValidityStartDate = hasMembership ? DateTime.tryParse(suggestion['validity_start']?.toString() ?? '') : null;
                                                 isSameMembershipSelected = hasMembership && selectedMembershipPlanId != null && selectedMembershipPlanId == suggestion['membershipplan_id'];
                                               });
                                             },
                                           ),
                                         ),
 
-
-                                        // Name Field renew
+                                        // Name Field
                                         const SizedBox(height: 20),
                                         RichText(
                                           text: TextSpan(
@@ -1095,8 +1246,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                 color: Colors.grey.shade100,
                                               ),
                                             ),
-                                            errorStyle: GoogleFonts.inter( // Add this
-                                              fontSize: 22, // Set your desired size
+                                            errorStyle: GoogleFonts.inter(
+                                              fontSize: 22,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -1109,29 +1260,38 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                         ),
                                         const SizedBox(height: 20),
 
-                                        if(hasMembership) ...[
-                                          if(isSameMembershipSelected)
+                                        if (hasMembership) ...[
+                                          if (isSameMembershipSelected)
                                             Text(
-                                              'You already have an active $membershipPlan membership. '
-                                                  'Please upgrade if you need a different plan.',
+                                              membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now())
+                                                  ? 'Your $membershipPlan membership has expired. You can renew it or choose a different plan.'
+                                                  : 'You already have an active $membershipPlan membership. Please upgrade if you need a different plan.',
                                               style: GoogleFonts.inter(
                                                 fontSize: 22,
-                                                color: Colors.red,
+                                                color: membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now())
+                                                    ? Colors.orange
+                                                    : Colors.red,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                               textAlign: TextAlign.center,
                                             )
                                           else
-                                            Text(
-                                              'Current membership plan: $membershipPlan',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 22,
-                                                color: Colors.grey.shade800,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                            Column(
+                                              children: [
+                                                Text(
+                                                  'Current membership plan: $membershipPlan ${membershipValidityDate != null ? membershipValidityDate!.isBefore(DateTime.now()) ? "(Expired)" : "(Active)" : ""}',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 22,
+                                                    color: membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now())
+                                                        ? Colors.orange
+                                                        : Colors.grey.shade800,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                SizedBox(height: 20,)
+                                              ],
+                                            )
                                         ],
-
 
                                         Spacer(),
                                         Row(
@@ -1169,15 +1329,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                       return;
                                                     }
 
-                                                    // Check if trying to downgrade (based on price)
+                                                    final name = membershipController.nameController.text.trim();
+                                                    final mobile = membershipController.mobileController.text.trim();
+                                                    final isMembershipExpired = membershipValidityDate != null &&
+                                                        membershipValidityDate!.isBefore(DateTime.now());
+
+                                                    // Check membership upgrade/downgrade logic
                                                     if (hasMembership) {
-                                                      // Get current membership details
                                                       final currentPlan = membershipController.membershipPlans.firstWhere(
                                                             (plan) => plan['id'] == existingMembershipPlanId,
                                                         orElse: () => {},
                                                       );
 
-                                                      // Get selected membership details
                                                       final selectedPlan = membershipController.membershipPlans.firstWhere(
                                                             (plan) => plan['id'] == selectedMembershipPlanId,
                                                         orElse: () => {},
@@ -1187,65 +1350,96 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                         final currentPrice = double.tryParse(currentPlan['price']?.toString() ?? '0') ?? 0;
                                                         final selectedPrice = double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0;
 
-                                                        if (selectedPrice < currentPrice) {
-                                                          showCustomSnackbar(
-                                                            'Cannot Downgrade',
-                                                            'You cannot select a cheaper membership plan (\$$selectedPrice) than your current \$$currentPrice plan',
-                                                            Colors.orange,
-                                                          );
-                                                          return;
+                                                        // Calculate amount to pay
+                                                        double amountToPay = selectedPrice;
+                                                        String paymentDescription = 'New ${selectedPlan['name']} membership';
+
+                                                        // For expired memberships, allow renewing the same plan
+                                                        if (!isMembershipExpired) {
+                                                          if (selectedMembershipPlanId == existingMembershipPlanId) {
+                                                            showCustomSnackbar(
+                                                              'Warning',
+                                                              'You already have this ${currentPlan['name']} membership plan',
+                                                              Colors.orange,
+                                                            );
+                                                            return;
+                                                          }
+
+                                                          if (selectedPrice > currentPrice) {
+                                                            // Upgrade scenario
+                                                            amountToPay = calculateUpgradeCost(
+                                                                currentPrice,
+                                                                selectedPrice,
+                                                                membershipValidityStartDate!,
+                                                                membershipValidityDate!
+                                                            );
+                                                            paymentDescription = 'Upgrade to ${selectedPlan['name']}';
+                                                          } else if (selectedPrice < currentPrice) {
+                                                            showCustomSnackbar(
+                                                              'Cannot Downgrade',
+                                                              'You cannot select a cheaper membership plan (\$$selectedPrice) than your current \$$currentPrice plan',
+                                                              Colors.orange,
+                                                            );
+                                                            return;
+                                                          }
                                                         }
 
-                                                        if (selectedPrice == currentPrice && selectedMembershipPlanId == existingMembershipPlanId) {
-                                                          showCustomSnackbar(
-                                                            'Warning',
-                                                            'You already have this ${currentPlan['name']} membership plan',
-                                                            Colors.orange,
-                                                          );
-                                                          return;
-                                                        }
-                                                      }
-                                                    }
+                                                        try {
+                                                          String? customerId = existingCustomer.isNotEmpty ? existingCustomer :
+                                                          (await membershipController.addCustomer(firstName: name, mobile: mobile))?['id'];
 
-                                                    if (isSameMembershipSelected) {
-                                                      showCustomSnackbar('Warning','Already have this membership plan',Colors.orange);
-                                                      return;
-                                                    }
-                                                    final name = membershipController.nameController.text.trim();
-                                                    final mobile = membershipController.mobileController.text.trim();
-                                                    final membershipId = selectedMembershipPlanId;
-
-                                                    try {
-                                                      String? customerId = '';
-                                                      if(existingCustomer!='' && existingCustomer!=null) {
-                                                        customerId = existingCustomer;
-                                                      } else {
-                                                        final customer = await membershipController.addCustomer(
-                                                          firstName: name,
-                                                          mobile: mobile,
-                                                        );
-                                                        customerId = customer!['id'];
-                                                      }
-
-                                                      Navigator.pop(context); // Dismiss loading indicator
-
-                                                      if (customerId != null && customerId != '') {
-
-                                                        // Clear form only if not going to payment
-                                                        if (membershipId == null || membershipId.isEmpty) {
-                                                          membershipController.nameController.clear();
-                                                          membershipController.mobileController.clear();
-                                                          selectedMembershipPlanId = null;
-                                                          setState(() {});
                                                           Navigator.pop(context);
+
+                                                          if (customerId != null && customerId.isNotEmpty) {
+                                                            Get.to(
+                                                              CheckoutScreen(
+                                                                type: 'Membership',
+                                                                customerName: name,
+                                                                mobileno: mobile,
+                                                                selectedDateTime: DateTime.now(),
+                                                                billAmount: amountToPay,
+                                                                bookings: [],
+                                                                membershipID: selectedMembershipPlanId!,
+                                                                membershipName: selectedPlan['name'] ?? '',
+                                                                isMembershipApplied: true,
+                                                                membershipPrice: selectedPrice,
+                                                                exuserId: customerId,
+                                                              ),
+                                                            );
+
+                                                            // Clear form
+                                                            membershipController.nameController.clear();
+                                                            membershipController.mobileController.clear();
+                                                            selectedMembershipPlanId = null;
+                                                            setState(() {});
+                                                          }
+                                                        } catch (e) {
+                                                          Navigator.pop(context);
+                                                          showCustomSnackbar('Error', 'An error occurred: ${e.toString()}', Colors.red);
+                                                        }
+                                                      }
+                                                    } else {
+                                                      // New membership purchase code remains the same
+                                                      try {
+                                                        String? customerId = '';
+                                                        if(existingCustomer!='' && existingCustomer!=null) {
+                                                          customerId = existingCustomer;
                                                         } else {
-                                                          // Find the selected membership plan details
+                                                          final customer = await membershipController.addCustomer(
+                                                            firstName: name,
+                                                            mobile: mobile,
+                                                          );
+                                                          customerId = customer!['id'];
+                                                        }
+
+                                                        Navigator.pop(context);
+
+                                                        if (customerId != null && customerId != '') {
                                                           final selectedPlan = membershipController.membershipPlans.firstWhere(
-                                                                (plan) => plan['id'] == membershipId,
+                                                                (plan) => plan['id'] == selectedMembershipPlanId,
                                                             orElse: () => {},
                                                           );
 
-                                                          // Navigate to CheckoutScreen with membership details
                                                           Get.to(
                                                             CheckoutScreen(
                                                               type: 'Membership',
@@ -1254,7 +1448,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                               selectedDateTime: DateTime.now(),
                                                               billAmount: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
                                                               bookings: [],
-                                                              membershipID: membershipId,
+                                                              membershipID: selectedMembershipPlanId!,
                                                               membershipName: selectedPlan['name'] ?? '',
                                                               isMembershipApplied: true,
                                                               membershipPrice: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
@@ -1262,19 +1456,16 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                             ),
                                                           );
 
-                                                          // Optionally clear form after navigation
+                                                          // Clear form
                                                           membershipController.nameController.clear();
                                                           membershipController.mobileController.clear();
                                                           selectedMembershipPlanId = null;
                                                           setState(() {});
                                                         }
-
-                                                      } else {
-                                                        showCustomSnackbar('Error', 'Failed to add customer', Colors.red);
+                                                      } catch (e) {
+                                                        Navigator.pop(context);
+                                                        showCustomSnackbar('Error', 'An error occurred: ${e.toString()}', Colors.red);
                                                       }
-                                                    } catch (e) {
-                                                      Navigator.pop(context);
-                                                      showCustomSnackbar('Error', 'An error occurred: ${e.toString()}', Colors.red);
                                                     }
                                                   }
                                                 },
@@ -1286,7 +1477,19 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                     borderRadius: BorderRadius.circular(10),
                                                   ),
                                                 ),
-                                                child: Text(existingMembershipPlanId=='' || existingMembershipPlanId==null ? 'Buy Now' : 'Upgrade',
+                                                child: Text(
+                                                      () {
+                                                    if (existingMembershipPlanId == '' || existingMembershipPlanId == null) {
+                                                      return 'Buy Now';
+                                                    } else if (membershipValidityDate != null &&
+                                                        membershipValidityDate!.isBefore(DateTime.now())) {
+                                                      return selectedMembershipPlanId == existingMembershipPlanId
+                                                          ? 'Renew Now'
+                                                          : 'Upgrade Now';
+                                                    } else {
+                                                      return 'Upgrade Now';
+                                                    }
+                                                  }(),
                                                   style: GoogleFonts.inter(
                                                     fontSize: 23,
                                                     color: Colors.white,

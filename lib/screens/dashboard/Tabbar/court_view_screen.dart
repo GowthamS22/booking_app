@@ -387,87 +387,87 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
             const SizedBox(width: 10),
             if (controller.selectedCourtSlots.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 15,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.indigo.shade500,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: GestureDetector(
-                  onTap: () {
-                    final grouped = controller.groupSelectedSlots(
-                      controller.selectedCourtSlots,
-                    );
-                    List<BookingInfo> bookings = [];
-                    String membershipPlan = '';
-                    double memberPrice = 0.0;
-                    bool membershipApplied = false;
-                    grouped.forEach((court, slotGroups) {
-                      for (final group in slotGroups) {
-                        group.sort();
-                        final start = group.first;
-                        final lastSlotData = slotInfoMap[group.last];
-                        final end =
-                            lastSlotData != null
-                                ? calculateEndTime(group.last)
-                                : calculateEndTime(
-                                  group.last,
-                                ); // fallback, but ideally use slotInfoMap
-                        List<BookingSubSlotInfo> subSlots = [];
-                        for (String slot in group) {
-                          final slotData = slotInfoMap[slot];
-                          if (slotData != null) {
-                            final subStartTime =
-                                slot; // Slot is already in HH:mm format
-                            final subEndTime = calculateEndTime(
-                              slot,
-                            ); // Calculate end time for this 30-min slot
-                            final subPrice =
-                                (slotData['price'] ?? 0.0).toDouble();
-                            final subIsPeak = slotData['isPeak'] ?? false;
-                            subSlots.add(
-                              BookingSubSlotInfo(
-                                startTime: subStartTime,
-                                endTime: subEndTime,
-                                price: subPrice,
-                                isPeak: subIsPeak,
-                              ),
-                            );
-                          }
+              GestureDetector(
+                onTap: () {
+                  final grouped = controller.groupSelectedSlots(
+                    controller.selectedCourtSlots,
+                  );
+                  List<BookingInfo> bookings = [];
+                  String membershipPlan = '';
+                  double memberPrice = 0.0;
+                  bool membershipApplied = false;
+                  grouped.forEach((court, slotGroups) {
+                    for (final group in slotGroups) {
+                      group.sort();
+                      final start = group.first;
+                      final lastSlotData = slotInfoMap[group.last];
+                      final end =
+                      lastSlotData != null
+                          ? calculateEndTime(group.last)
+                          : calculateEndTime(
+                        group.last,
+                      ); // fallback, but ideally use slotInfoMap
+                      List<BookingSubSlotInfo> subSlots = [];
+                      for (String slot in group) {
+                        final slotData = slotInfoMap[slot];
+                        if (slotData != null) {
+                          final subStartTime =
+                              slot; // Slot is already in HH:mm format
+                          final subEndTime = calculateEndTime(
+                            slot,
+                          ); // Calculate end time for this 30-min slot
+                          final subPrice =
+                          (slotData['price'] ?? 0.0).toDouble();
+                          final subIsPeak = slotData['isPeak'] ?? false;
+                          subSlots.add(
+                            BookingSubSlotInfo(
+                              startTime: subStartTime,
+                              endTime: subEndTime,
+                              price: subPrice,
+                              isPeak: subIsPeak,
+                            ),
+                          );
                         }
-
-                        bookings.add(
-                          BookingInfo(
-                            courtName: court,
-                            selectedDateTime:
-                                selectedDateTime != null
-                                    ? selectedDate
-                                    : DateTime.now(),
-                            selectedDays: [],
-                            subSlots: subSlots,
-                            bookingId: controller.bookingId,
-                          ),
-                        );
                       }
-                    });
-                    openBookingRightDrawer(
-                      context,
-                      membershipPlan,
-                      memberPrice,
-                      membershipApplied,
-                      selectedMembershipId ?? '',
-                      bookings,
-                      onCancel: () {
-                        setState(
-                          () {},
-                        ); // This will force the parent to rebuild and reflect cleared state
-                      },
-                    );
-                  },
+
+                      bookings.add(
+                        BookingInfo(
+                          courtName: court,
+                          selectedDateTime:
+                          selectedDateTime != null
+                              ? selectedDate
+                              : DateTime.now(),
+                          selectedDays: [],
+                          subSlots: subSlots,
+                          bookingId: controller.bookingId,
+                        ),
+                      );
+                    }
+                  });
+                  openBookingRightDrawer(
+                    context,
+                    membershipPlan,
+                    memberPrice,
+                    membershipApplied,
+                    selectedMembershipId ?? '',
+                    bookings,
+                    onCancel: () {
+                      setState(
+                            () {},
+                      ); // This will force the parent to rebuild and reflect cleared state
+                    },
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 30,
+                    vertical: 15,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.shade500,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey),
+                  ),
                   child: Text(
                     'Book Now',
                     style: GoogleFonts.inter(
@@ -479,33 +479,33 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 ),
               ),
               SizedBox(width: 20),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 15,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Palette.newColor),
-                ),
-                child: GestureDetector(
-                  onTap: () {
-                    controller.clearSelectedSlots();
-                    setState(() {});
-                    // Add this line to ensure UI updates properly
-                    controller.update();
-                  },
-                  child: Text(
-                    'Clear Selection',
-                    style: GoogleFonts.inter(
-                      fontSize: 23,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
+              GestureDetector(
+                onTap: () {
+                  controller.clearSelectedSlots();
+                  setState(() {});
+                  // Add this line to ensure UI updates properly
+                  controller.update();
+                },
+                child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 30,
+                      vertical: 15,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Palette.newColor),
+                    ),
+                    child: Text(
+                      'Clear Selection',
+                      style: GoogleFonts.inter(
+                        fontSize: 23,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ],
         ),
@@ -1399,25 +1399,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             sum +
                             b.subSlots.fold(0.0, (subSum, subSlot) {
                               double price;
-                              if (hasMembership &&
-                                  memberPeakPrice != null &&
-                                  memberNonPeakPrice != null) {
-                                price =
-                                    subSlot.isPeak
-                                        ? memberPeakPrice!
-                                        : memberNonPeakPrice!;
+                              if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+                                final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
+                                if(isMembershipExpired) {
+                                  price = (subSlot.price is num) ? subSlot.price.toDouble() : 0.0;
+                                } else {
+                                  price = subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+                                }
                               } else {
-                                price =
-                                    (subSlot.price is num)
-                                        ? subSlot.price.toDouble()
-                                        : 0.0;
+                                price = (subSlot.price is num) ? subSlot.price.toDouble() : 0.0;
                               }
                               return subSum + price;
                             }),
                       );
                     });
-                    totalPrice =
-                        courtPrice + (isMembershipApplied ? memberPrice : 0.0);
+                    totalPrice = courtPrice + (isMembershipApplied ? memberPrice : 0.0);
                     final selectedName =
                         controller.serviceList.firstWhere(
                           (e) =>
@@ -1537,13 +1533,32 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ),
                                               ),
                                               child: Text(
-                                                membershipValidityDate != null
-                                                    ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
-                                                    : '$membershipPlan : (No Validity Info)',
+                                                    () {
+                                                  if (membershipValidityDate == null) {
+                                                    return '$membershipPlan : (No Validity Info)';
+                                                  }
+
+                                                  final now = DateTime.now();
+                                                  final today = DateTime(now.year, now.month, now.day);
+                                                  final expiry = DateTime(
+                                                    membershipValidityDate!.year,
+                                                    membershipValidityDate!.month,
+                                                    membershipValidityDate!.day,
+                                                  );
+
+                                                  final difference = expiry.difference(today).inDays;
+
+                                                  if (difference > 0) {
+                                                    return '$membershipPlan : (Valid for $difference days)';
+                                                  } else if (difference == 0) {
+                                                    return '$membershipPlan : (Expires Today)';
+                                                  } else {
+                                                    return '$membershipPlan : (Expired)';
+                                                  }
+                                                }(),
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 14,
+                                                  fontSize: 15,
                                                   fontWeight: FontWeight.w700,
-                                                  color: textColor,
                                                 ),
                                               ),
                                             ),
@@ -1626,48 +1641,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             );
                                           },
                                           onSelected: (suggestion) {
-                                            mobileController.text =
-                                                suggestion['mobile'];
-                                            nameController.text =
-                                                suggestion['name'];
+                                            mobileController.text = suggestion['mobile'];
+                                            nameController.text = suggestion['name'];
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
                                             setState(() {
-                                              hasMembership =
-                                                  (suggestion['membershipplan_id'] !=
-                                                          null &&
-                                                      suggestion['membershipplan_id']
-                                                          .toString()
-                                                          .isNotEmpty);
-                                              memberPeakPrice =
-                                                  hasMembership
-                                                      ? double.tryParse(
-                                                        suggestion['peak_price']
-                                                                ?.toString() ??
-                                                            '0',
-                                                      )
-                                                      : null;
-                                              memberNonPeakPrice =
-                                                  hasMembership
-                                                      ? double.tryParse(
-                                                        suggestion['non_peak_price']
-                                                                ?.toString() ??
-                                                            '0',
-                                                      )
-                                                      : null;
-                                              membershipPlan =
-                                                  hasMembership
-                                                      ? suggestion['membership_plan']
-                                                      : null;
-                                              membershipValidityDate =
-                                                  hasMembership
-                                                      ? DateTime.tryParse(
-                                                        suggestion['validity_end']
-                                                                ?.toString() ??
-                                                            '',
-                                                      )
-                                                      : null;
+                                              hasMembership = (suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty);
+                                              memberPeakPrice = hasMembership ? double.tryParse(suggestion['peak_price']?.toString() ?? '0',) : null;
+                                              memberNonPeakPrice = hasMembership ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0',) : null;
+                                              membershipPlan = hasMembership ? suggestion['membership_plan'] : null;
+                                              membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '',) : null;
                                               updateCourtPrice();
                                             });
                                           },
@@ -1881,9 +1865,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               child: Column(
                                                 children: [
                                                   Row(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .spaceBetween,
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                     children: [
                                                       Expanded(
                                                         flex: 2,
@@ -1901,30 +1883,27 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                               ),
                                                         ),
                                                       ),
-
                                                       Expanded(
                                                         flex: 2,
                                                         child: Text(
                                                           "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
                                                             if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-                                                              return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
+                                                              final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
+                                                              if(isMembershipExpired) {
+                                                                return sum + subSlot.price;
+                                                              } else {
+                                                                return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
+                                                              }
                                                             } else {
                                                               return sum + subSlot.price;
                                                             }
                                                           }).toStringAsFixed(2)}",
-                                                          textAlign:
-                                                              TextAlign.right,
-                                                          style:
-                                                              GoogleFonts.inter(
-                                                                fontSize: 22,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color:
-                                                                    Colors
-                                                                        .grey
-                                                                        .shade900,
-                                                              ),
+                                                          textAlign: TextAlign.right,
+                                                          style: GoogleFonts.inter(
+                                                             fontSize: 22,
+                                                             fontWeight: FontWeight.w600,
+                                                             color: Colors.grey.shade900,
+                                                          ),
                                                         ),
                                                       ),
                                                     ],
@@ -1932,10 +1911,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   SizedBox(height: 5),
                                                   Row(
                                                     children: [
-                                                      if (booking.subSlots.any(
-                                                        (subSlot) =>
-                                                            subSlot.isPeak,
-                                                      )) ...[
+                                                      if (booking.subSlots.any((subSlot) => subSlot.isPeak,)) ...[
                                                         Expanded(
                                                           flex: 4,
                                                           child: Text.rich(
@@ -1993,7 +1969,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                           ),
                                                         ),
                                                       ],
-
                                                       Expanded(
                                                         flex: 2,
                                                         child: Text(
@@ -2636,11 +2611,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 booking.subSlots.map((subSlot) {
                   // Apply membership pricing if applicable
                   double updatedPrice = subSlot.price;
-                  if (hasMembership &&
-                      memberPeakPrice != null &&
-                      memberNonPeakPrice != null) {
-                    updatedPrice =
-                        subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+                  if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+                    final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
+                    if(!isMembershipExpired) {
+                      updatedPrice = subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+                    }
                   }
                   return BookingSubSlotInfo(
                     startTime: subSlot.startTime,
@@ -2860,7 +2835,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           child: Text(
                                             "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
                                               if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-                                                return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
+                                                final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
+                                                if(isMembershipExpired) {
+                                                  return sum + subSlot.price;
+                                                } else {
+                                                  return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
+                                                }
                                               } else {
                                                 return sum + subSlot.price;
                                               }
@@ -3191,6 +3171,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           subSlotInfo.startTime,
         );
         final endTime = parseDateTime(selectedDateTime!, subSlotInfo.endTime);
+
+        // Apply membership pricing if available
+        double finalPrice;
+        if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+          final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
+          if(isMembershipExpired) {
+            finalPrice = subSlotInfo.price;
+          } else {
+            finalPrice = subSlotInfo.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+          }
+        } else {
+          finalPrice = subSlotInfo.price;
+        }
+
         print('selectedDateTime: ${selectedDateTime}');
         final individualSlot = BookingSlot(
           serviceId: controller.selectedServiceId.value,
@@ -3199,7 +3193,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           date: selectedDateTime, // Set the date to match the startTime
           startTime: startTime,
           endTime: endTime,
-          price: subSlotInfo.price,
+          price: finalPrice,
           slotType: null,
           repeatDays: null,
           repeatEnd: bookingInfo.repeatUntil,
@@ -3542,10 +3536,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         final slotData = slotInfoMap[slot];
         final isPeak = slotData?['isPeak'] ?? false;
         double price;
-        if (hasMembership &&
-            memberPeakPrice != null &&
-            memberNonPeakPrice != null) {
-          price = isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+        if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
+          final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
+          if(!isMembershipExpired) {
+            price = isPeak ? memberPeakPrice! : memberNonPeakPrice!;
+          } else {
+            price = slotData?['price'] ?? 0.0;
+          }
         } else {
           price = slotData?['price'] ?? 0.0;
         }
