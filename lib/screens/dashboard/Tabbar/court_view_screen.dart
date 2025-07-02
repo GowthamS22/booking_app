@@ -60,11 +60,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   void initState() {
     super.initState();
     selectedSlots.clear();
+    showTodayButton = false;
     controller.clearSelectedSlots();
     cartController.clearCart();
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
-    showTodayButton = false; // Hide Today button initially
     _vertical.addListener(() {
       _leftVerticalController.jumpTo(_vertical.offset);
     });
@@ -194,6 +194,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        const SizedBox(height: 15),
         Row(
           children: [
             Column(
@@ -329,6 +330,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   controller.clearSelectedSlots();
                                   selectedSlots.clear();
                                   setState(() {}); // Update UI
+                                  controller.update(); // Notify GetX listeners
 
                                   final selectedItem = item;
                                   if (selectedItem['is_available']) {
@@ -491,6 +493,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   onTap: () {
                     controller.clearSelectedSlots();
                     setState(() {});
+                    // Add this line to ensure UI updates properly
+                    controller.update();
                   },
                   child: Text(
                     'Clear Selection',
@@ -1039,6 +1043,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             controller.selectedCourt.value =
                                                 courtName;
                                           });
+                                          // Add this line to notify GetX listeners
+                                          controller.update();
                                         },
                                         child: Container(
                                           width: 80.0 * mergeSpan,
@@ -1186,18 +1192,33 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: Theme.of(context).copyWith(
+            // Main dialog styling
+            // dialogTheme: DialogTheme(
+            //   shape: RoundedRectangleBorder(
+            //     borderRadius: BorderRadius.circular(16),
+            //   ),
+            //   elevation: 4,
+            //   backgroundColor: Colors.white,
+            // ),
             colorScheme: ColorScheme.light(
-              primary: Colors.blue,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+              primary: Colors.blue, // Header color
+              onPrimary: Colors.white, // Header text color
+              surface: Colors.white, // Calendar background
+              onSurface: Colors.black, // Default text color
             ),
             materialTapTargetSize: MaterialTapTargetSize.padded,
           ),
           child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(textScaleFactor: 1.7),
+            // Overall scaling
+            data: MediaQuery.of(context).copyWith(
+              textScaleFactor:
+                  1.7, // Slightly reduced from 1.9 for better proportions
+            ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 20,
+              ), // Add padding around the picker
               child: child!,
             ),
           ),
@@ -1206,26 +1227,29 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     );
 
     if (pickedDate == null) return;
-
     final today = DateTime.now();
+    // Combine Date and Time
     final combined = DateTime(
       pickedDate.year,
       pickedDate.month,
       pickedDate.day,
     );
 
+    // Clear all selections before updating date
     controller.clearSelectedSlots();
     selectedSlots.clear();
+    controller.update(); // Notify GetX listeners
 
     setState(() {
       selectedDateTime = combined;
-      controller.selectedDate = combined;
+      controller.selectedDate = combined; // Update controller's selected date
       showTodayButton =
           !(combined.year == today.year &&
               combined.month == today.month &&
               combined.day == today.day);
     });
 
+    // Clear all data before fetching new data
     controller.courtList.clear();
     controller.timeSlots.clear();
     controller.bookedSlots.clear();
@@ -1233,12 +1257,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     slotInfoMap.clear();
 
     try {
+      // Fetch data in sequence to respect dependencies
       await controller.fetchServiceList();
+
       if (controller.serviceList.isNotEmpty) {
+        // Set initial service ID if not already set
         if (controller.selectedServiceId.value.isEmpty) {
           controller.selectedServiceId.value = controller.serviceList[0]['id'];
         }
+
+        // Fetch court list first as it's needed for slots
         await controller.fetchCourtList();
+
+        // Then fetch booked slots and slot info
         await Future.wait([controller.fetchBookedSlots(), fetchSlotInfo()]);
       }
     } catch (e) {
@@ -1506,43 +1537,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ),
                                               ),
                                               child: Text(
-                                                () {
-                                                  if (membershipValidityDate ==
-                                                      null) {
-                                                    return '$membershipPlan : (No Validity Info)';
-                                                  }
-
-                                                  final now = DateTime.now();
-                                                  final today = DateTime(
-                                                    now.year,
-                                                    now.month,
-                                                    now.day,
-                                                  );
-                                                  final expiry = DateTime(
-                                                    membershipValidityDate!
-                                                        .year,
-                                                    membershipValidityDate!
-                                                        .month,
-                                                    membershipValidityDate!.day,
-                                                  );
-
-                                                  final difference =
-                                                      expiry
-                                                          .difference(today)
-                                                          .inDays;
-
-                                                  if (difference > 0) {
-                                                    return '$membershipPlan : (Valid for $difference days)';
-                                                  } else if (difference == 0) {
-                                                    return '$membershipPlan : (Expires Today)';
-                                                  } else {
-                                                    return '$membershipPlan : (Expired)';
-                                                  }
-                                                }(),
+                                                membershipValidityDate != null
+                                                    ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
+                                                    : '$membershipPlan : (No Validity Info)',
                                                 style: GoogleFonts.inter(
-                                                  fontSize: 13,
+                                                  fontSize: 14,
                                                   fontWeight: FontWeight.w700,
-                                                  // color: textColor,
+                                                  color: textColor,
                                                 ),
                                               ),
                                             ),

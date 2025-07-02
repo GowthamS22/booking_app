@@ -23,8 +23,7 @@ class PendingPayment extends StatefulWidget {
 
 class _PendingPaymentState extends State<PendingPayment> {
   final OrderController bookingController = Get.put(OrderController());
-  final NewBookingController newBookingController =
-      Get.find<NewBookingController>();
+  final NewBookingController newBookingController = Get.find<NewBookingController>();
   bool isGridView = false;
   String selectedFilter = 'All';
   final List<String> filterOptions = [
@@ -35,27 +34,24 @@ class _PendingPaymentState extends State<PendingPayment> {
   ];
   List<bool> selectedRows = [];
   bool selectAll = false;
-  TextEditingController searchController = TextEditingController();
-  String searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     selectedRows = List.generate(
       bookingController.bookings.length,
-      (_) => false,
+          (_) => false,
     );
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (bookingController.bookings.isNotEmpty &&
-        selectedRows.length != bookingController.bookings.length) {
+    if (bookingController.bookings.isNotEmpty && selectedRows.length != bookingController.bookings.length) {
       setState(() {
         selectedRows = List.generate(
           bookingController.bookings.length,
-          (_) => false,
+              (_) => false,
         );
         selectAll = false;
       });
@@ -94,12 +90,6 @@ class _PendingPaymentState extends State<PendingPayment> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.2,
                     child: TextField(
-                      controller: searchController,
-                      onChanged: (value) {
-                        setState(() {
-                          searchQuery = value.trim().toLowerCase();
-                        });
-                      },
                       style: GoogleFonts.roboto(fontSize: 25),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
@@ -219,31 +209,8 @@ class _PendingPaymentState extends State<PendingPayment> {
                   return Center(child: Text(bookingController.error.value));
                 }
 
-                final allBookings =
-                    bookingController.bookings
-                        .where(
-                          (p0) =>
-                              (p0.customerName != null &&
-                                  p0.bookingStatus != 'Cancelled'),
-                        )
-                        .toList();
-
-                final bookings =
-                    searchQuery.isEmpty
-                        ? allBookings
-                        : allBookings
-                            .where(
-                              (b) =>
-                                  (b.customerName?.toLowerCase().contains(
-                                        searchQuery,
-                                      ) ??
-                                      false) ||
-                                  (b.customerMobile?.toLowerCase().contains(
-                                        searchQuery,
-                                      ) ??
-                                      false),
-                            )
-                            .toList();
+                //final bookings = bookingController.bookings;
+                final bookings = bookingController.bookings.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled'),).toList();
 
                 if (bookings.isEmpty) {
                   return Center(
@@ -372,10 +339,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                             itemBuilder: (context, index) {
                               final booking = bookings[index];
                               final b = bookings[index];
-                              final remaining =
-                                  b.endTime!
-                                      .difference(DateTime.now())
-                                      .inMinutes;
+                              final remaining = b.endTime!.difference(DateTime.now()).inMinutes;
                               final isEndingSoon = remaining <= 15;
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -387,36 +351,34 @@ class _PendingPaymentState extends State<PendingPayment> {
                                     ),
                                     child: Row(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.center,
+                                      CrossAxisAlignment.center,
                                       children: [
                                         // Customer & Mobile
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.center,
+                                            CrossAxisAlignment.center,
                                             mainAxisAlignment:
-                                                MainAxisAlignment.center,
+                                            MainAxisAlignment.center,
                                             children: [
                                               Row(
                                                 crossAxisAlignment:
-                                                    CrossAxisAlignment.center,
+                                                CrossAxisAlignment.center,
                                                 mainAxisAlignment:
-                                                    MainAxisAlignment.center,
+                                                MainAxisAlignment.center,
                                                 children: [
                                                   Text(
                                                     booking.customerName!,
                                                     style: GoogleFonts.inter(
                                                       fontSize: 22,
                                                       fontWeight:
-                                                          FontWeight.w500,
+                                                      FontWeight.w500,
                                                       color:
-                                                          Colors.grey.shade900,
+                                                      Colors.grey.shade900,
                                                     ),
                                                   ),
                                                   const SizedBox(width: 4),
-                                                  if (booking
-                                                          .isExtendedBooking ==
-                                                      true)
+                                                  if (booking.isExtendedBooking == true)
                                                     const Icon(
                                                       Icons.repeat,
                                                       size: 30,
@@ -440,7 +402,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.center,
+                                            CrossAxisAlignment.center,
                                             children: [
                                               Text(
                                                 booking.sportname!,
@@ -473,7 +435,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.center,
+                                            CrossAxisAlignment.center,
                                             children: [
                                               Text(
                                                 booking.bookingDateFormatted,
@@ -520,16 +482,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                                             alignment: Alignment.center,
                                             child: Chip(
                                               label: Text(
-                                                (booking.bookingStatus
-                                                            ?.toLowerCase() ==
-                                                        'booked')
-                                                    ? (booking.paymentStatus
-                                                                ?.toLowerCase() ==
-                                                            'paid'
-                                                        ? 'Paid'
-                                                        : 'Pending')
-                                                    : (booking.bookingStatus ??
-                                                        ''),
+                                                (booking.bookingStatus?.toLowerCase() == 'booked') ? (booking.paymentStatus ?.toLowerCase() == 'paid' ? 'Paid' : 'Pending') : (booking.bookingStatus ?? ''),
                                                 style: GoogleFonts.inter(
                                                   fontSize: 22,
                                                   fontWeight: FontWeight.w600,
@@ -540,7 +493,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                                               ),
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
-                                                    BorderRadius.circular(15),
+                                                BorderRadius.circular(15),
                                                 side: BorderSide(
                                                   color: getStatusBorderColor(
                                                     booking.bookingStatus,
@@ -548,9 +501,9 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                 ),
                                               ),
                                               backgroundColor:
-                                                  getStatusBackgroundColor(
-                                                    booking.bookingStatus,
-                                                  ),
+                                              getStatusBackgroundColor(
+                                                booking.bookingStatus,
+                                              ),
                                               labelStyle: GoogleFonts.inter(
                                                 color: getStatusTextColor(
                                                   booking.bookingStatus,
@@ -567,111 +520,45 @@ class _PendingPaymentState extends State<PendingPayment> {
                                               height: 40,
                                               child: ElevatedButton(
                                                 onPressed: () async {
-                                                  final prefs =
-                                                      await SharedPreferences.getInstance();
-                                                  await prefs.remove(
-                                                    'shopping_cart',
-                                                  );
-                                                  await bookingController.getBookingInfo(bookingNo: booking.bookingNo).then((
-                                                    value,
-                                                  ) async {
+                                                  final prefs = await SharedPreferences.getInstance();
+                                                  await prefs.remove('shopping_cart');
+                                                  await bookingController.getBookingInfo(bookingNo: booking.bookingNo).then((value) async {
                                                     if (value != null) {
-                                                      final bookingData =
-                                                          BookingWithAll.fromJson(
-                                                            value['booking'],
-                                                          );
-                                                      final orderData =
-                                                          value['order'] != null
-                                                              ? Orders.fromJson(
-                                                                value['order'],
-                                                              )
-                                                              : value['order'];
-                                                      final userData =
-                                                          value['customer'];
-                                                      double totalAmount =
-                                                          (bookingData
-                                                                  .grandTotal ??
-                                                              0) +
-                                                          (orderData != null
-                                                              ? double.parse(
-                                                                    value['order']['total']
-                                                                        .toString(),
-                                                                  ) ??
-                                                                  0
-                                                              : 0);
+                                                      final bookingData = BookingWithAll.fromJson(value['booking']);
+                                                      final orderData   = value['order'] != null ? Orders.fromJson(value['order']) : value['order'];
+                                                      final userData    = value['customer'];
+                                                      double totalAmount = (bookingData.grandTotal ?? 0) + (orderData!=null ? double.parse(value['order']['total'].toString()) ?? 0 : 0);
 
-                                                      if (orderData != null) {
-                                                        await prefs.setString(
-                                                          'shopping_cart',
-                                                          jsonEncode(
-                                                            value['order']['cart_items'],
-                                                          ),
-                                                        );
+                                                      if(orderData!=null) {
+                                                        await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
                                                       }
 
-                                                      List<dynamic>
-                                                      jsonList = jsonDecode(
-                                                        value['booking']['bcart_items'],
-                                                      );
-                                                      List<BookingInfo>
-                                                      bookings =
-                                                          jsonList
-                                                              .map(
-                                                                (b) =>
-                                                                    BookingInfo.fromJson(
-                                                                      b,
-                                                                    ),
-                                                              )
-                                                              .toList();
+                                                      List<dynamic> jsonList = jsonDecode(value['booking']['bcart_items']);
+                                                      List<BookingInfo> bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
 
-                                                      Get.to(
-                                                        CheckoutScreen(
-                                                          type:
-                                                              'ExistingBooking',
-                                                          customerName:
-                                                              booking
-                                                                  .customerName!,
-                                                          mobileno:
-                                                              booking
-                                                                  .customerMobile!,
-                                                          selectedDateTime:
-                                                              DateTime.now(),
-                                                          billAmount:
-                                                              totalAmount,
-                                                          bookings: bookings,
-                                                          membershipID: '',
-                                                          membershipName: '',
-                                                          isMembershipApplied:
-                                                              false,
-                                                          membershipPrice: 0,
-                                                          exbookingId:
-                                                              bookingData.id,
-                                                          exorderId:
-                                                              orderData != null
-                                                                  ? orderData.id
-                                                                  : null,
-                                                          exuserId:
-                                                              userData['id'],
-                                                        ),
-                                                      );
+                                                      Get.to(CheckoutScreen(
+                                                        type: 'ExistingBooking',
+                                                        customerName: booking.customerName!,
+                                                        mobileno: booking.customerMobile!,
+                                                        selectedDateTime: DateTime.now(),
+                                                        billAmount: totalAmount,
+                                                        bookings: bookings,
+                                                        membershipID: '',
+                                                        membershipName: '',
+                                                        isMembershipApplied: false,
+                                                        membershipPrice: 0,
+                                                        exbookingId: bookingData.id,
+                                                        exorderId: orderData!=null ? orderData.id: null,
+                                                        exuserId: userData['id'],
+                                                      ));
                                                     }
-                                                  });
+                                                  },);
                                                 },
-                                                child: Text(
-                                                  'Pay',
-                                                  style: TextStyle(
-                                                    fontSize: 22,
-                                                    color: Colors.white,
-                                                  ),
-                                                ),
+                                                child: Text('Pay', style: TextStyle(fontSize: 22, color: Colors.white)),
                                                 style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.green.shade500,
+                                                  backgroundColor: Colors.green.shade500,
                                                   shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          20,
-                                                        ),
+                                                    borderRadius: BorderRadius.circular(20),
                                                   ),
                                                 ),
                                               ),
