@@ -253,6 +253,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                           fontWeight: FontWeight.w500,
                                           color: Colors.grey.shade900,
                                         ),
+                                        
                                         decoration: InputDecoration(
                                           isDense:
                                           true, // trims vertical padding a bit
@@ -327,6 +328,31 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                           fontWeight: FontWeight.w500,
                                           color: Colors.grey.shade900,
                                         ),
+                                        keyboardType: TextInputType.phone,
+                                        inputFormatters: [
+                                          MobileNumberFormatter()
+                                        ],
+                                        validator: (value) {
+                                                  final digitsOnly =
+                                                      value?.replaceAll(
+                                                        RegExp(r'\D'),
+                                                        '',
+                                                      ) ??
+                                                      '';
+                                                  if (digitsOnly.isEmpty)
+                                                    return 'Mobile number is required';
+                                                  if (digitsOnly.length != 10)
+                                                    return 'Enter a valid 10-digit number';
+                                                  final ausMobileRegExp = RegExp(
+                                                    r'^\d{4} \d{3} \d{3}$',
+                                                  );
+                                                  if (!ausMobileRegExp.hasMatch(
+                                                    value ?? '',
+                                                  )) {
+                                                    return 'Mobile number must be in the format XXXX XXX XXX (e.g., 0470 350 213).';
+                                                  }
+                                                  return null;
+                                                },
                                         decoration: InputDecoration(
                                           isDense:
                                           true, // trims vertical padding a bit
@@ -373,8 +399,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                             ),
                                           ),
                                         ),
-                                        keyboardType:
-                                        TextInputType.phone,
                                         maxLines: 1,
                                       )
                                           : Text(
@@ -444,19 +468,40 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                           ),
                                           onPressed: () async {
                                             if (isEditing) {
-                                              // Save logic
                                               final updatedName = editNameController.text.trim();
                                               final updatedMobile = editMobileController.text.trim();
                                               final updatedMembershipPlanId = editMembershipPlanId;
-                                              // Duplicate check for editing
-                                              final duplicate = membershipController.customers.firstWhereOrNull(
-                                                (c) => c['mobile'] == updatedMobile && c['id'] != customer['id']
-                                              );
-                                              if (duplicate != null) {
-                                                showCustomSnackbar('Error', 'Another customer already uses this mobile number.', Colors.red);
+
+                                              // Validation: Name or Mobile empty
+                                              if (updatedName.isEmpty || updatedMobile.isEmpty) {
+                                                showCustomSnackbar('Error', 'Name and Mobile number cannot be empty.', Colors.red);
                                                 return;
                                               }
-                                              // Call your update method (e.g., membershipController.updateCustomer)
+
+                                              // Remove spaces for digit check
+                                              final digitsOnly = updatedMobile.replaceAll(RegExp(r'\\D'), '');
+                                              if (digitsOnly.length != 10) {
+                                                showCustomSnackbar('Error', 'Mobile number must be exactly 10 digits.', Colors.red);
+                                                return;
+                                              }
+
+                                              // Format check: XXXX XXX XXX (Australian)
+                                              final ausMobileRegExp = RegExp(r'^\\d{4} \\d{3} \\d{3}\$');
+                                              if (!ausMobileRegExp.hasMatch(updatedMobile)) {
+                                                showCustomSnackbar('Error', 'Mobile number must be in the format XXXX XXX XXX (e.g., 0470 350 213).', Colors.red);
+                                                return;
+                                              }
+
+                                              // Duplicate check for editing
+                                              final duplicate = membershipController.customers.any(
+                                                (c) => c['mobile'] == updatedMobile && c['id'] != customer['id'],
+                                              );
+                                              if (duplicate) {
+                                                showCustomSnackbar('Error', 'The phone number you entered is already assigned to another customer. Please use a unique number.', Colors.red);
+                                                return;
+                                              }
+
+                                              // Call your update method
                                               await membershipController.updateCustomer(
                                                 customerId: customer['id'],
                                                 name: updatedName,
@@ -472,9 +517,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                 editingCustomerId = customer['id'];
                                                 editNameController.text = customer['name'] ?? '';
                                                 editMobileController.text = customer['mobile'] ?? '';
-                                                // Find the plan ID by matching the name
                                                 final plan = membershipController.membershipPlans.firstWhereOrNull(
-                                                      (plan) => plan['name'] == customer['membership'],
+                                                  (plan) => plan['name'] == customer['membership'],
                                                 );
                                                 editMembershipPlanId = plan?['id'];
                                               });
