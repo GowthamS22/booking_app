@@ -44,11 +44,12 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
     if (query.isEmpty) {
       bookingsFiltered = bookingController.bookings;
     } else {
-      bookingsFiltered = bookingController.bookings.where((booking) {
-        final name = (booking.customerName ?? '').toLowerCase();
-        final mobile = (booking.customerMobile ?? '').toLowerCase();
-        return name.contains(query) || mobile.contains(query);
-      }).toList();
+      bookingsFiltered =
+          bookingController.bookings.where((booking) {
+            final name = (booking.customerName ?? '').toLowerCase();
+            final mobile = (booking.customerMobile ?? '').toLowerCase();
+            return name.contains(query) || mobile.contains(query);
+          }).toList();
     }
     setState(() {});
   }
@@ -86,7 +87,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Upcoming Bookings",
+                      "All Bookings",
                       style: GoogleFonts.inter(
                         fontSize: 23,
                         color: Colors.black,
@@ -109,10 +110,9 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
-                      controller: _searchController,
                       style: GoogleFonts.roboto(fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'search "john"',
+                        hintText: 'Search "john"',
                         hintStyle: GoogleFonts.inter(
                           fontSize: 22,
                           color: Colors.grey.shade400,
@@ -120,7 +120,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 7,
+                          vertical: 15,
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -145,76 +145,76 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 20),
-                SizedBox(
-                  width: MediaQuery.of(context).size.width / 8,
-                  child: DropdownButtonFormField<String>(
-                    value: selectedFilter,
-                    items:
-                        filterOptions.map((String item) {
-                          return DropdownMenuItem<String>(
-                            value: item,
-                            // enabled: !isDisabled,
-                            child: Text(
-                              item,
-                              style: GoogleFonts.inter(
-                                fontSize: 15 * ffem,
-                                color: Colors.black,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                    onChanged: (value) async {},
-                    onSaved: (value) {},
-                    decoration: InputDecoration(
-                      hintText: 'All',
-                      hintStyle: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 7,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: Colors.grey.shade500,
-                          width: 1.5,
-                        ),
-                      ),
-                      isDense: true,
-                    ),
-                    style: GoogleFonts.inter(
-                      fontSize: 22,
-                      color: Colors.grey.shade900,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  height: 44,
-                  width: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: const Icon(LucideIcons.filter, size: 20),
-                ),
-                const SizedBox(width: 10),
+                //const SizedBox(width: 20),
+                // SizedBox(
+                //   width: MediaQuery.of(context).size.width / 8,
+                //   child: DropdownButtonFormField<String>(
+                //     value: selectedFilter,
+                //     items:
+                //         filterOptions.map((String item) {
+                //           return DropdownMenuItem<String>(
+                //             value: item,
+                //             // enabled: !isDisabled,
+                //             child: Text(
+                //               item,
+                //               style: GoogleFonts.inter(
+                //                 fontSize: 15 * ffem,
+                //                 color: Colors.black,
+                //               ),
+                //             ),
+                //           );
+                //         }).toList(),
+                //     onChanged: (value) async {},
+                //     onSaved: (value) {},
+                //     decoration: InputDecoration(
+                //       hintText: 'All',
+                //       hintStyle: GoogleFonts.inter(
+                //         fontSize: 22,
+                //         color: Colors.white,
+                //         fontWeight: FontWeight.w500,
+                //       ),
+                //       contentPadding: const EdgeInsets.symmetric(
+                //         horizontal: 8,
+                //         vertical: 7,
+                //       ),
+                //       filled: true,
+                //       fillColor: Colors.white,
+                //       border: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(10),
+                //         borderSide: BorderSide(color: Colors.grey.shade200),
+                //       ),
+                //       enabledBorder: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(8),
+                //         borderSide: BorderSide(color: Colors.grey.shade300),
+                //       ),
+                //       focusedBorder: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(8),
+                //         borderSide: BorderSide(
+                //           color: Colors.grey.shade500,
+                //           width: 1.5,
+                //         ),
+                //       ),
+                //       isDense: true,
+                //     ),
+                //     style: GoogleFonts.inter(
+                //       fontSize: 22,
+                //       color: Colors.grey.shade900,
+                //       fontWeight: FontWeight.w500,
+                //     ),
+                //   ),
+                // ),
+                // const SizedBox(width: 10),
+                // Container(
+                //   height: 44,
+                //   width: 44,
+                //   decoration: BoxDecoration(
+                //     color: Colors.white,
+                //     borderRadius: BorderRadius.circular(12),
+                //     border: Border.all(color: Colors.grey.shade300),
+                //   ),
+                //   child: const Icon(LucideIcons.filter, size: 20),
+                // ),
+                // const SizedBox(width: 10),
               ],
             ),
 

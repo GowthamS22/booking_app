@@ -253,11 +253,13 @@ class NewBookingController extends GetxController {
         .schema('${centerSlug}_prod_schema')
         .from('customers')
         .select('''
+        id,
         mobile,
         first_name,
         membershipplan_id,
         membership_data,
         created_at,
+        status,
         membershipplan (
           name,
           price,
@@ -267,6 +269,7 @@ class NewBookingController extends GetxController {
           validity
         )
       ''')
+        .eq('status',true)
         .or(
           'first_name.ilike.%$query%,mobile.ilike.%$query%',
         ) // Dynamic search on name or mobile
@@ -299,6 +302,7 @@ class NewBookingController extends GetxController {
       }
 
       return {
+        'id': user['id'] ?? '',
         'name': user['first_name'] ?? '',
         'mobile': user['mobile'] ?? '',
         'membership_plan': plan?['name'] ?? '',

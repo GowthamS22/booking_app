@@ -287,6 +287,7 @@ class MembershipController extends GetxController {
         membershipplan_id,
         membership_data,
         created_at,
+        status,
         membershipplan (
           name,
           price,

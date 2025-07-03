@@ -256,7 +256,7 @@ class DefaultController extends GetxController
 
     // bookingController.fetchBookings('active');
 
-    dashboardTabController = TabController(length: 4, vsync: this);
+    dashboardTabController = TabController(length: 5, vsync: this);
     dashboardTabController!.addListener(() {
       if (dashboardTabController!.indexIsChanging) return;
 
@@ -278,6 +278,8 @@ class DefaultController extends GetxController
         //   break;
         case 3:
           bookingController.fetchBookings('unpaid');
+        case 4:
+          bookingController.fetchBookings('all');
       }
     });
   }

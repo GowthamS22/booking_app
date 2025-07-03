@@ -66,6 +66,11 @@ class _CloseCashState extends State<CloseCash> {
         eftposSales = totals['EFTPOS'] ?? 0.0;
         overallOnAccount = totals['On Acc. / Void'] ?? 0.0;
       });
+
+      if(cashSales > 0) {
+        showCashDifferenceReason = true;
+        cashInDrawerController.text = '0.00';
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -120,16 +125,6 @@ class _CloseCashState extends State<CloseCash> {
     } catch (e) {
       showCustomSnackbar('Error', 'An error occurred: $e', Colors.redAccent);
     }
-  }
-
-  void showCustomSnackbar(String title, String message, Color color) {
-    Get.snackbar(
-      title,
-      message,
-      backgroundColor: color,
-      colorText: Colors.white,
-      snackPosition: SnackPosition.BOTTOM,
-    );
   }
 
   @override
