@@ -492,20 +492,9 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                 return;
                                               }
 
-                                              // Format check: XXX XXX XXXX (Australian)
-                                              final ausMobileRegExp = RegExp(
-                                                r'^(\d{3}) \d{3} \d{4}\$',
-                                              );
-                                              if (!ausMobileRegExp.hasMatch(
-                                                updatedMobile,
-                                              )) {
-                                                showCustomSnackbar(
-                                                  'Error',
-                                                  'Mobile number must be in the format XXX XXX XXXX (e.g., 041 234 5678).',
-                                                  Colors.red,
-                                                );
-                                                return;
-                                              }
+                                              // Auto-format to XXXX XXX XXX
+                                              String formattedMobile =
+                                                  '${digitsOnly.substring(0, 4)} ${digitsOnly.substring(4, 7)} ${digitsOnly.substring(7, 10)}';
 
                                               // Duplicate check for editing
                                               final duplicate =
@@ -513,7 +502,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                       .any(
                                                         (c) =>
                                                             c['mobile'] ==
-                                                                updatedMobile &&
+                                                                formattedMobile &&
                                                             c['id'] !=
                                                                 customer['id'],
                                                       );
@@ -530,7 +519,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                   .updateCustomer(
                                                     customerId: customer['id'],
                                                     name: updatedName,
-                                                    mobile: updatedMobile,
+                                                    mobile: formattedMobile,
                                                     membershipPlanId:
                                                         updatedMembershipPlanId,
                                                   );
@@ -1126,23 +1115,14 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                           return;
                                         }
 
-                                        // Format check: XXX XXX XXXX (Australian)
-                                        final ausMobileRegExp = RegExp(
-                                          r'^(\d{3}) \d{3} \d{4}\$',
-                                        );
-                                        if (!ausMobileRegExp.hasMatch(mobile)) {
-                                          showCustomSnackbar(
-                                            'Error',
-                                            'Mobile number must be in the format XXX XXX XXXX (e.g., 041 234 5678).',
-                                            Colors.red,
-                                          );
-                                          return;
-                                        }
+                                        // Auto-format to XXXX XXX XXX
+                                        String formattedMobile =
+                                            '${digitsOnly.substring(0, 4)} ${digitsOnly.substring(4, 7)} ${digitsOnly.substring(7, 10)}';
 
                                         // Duplicate check for adding
                                         final duplicate = customerController
                                             .customers
-                                            .any((c) => c['mobile'] == mobile);
+                                            .any((c) => c['mobile'] == formattedMobile);
                                         if (duplicate) {
                                           showCustomSnackbar(
                                             'Error',
@@ -1157,7 +1137,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                               await customerController
                                                   .addCustomer(
                                                     firstName: name,
-                                                    mobile: mobile,
+                                                    mobile: formattedMobile,
                                                   );
 
                                           if (customer != null) {
