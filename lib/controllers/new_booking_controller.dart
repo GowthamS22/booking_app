@@ -1835,13 +1835,13 @@ class NewBookingController extends GetxController {
               .insert({
                 'booking_no': 'BCK-2025-${bookingNumber}',
                 'customer_id': userData.value.id.toString(),
-                'surcharge': 0.0,
-                'grand_total': grandtotalPrice,
+                'surcharge': (0.0).toDouble(),
+                'grand_total': grandtotalPrice.toDouble(),
                 'notes': notes,
-                'sub_total': subTotal,
-                'discount': discount.value,
-                'gst': gstPrice,
-                'total': grandtotalPrice,
+                'sub_total': subTotal.toDouble(),
+                'discount': discount.value.toDouble(),
+                'gst': gstPrice.toDouble(),
+                'total': grandtotalPrice.toDouble(),
                 'payment_type': paymentType,
                 'payment_status': 'Pending',
                 'status': 'Booked',
@@ -1870,7 +1870,7 @@ class NewBookingController extends GetxController {
               'court_id': slot.courtId,
               'start_time': slot.startTime!.toIso8601String(),
               'end_time': slot.endTime!.toIso8601String(),
-              'price': slot.price,
+              'price': slot.price?.toDouble(),
               'slot_type': slot.slotType,
               'repeat_days': slot.repeatDays,
               'repeat_end_date': slot.repeatEnd?.toIso8601String(),
@@ -1900,7 +1900,7 @@ class NewBookingController extends GetxController {
       if (cartController.cartItems.length > 0) {
         await createTempOrder(total: cartController.total).then((value) {
           orderId = value['id'];
-          total = value['total'];
+          total = value['total'].toDouble();
         });
 
         await mergeBookingtoOrder(

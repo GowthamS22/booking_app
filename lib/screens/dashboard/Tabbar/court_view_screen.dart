@@ -1377,28 +1377,45 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     }
 
+    void _clearMembershipData() {
+      setState(() {
+        hasMembership = false;
+        memberPeakPrice = null;
+        memberNonPeakPrice = null;
+        membershipPlan = '';
+        membershipValidityDate = null;
+        isMembershipApplied = false;
+        membershipPrice = 0.0;
+        updateCourtPrice();
+      });
+    }
+
     void _updateUserData(Map<String, dynamic> userData) {
       nameController.text = userData['name'];
       mobileController.text = userData['mobile'];
       setState(() {
         hasMembership = (userData['membershipplan_id'] != null &&
-            userData['membershipplan_id'].toString().isNotEmpty);
-        memberPeakPrice = hasMembership
-            ? double.tryParse(userData['peak_price']?.toString() ?? '0')
-            : null;
-        memberNonPeakPrice = hasMembership
-            ? double.tryParse(userData['non_peak_price']?.toString() ?? '0')
-            : null;
-        membershipPlan = hasMembership ? userData['membership_plan'] : null;
-        membershipValidityDate = hasMembership
-            ? DateTime.tryParse(userData['validity_end']?.toString() ?? '')
-            : null;
+        userData['membershipplan_id'].toString().isNotEmpty);
+        if (hasMembership) {
+          memberPeakPrice = double.tryParse(userData['peak_price']?.toString() ?? '0');
+          memberNonPeakPrice = double.tryParse(userData['non_peak_price']?.toString() ?? '0');
+          membershipPlan = userData['membership_plan'];
+          membershipValidityDate = DateTime.tryParse(userData['validity_end']?.toString() ?? '');
+        } else {
+          // Reset membership data if no membership
+          memberPeakPrice = null;
+          memberNonPeakPrice = null;
+          membershipPlan = '';
+          membershipValidityDate = null;
+          isMembershipApplied = false;
+          membershipPrice = 0.0;
+        }
         updateCourtPrice();
       });
     }
 
     Future<void> _validateAndFetchUserData(String mobile) async {
-      if (mobile.length == 12 && RegExp(r'^[0-9]{10}$').hasMatch(mobile)) {
+      if (mobile.length == 12) {
         final suggestions = await controller.fetchUserSuggestions(mobile);
         if (suggestions.isNotEmpty) {
           final exactMatch = suggestions.firstWhere(
@@ -1407,8 +1424,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           );
           if (exactMatch.isNotEmpty) {
             _updateUserData(exactMatch);
+          } else {
+            _clearMembershipData();
           }
+        } else {
+          _clearMembershipData();
         }
+      } else {
+        _clearMembershipData();
       }
     }
 
@@ -1904,6 +1927,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ],
                                               onChanged: (value) {
                                                 mobileController.text = value;
+                                                if (value.length < 12) { // Only clear if not a complete number
+                                                  _clearMembershipData();
+                                                }
                                               },
                                               onFieldSubmitted: (value) {
                                                 _validateAndFetchUserData(value);
@@ -1911,9 +1937,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 FocusScope.of(context).unfocus();
                                               },
                                               onEditingComplete: () {
-                                                print('complete edit');
-                                                _validateAndFetchUserData(mobileController.text);
-                                                // Hide keyboard when editing completes
+                                                final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
+                                                if (digitsOnly.length == 10) {
+                                                  _validateAndFetchUserData(mobileController.text);
+                                                } else {
+                                                  _clearMembershipData();
+                                                }
                                                 FocusScope.of(context).unfocus();
                                               },
                                               validator: (value) {

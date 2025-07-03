@@ -2,6 +2,7 @@ import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/controllers/membership_controller.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -645,6 +646,56 @@ class _MembershipScreenState extends State<MembershipScreen> {
     // Form key for validation
     final _formKey = GlobalKey<FormState>();
 
+
+    void _clearMembershipData() {
+      setState(() {
+        existingCustomer = '';
+        hasMembership = false;
+        membershipPlan = '';
+        existingMembershipPlanId = '';
+        membershipValidityDate = null;
+        membershipValidityStartDate = null;
+        isSameMembershipSelected = false;
+        selectedMembershipPlanId = null;
+      });
+    }
+
+    void _updateUserData(Map<String, dynamic> userData) {
+            membershipController.nameController.text = userData['name'] ?? '';
+            membershipController.mobileController.text = userData['mobile'] ?? '';
+            setState(() {
+              existingCustomer = userData['id'];
+              hasMembership = userData['membershipplan_id'] != null && userData['membershipplan_id'].toString().isNotEmpty;
+              membershipPlan = hasMembership ? userData['membership_plan'] : null;
+              existingMembershipPlanId = userData['membershipplan_id'].toString();
+              membershipValidityDate = hasMembership ? DateTime.tryParse(userData['validity_end']?.toString() ?? '') : null;
+              membershipValidityStartDate = hasMembership ? DateTime.tryParse(userData['validity_start']?.toString() ?? '') : null;
+              isSameMembershipSelected = hasMembership && selectedMembershipPlanId != null && selectedMembershipPlanId == userData['membershipplan_id'];
+            });
+    }
+
+    Future<void> _validateAndFetchUserData(String mobile) async {
+      if (mobile.length == 12) {
+        final suggestions = await membershipController.fetchUserSuggestions(mobile);
+        if (suggestions.isNotEmpty) {
+          final exactMatch = suggestions.firstWhere(
+                (user) => user['mobile'] == mobile,
+            orElse: () => {},
+          );
+          if (exactMatch.isNotEmpty) {
+            _updateUserData(exactMatch);
+          } else {
+            _clearMembershipData();
+          }
+        } else {
+          _clearMembershipData();
+        }
+      } else {
+        _clearMembershipData();
+      }
+    }
+
+
     await showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -1148,28 +1199,134 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                           ],
                                         ),
                                         const SizedBox(height: 10),
+
+                                        // ConstrainedBox(
+                                        //   constraints: BoxConstraints(
+                                        //     minWidth: 200,
+                                        //     maxWidth: MediaQuery.of(context).size.width * 0.8,
+                                        //   ),
+                                        //   child: TypeAheadField<Map<String, dynamic>>(
+                                        //     controller: membershipController.mobileController,
+                                        //     suggestionsCallback: (pattern) async {
+                                        //       return await membershipController.fetchUserSuggestions(pattern);
+                                        //     },
+                                        //     builder: (context, _, focusNode) {
+                                        //       return TextFormField(
+                                        //         controller: membershipController.mobileController,
+                                        //         focusNode: focusNode,
+                                        //         keyboardType: TextInputType.phone,
+                                        //         validator: (value) {
+                                        //           if (value == null || value.trim().isEmpty) {
+                                        //             return 'Mobile number is required';
+                                        //           }
+                                        //           if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
+                                        //             return 'Enter a valid 10-digit number';
+                                        //           }
+                                        //           return null;
+                                        //         },
+                                        //         style: GoogleFonts.inter(
+                                        //           fontSize: 22,
+                                        //           color: Colors.grey.shade800,
+                                        //           fontWeight: FontWeight.w500,
+                                        //         ),
+                                        //         decoration: InputDecoration(
+                                        //           isDense: true,
+                                        //           contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                        //           border: OutlineInputBorder(
+                                        //             borderRadius: BorderRadius.circular(8),
+                                        //             borderSide: BorderSide(color: Colors.grey.shade300),
+                                        //           ),
+                                        //           errorStyle: GoogleFonts.inter(
+                                        //             fontSize: 22,
+                                        //             fontWeight: FontWeight.w500,
+                                        //           ),
+                                        //         ),
+                                        //       );
+                                        //     },
+                                        //     itemBuilder: (context, suggestion) {
+                                        //       return ListTile(
+                                        //         title: Text(suggestion['name'] ?? '', style: const TextStyle(fontSize: 22)),
+                                        //         subtitle: Text(suggestion['mobile'] ?? '', style: const TextStyle(fontSize: 22)),
+                                        //       );
+                                        //     },
+                                        //     onSelected: (suggestion) {
+                                        //       membershipController.nameController.text = suggestion['name'] ?? '';
+                                        //       membershipController.mobileController.text = suggestion['mobile'] ?? '';
+                                        //       setState(() {
+                                        //         existingCustomer = suggestion['id'];
+                                        //         hasMembership = suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty;
+                                        //         membershipPlan = hasMembership ? suggestion['membership_plan'] : null;
+                                        //         existingMembershipPlanId = suggestion['membershipplan_id'].toString();
+                                        //         membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '') : null;
+                                        //         membershipValidityStartDate = hasMembership ? DateTime.tryParse(suggestion['validity_start']?.toString() ?? '') : null;
+                                        //         isSameMembershipSelected = hasMembership && selectedMembershipPlanId != null && selectedMembershipPlanId == suggestion['membershipplan_id'];
+                                        //       });
+                                        //     },
+                                        //   ),
+                                        // ),
+
                                         ConstrainedBox(
                                           constraints: BoxConstraints(
                                             minWidth: 200,
-                                            maxWidth: MediaQuery.of(context).size.width * 0.8,
+                                            maxWidth: MediaQuery.of(context).size.width * 0.50,
                                           ),
-                                          child: TypeAheadField<Map<String, dynamic>>(
-                                            controller: membershipController.mobileController,
-                                            suggestionsCallback: (pattern) async {
-                                              return await membershipController.fetchUserSuggestions(pattern);
+                                          child: Autocomplete<Map<String, dynamic>>(
+                                            displayStringForOption: (option) => option['mobile'] ?? '',
+                                            optionsBuilder: (TextEditingValue textEditingValue) async {
+                                              if (textEditingValue.text.isEmpty) {
+                                                return const Iterable<Map<String, dynamic>>.empty();
+                                              }
+                                              return await membershipController.fetchUserSuggestions(textEditingValue.text);
                                             },
-                                            builder: (context, _, focusNode) {
+                                            onSelected: (Map<String, dynamic> selection) {
+                                              _updateUserData(selection);
+                                              // Hide keyboard after selection
+                                              FocusScope.of(context).unfocus();
+                                            },
+                                            fieldViewBuilder: (BuildContext context,
+                                                TextEditingController fieldTextEditingController,
+                                                FocusNode fieldFocusNode,
+                                                VoidCallback onFieldSubmitted) {
+
+                                              if (membershipController.mobileController.text != fieldTextEditingController.text) {
+                                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                  fieldTextEditingController.text = membershipController.mobileController.text;
+                                                });
+                                              }
+
                                               return TextFormField(
-                                                controller: membershipController.mobileController,
-                                                focusNode: focusNode,
+                                                controller: fieldTextEditingController,
+                                                focusNode: fieldFocusNode,
                                                 keyboardType: TextInputType.phone,
+                                                textInputAction: TextInputAction.done, // Changed to 'done' for better UX
+                                                inputFormatters: [
+                                                  FilteringTextInputFormatter.digitsOnly,
+                                                  MobileNumberFormatter(),
+                                                ],
+                                                onChanged: (value) {
+                                                  membershipController.mobileController.text = value;
+                                                  if (value.length < 12) { // Only clear if not a complete number
+                                                    _clearMembershipData();
+                                                  }
+                                                },
+                                                onFieldSubmitted: (value) {
+                                                  _validateAndFetchUserData(value);
+                                                  // Hide keyboard after submission
+                                                  FocusScope.of(context).unfocus();
+                                                },
+                                                onEditingComplete: () {
+                                                  final digitsOnly = membershipController.mobileController.text.replaceAll(RegExp(r'\D'), '');
+                                                  if (digitsOnly.length == 10) {
+                                                    _validateAndFetchUserData(membershipController.mobileController.text);
+                                                  } else {
+                                                    _clearMembershipData();
+                                                  }
+                                                  FocusScope.of(context).unfocus();
+                                                },
                                                 validator: (value) {
-                                                  if (value == null || value.trim().isEmpty) {
-                                                    return 'Mobile number is required';
-                                                  }
-                                                  if (!RegExp(r'^[0-9]{10}$').hasMatch(value)) {
-                                                    return 'Enter a valid 10-digit number';
-                                                  }
+                                                  final digitsOnly = value?.replaceAll(RegExp(r'\D'), '') ?? '';
+                                                  if (digitsOnly.isEmpty) return 'Mobile number is required';
+                                                  if (digitsOnly.length != 10) return 'Enter a valid 10-digit number';
                                                   return null;
                                                 },
                                                 style: GoogleFonts.inter(
@@ -1179,39 +1336,58 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                 ),
                                                 decoration: InputDecoration(
                                                   isDense: true,
-                                                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                                                  contentPadding: const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                    horizontal: 12,
+                                                  ),
                                                   border: OutlineInputBorder(
                                                     borderRadius: BorderRadius.circular(8),
-                                                    borderSide: BorderSide(color: Colors.grey.shade300),
-                                                  ),
-                                                  errorStyle: GoogleFonts.inter(
-                                                    fontSize: 22,
-                                                    fontWeight: FontWeight.w500,
+                                                    borderSide: BorderSide(
+                                                      color: Colors.grey.shade300,
+                                                    ),
                                                   ),
                                                 ),
                                               );
                                             },
-                                            itemBuilder: (context, suggestion) {
-                                              return ListTile(
-                                                title: Text(suggestion['name'] ?? '', style: const TextStyle(fontSize: 22)),
-                                                subtitle: Text(suggestion['mobile'] ?? '', style: const TextStyle(fontSize: 22)),
+                                            optionsViewBuilder: (BuildContext context,
+                                                AutocompleteOnSelected<Map<String, dynamic>> onSelected,
+                                                Iterable<Map<String, dynamic>> options) {
+                                              return Align(
+                                                alignment: Alignment.topLeft,
+                                                child: Material(
+                                                  elevation: 4.0,
+                                                  child: SizedBox(
+                                                    height: 200,
+                                                    child: ListView.builder(
+                                                      padding: EdgeInsets.zero,
+                                                      itemCount: options.length,
+                                                      itemBuilder: (BuildContext context, int index) {
+                                                        final Map<String, dynamic> option = options.elementAt(index);
+                                                        return ListTile(
+                                                          title: Text(
+                                                            option['name'],
+                                                            style: const TextStyle(fontSize: 22),
+                                                          ),
+                                                          subtitle: Text(
+                                                            option['mobile'],
+                                                            style: const TextStyle(fontSize: 22),
+                                                          ),
+                                                          onTap: () {
+                                                            onSelected(option);
+                                                            // Hide keyboard after tap
+                                                            FocusScope.of(context).unfocus();
+                                                          },
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                ),
                                               );
-                                            },
-                                            onSelected: (suggestion) {
-                                              membershipController.nameController.text = suggestion['name'] ?? '';
-                                              membershipController.mobileController.text = suggestion['mobile'] ?? '';
-                                              setState(() {
-                                                existingCustomer = suggestion['id'];
-                                                hasMembership = suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty;
-                                                membershipPlan = hasMembership ? suggestion['membership_plan'] : null;
-                                                existingMembershipPlanId = suggestion['membershipplan_id'].toString();
-                                                membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '') : null;
-                                                membershipValidityStartDate = hasMembership ? DateTime.tryParse(suggestion['validity_start']?.toString() ?? '') : null;
-                                                isSameMembershipSelected = hasMembership && selectedMembershipPlanId != null && selectedMembershipPlanId == suggestion['membershipplan_id'];
-                                              });
                                             },
                                           ),
                                         ),
+
+
 
                                         // Name Field
                                         const SizedBox(height: 20),
@@ -1342,18 +1518,6 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                     final isMembershipExpired = membershipValidityDate != null &&
                                                         membershipValidityDate!.isBefore(DateTime.now());
 
-                                                    // Duplicate check for adding
-                                                    final existing = membershipController.customers.firstWhereOrNull((c) => c['mobile'] == mobile);
-                                                    if (existing != null) {
-                                                      if ((existing['name'] ?? '').toLowerCase() != name.toLowerCase()) {
-                                                        showCustomSnackbar('Error', 'This number already belongs to ${existing['name']} – please select that customer or enter a different number.', Colors.red);
-                                                        return;
-                                                      } else {
-                                                        showCustomSnackbar('Error', 'This mobile number already exists.', Colors.red);
-                                                        return;
-                                                      }
-                                                    }
-
                                                     // Check membership upgrade/downgrade logic
                                                     if (hasMembership) {
                                                       final currentPlan = membershipController.membershipPlans.firstWhere(
@@ -1440,6 +1604,19 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                       }
                                                     } else {
                                                       // New membership purchase code remains the same
+
+                                                      // Duplicate check for adding
+                                                      final existing = membershipController.customers.firstWhereOrNull((c) => c['mobile'] == mobile);
+                                                      if (existing != null) {
+                                                        if ((existing['name'] ?? '').toLowerCase() != name.toLowerCase()) {
+                                                          showCustomSnackbar('Error', 'This number already belongs to ${existing['name']} – please select that customer or enter a different number.', Colors.red);
+                                                          return;
+                                                        } else {
+                                                          showCustomSnackbar('Error', 'This mobile number already exists.', Colors.red);
+                                                          return;
+                                                        }
+                                                      }
+
                                                       try {
                                                         String? customerId = '';
                                                         if(existingCustomer!='' && existingCustomer!=null) {
@@ -1653,5 +1830,31 @@ class _MembershipScreenState extends State<MembershipScreen> {
           }).toList();
     }
     setState(() {});
+  }
+}
+
+
+class MobileNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    // Remove non-digit characters
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    // Limit to 10 digits
+    final limited = digitsOnly.length > 10 ? digitsOnly.substring(0, 10) : digitsOnly;
+
+    // Apply formatting: XXXX XXX XXX
+    String formatted = '';
+    for (int i = 0; i < limited.length; i++) {
+      if (i == 4 || i == 7) {
+        formatted += ' ';
+      }
+      formatted += limited[i];
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 }

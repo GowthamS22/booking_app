@@ -384,18 +384,18 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                       ),
                                     ),
                                   ),
-                                  Expanded(
-                                    child: Center(
-                                      child: Text(
-                                        '',
-                                        style: GoogleFonts.inter(
-                                          color: Colors.white,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                  // Expanded(
+                                  //   child: Center(
+                                  //     child: Text(
+                                  //       '',
+                                  //       style: GoogleFonts.inter(
+                                  //         color: Colors.white,
+                                  //         fontSize: 22,
+                                  //         fontWeight: FontWeight.w500,
+                                  //       ),
+                                  //     ),
+                                  //   ),
+                                  // ),
                                 ],
                               ),
                             ),
@@ -667,65 +667,65 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                                                 ),
                                               ),
                                               //Pay Button
-                                              Expanded(
-                                                child: Align(
-                                                  alignment: Alignment.center,
-                                                  child: Chip(
-                                                    label:
-                                                        b.paymentStatus !=
-                                                                'Paid'
-                                                            ? Text(
-                                                              "Pay",
-                                                              style: GoogleFonts.inter(
-                                                                fontSize: 22,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                            )
-                                                            : Text(
-                                                              "Paid",
-                                                              style: GoogleFonts.inter(
-                                                                fontSize: 22,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                              ),
-                                                            ),
-                                                    shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ), // Adjust the radius as needed
-                                                      side: BorderSide(
-                                                        color:
-                                                            Colors
-                                                                .green
-                                                                .shade500,
-                                                      ),
-                                                    ),
-                                                    backgroundColor:
-                                                        b.paymentStatus !=
-                                                                'Paid'
-                                                            ? Colors
-                                                                .green
-                                                                .shade50
-                                                            : Colors
-                                                                .green
-                                                                .shade500,
-                                                    labelStyle:
-                                                        GoogleFonts.inter(
-                                                          color:
-                                                              b.paymentStatus ==
-                                                                      'Paid'
-                                                                  ? Colors.white
-                                                                  : Colors
-                                                                      .green
-                                                                      .shade500,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
+                                              // Expanded(
+                                              //   child: Align(
+                                              //     alignment: Alignment.center,
+                                              //     child: Chip(
+                                              //       label:
+                                              //           b.paymentStatus !=
+                                              //                   'Paid'
+                                              //               ? Text(
+                                              //                 "Pay",
+                                              //                 style: GoogleFonts.inter(
+                                              //                   fontSize: 22,
+                                              //                   fontWeight:
+                                              //                       FontWeight
+                                              //                           .w500,
+                                              //                 ),
+                                              //               )
+                                              //               : Text(
+                                              //                 "Paid",
+                                              //                 style: GoogleFonts.inter(
+                                              //                   fontSize: 22,
+                                              //                   fontWeight:
+                                              //                       FontWeight
+                                              //                           .w600,
+                                              //                 ),
+                                              //               ),
+                                              //       shape: RoundedRectangleBorder(
+                                              //         borderRadius:
+                                              //             BorderRadius.circular(
+                                              //               20,
+                                              //             ), // Adjust the radius as needed
+                                              //         side: BorderSide(
+                                              //           color:
+                                              //               Colors
+                                              //                   .green
+                                              //                   .shade500,
+                                              //         ),
+                                              //       ),
+                                              //       backgroundColor:
+                                              //           b.paymentStatus !=
+                                              //                   'Paid'
+                                              //               ? Colors
+                                              //                   .green
+                                              //                   .shade50
+                                              //               : Colors
+                                              //                   .green
+                                              //                   .shade500,
+                                              //       labelStyle:
+                                              //           GoogleFonts.inter(
+                                              //             color:
+                                              //                 b.paymentStatus ==
+                                              //                         'Paid'
+                                              //                     ? Colors.white
+                                              //                     : Colors
+                                              //                         .green
+                                              //                         .shade500,
+                                              //           ),
+                                              //     ),
+                                              //   ),
+                                              // ),
                                             ],
                                           ),
                                         ),
