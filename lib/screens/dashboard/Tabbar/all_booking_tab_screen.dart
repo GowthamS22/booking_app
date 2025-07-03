@@ -105,13 +105,12 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                   ],
                 ),
                 Spacer(),
-
                 Expanded(
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
                       controller: _searchController,
-                      style: GoogleFonts.roboto(fontSize: 14),
+                      style: GoogleFonts.roboto(fontSize: 22),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
@@ -121,7 +120,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 7,
+                          vertical: 15,
                         ),
                         filled: true,
                         fillColor: Colors.white,
@@ -146,6 +145,45 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                     ),
                   ),
                 ),
+                // Expanded(
+                //   child: SizedBox(
+                //     width: MediaQuery.of(context).size.width * 0.3,
+                //     child: TextField(
+                //       style: GoogleFonts.roboto(fontSize: 14),
+                //       decoration: InputDecoration(
+                //         hintText: 'Search "john"',
+                //         hintStyle: GoogleFonts.inter(
+                //           fontSize: 22,
+                //           color: Colors.grey.shade400,
+                //           fontWeight: FontWeight.w400,
+                //         ),
+                //         contentPadding: const EdgeInsets.symmetric(
+                //           horizontal: 16,
+                //           vertical: 15,
+                //         ),
+                //         filled: true,
+                //         fillColor: Colors.white,
+                //         border: OutlineInputBorder(
+                //           borderRadius: BorderRadius.circular(10),
+                //           borderSide: BorderSide(color: Colors.grey.shade200),
+                //         ),
+                //         enabledBorder: OutlineInputBorder(
+                //           borderRadius: BorderRadius.circular(8),
+                //           borderSide: BorderSide(color: Colors.grey.shade300),
+                //         ),
+                //         focusedBorder: OutlineInputBorder(
+                //           borderRadius: BorderRadius.circular(8),
+                //           borderSide: BorderSide(
+                //             color: Colors.grey.shade500,
+                //             width: 1.5,
+                //           ),
+                //         ),
+                //         isDense: true,
+                //       ),
+                //       onChanged: (_) => filterBookings(),
+                //     ),
+                //   ),
+                // ),
                 //const SizedBox(width: 20),
                 // SizedBox(
                 //   width: MediaQuery.of(context).size.width / 8,
@@ -381,7 +419,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                     MainAxisAlignment.center,
                                                 children: [
                                                   Text(
-                                                    booking.customerName!,
+                                                    booking.customerName ?? '',
                                                     style: GoogleFonts.inter(
                                                       fontSize: 22,
                                                       fontWeight:
@@ -403,7 +441,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
-                                                booking.customerMobile!,
+                                                booking.customerMobile ?? '',
                                                 style: GoogleFonts.inter(
                                                   fontSize: 22,
                                                   fontWeight: FontWeight.w500,
@@ -421,7 +459,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                 CrossAxisAlignment.center,
                                             children: [
                                               Text(
-                                                booking.sportname!,
+                                                booking.sportname ?? '',
                                                 style: GoogleFonts.inter(
                                                   fontSize: 22,
                                                   fontWeight: FontWeight.w500,
@@ -485,7 +523,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                         Expanded(
                                           child: Center(
                                             child: Text(
-                                              "\$ ${b.grandTotal!.toStringAsFixed(2)}",
+                                              "\$ ${b.grandTotal.toStringAsFixed(2)}",
                                               style: GoogleFonts.inter(
                                                 fontSize: 23,
                                                 fontWeight: FontWeight.w500,

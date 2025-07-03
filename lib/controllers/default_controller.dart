@@ -300,6 +300,8 @@ class DefaultController extends GetxController
           .from('bookings')
           .select('id')
           .eq('closed', false)
+          .eq('is_cancelled', false)
+          .eq('is_showoff', false)
           .neq('payment_status', 'Paid');
 
       pendingPaymentCount.value = res.length ?? 0;
