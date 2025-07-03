@@ -54,7 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Pending Payment'),
+            const Text('Unpaid'),
             if (defaultController.pendingPaymentCount.value > 0) ...[
               const SizedBox(width: 8),
               Container(
@@ -229,6 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Tab(text: 'Active'),
                       Tab(text: 'Upcoming'),
                       _buildPendingPaymentTab(),
+                      Tab(text: 'All Booking'),
                       //Tab(text: 'Pending Payment'),
                       // Tab(text: 'Scheduled'),
                       //Tab(text: 'All Booking'),
@@ -273,7 +274,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   UpcomingTabScreen(),
                   PendingPayment(),
                   //ScheduledTabScreen(),
-                  //AllBookingTabScreen(),
+                  AllBookingTabScreen(),
                   //DashboardTabViewScreen()
                 ],
               ),

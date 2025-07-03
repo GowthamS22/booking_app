@@ -41,6 +41,12 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
   double cashSum = 0;
 
   @override
+  void initState() {
+    super.initState();
+    cashController.text = '0.00'; // Set default value to 0.00
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
