@@ -110,9 +110,10 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
+                      controller: _searchController,
                       style: GoogleFonts.roboto(fontSize: 14),
                       decoration: InputDecoration(
-                        hintText: 'Search "john"',
+                        hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
                           fontSize: 22,
                           color: Colors.grey.shade400,
@@ -120,7 +121,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 15,
+                          vertical: 7,
                         ),
                         filled: true,
                         fillColor: Colors.white,
