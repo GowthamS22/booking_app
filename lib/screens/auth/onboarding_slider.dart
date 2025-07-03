@@ -422,6 +422,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                                 child: QRView(
                                   key: qrKey,
                                   onQRViewCreated: _onQRViewCreated,
+                                  cameraFacing: CameraFacing.back,
                                   overlay: QrScannerOverlayShape(
                                     borderColor: Colors.white,
                                     borderRadius: 10,

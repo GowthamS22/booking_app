@@ -168,6 +168,21 @@ class CheckoutController extends GetxController {
             .eq('id', membershipId)
             .single();
 
+        final membershipPayment = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershippayment')
+            .insert({
+              'membershipid': membershipId,
+              'customers_id': userId,
+              'paymenttype': paymentType,
+              'total': planDetails['price'].toDouble(),
+              'paidamount': paid,
+              'status': true,
+              'paymentresponse': '',
+              'notes': '',
+              'createdby': authController.userId.toString(),
+            });
+
         final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
 
         await supabase
@@ -453,6 +468,7 @@ class CheckoutController extends GetxController {
     String? userId,
     String? notes,
     String? paymentType,
+    double? total,
     double? paid,
     double? balance,
     bool? isMembershipApplied,
@@ -471,6 +487,21 @@ class CheckoutController extends GetxController {
               .select('*')
               .eq('id', membershipId)
               .single();
+
+          final membershipPayment = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membershippayment')
+              .insert({
+                'membershipid': membershipId,
+                'customers_id': userId,
+                'paymenttype': paymentType,
+                'total': total,
+                'paidamount': paid,
+                'status': true,
+                'paymentresponse': '',
+                'notes': '',
+                'createdby': authController.userId.toString(),
+              });
 
           final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
 

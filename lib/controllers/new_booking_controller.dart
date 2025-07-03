@@ -2951,8 +2951,7 @@ class NewBookingController extends GetxController {
               // If no bcart_items exists, create new one with extended slots
               List<BookingInfo> newBookings = [
                 BookingInfo(
-                  courtName:
-                      "Court ${originalBookingSlot.courtId?.split('-').last}",
+                  courtName: "Court ${originalBookingSlot.court}",
                   selectedDateTime: originalBookingSlot.date!,
                   bookingId: originalBookingSlot.bookingId!,
                   subSlots: extendedSubSlots,

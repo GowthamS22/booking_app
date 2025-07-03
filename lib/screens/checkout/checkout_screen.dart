@@ -1334,9 +1334,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
 
                                             double? overallTotal  = widget.billAmount;
+                                            final total           = overallTotal;
 
                                             if (selectedMethod == 'EFTPOS') {
-                                              final total = overallTotal;
+
                                               await paymentController.processPayment(
                                                 context: context,
                                                 amount: total.toDouble(),
@@ -1354,6 +1355,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   userId: widget.exuserId,
                                                   paymentType: selectedMethod,
                                                   notes: notesController.text,
+                                                  total: total.toDouble(),
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
                                                   isMembershipApplied: widget.isMembershipApplied,
@@ -1361,12 +1363,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 );
 
                                               });
+
                                             }  else {
 
                                               await checkoutController.processMembershipPayment(
                                                 userId: widget.exuserId,
                                                 paymentType: selectedMethod,
                                                 notes: notesController.text,
+                                                total: total.toDouble(),
                                                 paid: totalPaid,
                                                 balance: double.parse(balanceAmountController.text,),
                                                 isMembershipApplied: widget.isMembershipApplied,

@@ -221,6 +221,7 @@ class CashController extends GetxController {
       for (String paymentType in ['Cash', 'EFTPOS', 'On Acc. / Void']) {
         double ordersTotal = 0.0;
         double bookingsTotal = 0.0;
+        double membershipTotal = 0.0;
 
         // Orders
         final ordersResponse = await _supabase
@@ -251,7 +252,21 @@ class CashController extends GetxController {
               (sum, booking) => sum + safeParse(booking['grand_total']),
         );
 
-        result[paymentType] = ordersTotal + bookingsTotal;
+        // Membership
+        final membershipResponse = await _supabase
+            .schema(schema)
+            .from('membershippayment')
+            .select('total')
+            .eq('paymenttype', paymentType)
+            .eq('closed', false);
+
+        final memberships = membershipResponse as List<dynamic>;
+        membershipTotal = memberships.fold<double>(
+          0.0,
+              (sum, membership) => sum + safeParse(membership['total']),
+        );
+
+        result[paymentType] = ordersTotal + bookingsTotal + membershipTotal;
       }
     } catch (e) {
       showCustomSnackbar('Error', 'Failed to fetch totals by payment type', Colors.orange);
