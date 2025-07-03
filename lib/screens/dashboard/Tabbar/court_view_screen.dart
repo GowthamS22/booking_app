@@ -1391,7 +1391,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     }
 
     Future<void> _validateAndFetchUserData(String mobile) async {
-      if (mobile.length == 10 && RegExp(r'^[0-9]{10}$').hasMatch(mobile)) {
+      if (mobile.length == 12 && RegExp(r'^[0-9]{10}$').hasMatch(mobile)) {
         final suggestions = await controller.fetchUserSuggestions(mobile);
         if (suggestions.isNotEmpty) {
           final exactMatch = suggestions.firstWhere(
@@ -1904,6 +1904,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 FocusScope.of(context).unfocus();
                                               },
                                               onEditingComplete: () {
+                                                print('complete edit');
                                                 _validateAndFetchUserData(mobileController.text);
                                                 // Hide keyboard when editing completes
                                                 FocusScope.of(context).unfocus();
