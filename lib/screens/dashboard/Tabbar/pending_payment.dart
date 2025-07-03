@@ -34,14 +34,31 @@ class _PendingPaymentState extends State<PendingPayment> {
   ];
   List<bool> selectedRows = [];
   bool selectAll = false;
+  final TextEditingController _searchController = TextEditingController();
+  List bookingsFiltered = [];
 
   @override
   void initState() {
     super.initState();
     selectedRows = List.generate(
       bookingController.bookings.length,
-          (_) => false,
+      (_) => false,
     );
+    bookingsFiltered = bookingController.bookings;
+  }
+
+  void filterBookings() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      bookingsFiltered = bookingController.bookings;
+    } else {
+      bookingsFiltered = bookingController.bookings.where((booking) {
+        final name = (booking.customerName ?? '').toLowerCase();
+        final mobile = (booking.customerMobile ?? '').toLowerCase();
+        return name.contains(query) || mobile.contains(query);
+      }).toList();
+    }
+    setState(() {});
   }
 
   @override
@@ -51,7 +68,7 @@ class _PendingPaymentState extends State<PendingPayment> {
       setState(() {
         selectedRows = List.generate(
           bookingController.bookings.length,
-              (_) => false,
+          (_) => false,
         );
         selectAll = false;
       });
@@ -90,6 +107,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.2,
                     child: TextField(
+                      controller: _searchController,
                       style: GoogleFonts.roboto(fontSize: 25),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
@@ -121,6 +139,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                         ),
                         isDense: true,
                       ),
+                      onChanged: (_) => filterBookings(),
                     ),
                   ),
                 ),
@@ -210,7 +229,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                 }
 
                 //final bookings = bookingController.bookings;
-                final bookings = bookingController.bookings.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled'),).toList();
+                final bookings = bookingsFiltered.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled')).toList();
 
                 if (bookings.isEmpty) {
                   return Center(

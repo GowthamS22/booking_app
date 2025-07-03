@@ -28,6 +28,8 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
   ];
   List<bool> selectedRows = [];
   bool selectAll = false;
+  final TextEditingController _searchController = TextEditingController();
+  List bookingsFiltered = [];
 
   @override
   void initState() {
@@ -36,6 +38,21 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
       bookingController.bookings.length,
       (_) => false,
     );
+    bookingsFiltered = bookingController.bookings;
+  }
+
+  void filterBookings() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      bookingsFiltered = bookingController.bookings;
+    } else {
+      bookingsFiltered = bookingController.bookings.where((booking) {
+        final name = (booking.customerName ?? '').toLowerCase();
+        final mobile = (booking.customerMobile ?? '').toLowerCase();
+        return name.contains(query) || mobile.contains(query);
+      }).toList();
+    }
+    setState(() {});
   }
 
   @override
@@ -92,6 +109,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
+                      controller: _searchController,
                       style: GoogleFonts.roboto(fontSize: 25),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
@@ -123,6 +141,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                         ),
                         isDense: true,
                       ),
+                      onChanged: (_) => filterBookings(),
                     ),
                   ),
                 ),
@@ -267,7 +286,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
                   return Center(child: Text(bookingController.error.value));
                 }
 
-                final bookings = bookingController.bookings.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled'),).toList();
+                final bookings = bookingsFiltered.where((p0) => (p0.customerName!=null && p0.bookingStatus!='Cancelled')).toList();
 
                 if (bookings.isEmpty) {
                   return Center(

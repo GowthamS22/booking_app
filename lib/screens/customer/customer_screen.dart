@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:booking_app/components/mobile_number_formatter.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -326,6 +327,11 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                   fontWeight: FontWeight.w500,
                                                   color: Colors.grey.shade900,
                                                 ),
+                                                keyboardType:
+                                                    TextInputType.phone,
+                                                inputFormatters: [
+                                                  MobileNumberFormatter()
+                                                ],
                                                 validator: (value) {
                                                   final digitsOnly =
                                                       value?.replaceAll(
@@ -337,6 +343,14 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                     return 'Mobile number is required';
                                                   if (digitsOnly.length != 10)
                                                     return 'Enter a valid 10-digit number';
+                                                  final ausMobileRegExp = RegExp(
+                                                    r'^\d{4} \d{3} \d{3}$',
+                                                  );
+                                                  if (!ausMobileRegExp.hasMatch(
+                                                    value ?? '',
+                                                  )) {
+                                                    return 'Mobile number must be in the format XXXX XXX XXX (e.g., 0470 350 213).';
+                                                  }
                                                   return null;
                                                 },
                                                 decoration: InputDecoration(
@@ -385,8 +399,6 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                         ),
                                                       ),
                                                 ),
-                                                keyboardType:
-                                                    TextInputType.phone,
                                                 maxLines: 1,
                                               )
                                               : Text(
@@ -492,9 +504,20 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                 return;
                                               }
 
-                                              // Auto-format to XXXX XXX XXX
-                                              String formattedMobile =
-                                                  '${digitsOnly.substring(0, 4)} ${digitsOnly.substring(4, 7)} ${digitsOnly.substring(7, 10)}';
+                                              // Format check: XXX XXX XXXX (Australian)
+                                              final ausMobileRegExp = RegExp(
+                                                r'^\d{4} \d{3} \d{3}$',
+                                              );
+                                              if (!ausMobileRegExp.hasMatch(
+                                                updatedMobile,
+                                              )) {
+                                                showCustomSnackbar(
+                                                  'Error',
+                                                  'Mobile number must be in the format XXX XXX XXXX (e.g., 041 234 5678).',
+                                                  Colors.red,
+                                                );
+                                                return;
+                                              }
 
                                               // Duplicate check for editing
                                               final duplicate =
@@ -502,7 +525,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                       .any(
                                                         (c) =>
                                                             c['mobile'] ==
-                                                                formattedMobile &&
+                                                                updatedMobile &&
                                                             c['id'] !=
                                                                 customer['id'],
                                                       );
@@ -519,7 +542,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                   .updateCustomer(
                                                     customerId: customer['id'],
                                                     name: updatedName,
-                                                    mobile: formattedMobile,
+                                                    mobile: updatedMobile,
                                                     membershipPlanId:
                                                         updatedMembershipPlanId,
                                                   );
@@ -825,6 +848,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                 color: Colors.grey.shade900,
                               ),
                               keyboardType: TextInputType.phone,
+                              inputFormatters: [MobileNumberFormatter()],
                               decoration: InputDecoration(
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.all(
@@ -835,8 +859,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                   ),
                                 ),
                                 errorStyle: GoogleFonts.inter(
-                                  // Add this
-                                  fontSize: 22, // Set your desired size
+                                  fontSize: 22,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
@@ -844,7 +867,6 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter mobile number';
                                 }
-                                // Add more sophisticated phone validation if needed
                                 return null;
                               },
                             ),
@@ -1115,14 +1137,23 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                           return;
                                         }
 
-                                        // Auto-format to XXXX XXX XXX
-                                        String formattedMobile =
-                                            '${digitsOnly.substring(0, 4)} ${digitsOnly.substring(4, 7)} ${digitsOnly.substring(7, 10)}';
+                                        // Format check: XXX XXX XXXX (Australian)
+                                        final ausMobileRegExp = RegExp(
+                                          r'^\d{4} \d{3} \d{3}$',
+                                        );
+                                        if (!ausMobileRegExp.hasMatch(mobile)) {
+                                          showCustomSnackbar(
+                                            'Error',
+                                            'Mobile number must be in the format XXXX XXX XXX (e.g., 0470 350 213).',
+                                            Colors.red,
+                                          );
+                                          return;
+                                        }
 
                                         // Duplicate check for adding
                                         final duplicate = customerController
                                             .customers
-                                            .any((c) => c['mobile'] == formattedMobile);
+                                            .any((c) => c['mobile'] == mobile);
                                         if (duplicate) {
                                           showCustomSnackbar(
                                             'Error',
@@ -1137,7 +1168,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                               await customerController
                                                   .addCustomer(
                                                     firstName: name,
-                                                    mobile: formattedMobile,
+                                                    mobile: mobile,
                                                   );
 
                                           if (customer != null) {

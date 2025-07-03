@@ -28,6 +28,8 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
   ];
   List<bool> selectedRows = [];
   bool selectAll = false;
+  final TextEditingController _searchController = TextEditingController();
+  List bookingsFiltered = [];
 
   @override
   void initState() {
@@ -36,6 +38,21 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
       bookingController.bookings.length,
       (_) => false,
     );
+    bookingsFiltered = bookingController.bookings;
+  }
+
+  void filterBookings() {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      bookingsFiltered = bookingController.bookings;
+    } else {
+      bookingsFiltered = bookingController.bookings.where((booking) {
+        final name = (booking.customerName ?? '').toLowerCase();
+        final mobile = (booking.customerMobile ?? '').toLowerCase();
+        return name.contains(query) || mobile.contains(query);
+      }).toList();
+    }
+    setState(() {});
   }
 
   @override
@@ -94,6 +111,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
+                      controller: _searchController,
                       style: GoogleFonts.roboto(fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'search "john"',
@@ -125,6 +143,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                         ),
                         isDense: true,
                       ),
+                      onChanged: (_) => filterBookings(),
                     ),
                   ),
                 ),
@@ -213,7 +232,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                   return Center(child: Text(bookingController.error.value));
                 }
 
-                final bookings = bookingController.bookings;
+                final bookings = bookingsFiltered;
 
                 if (bookings.isEmpty) {
                   return Center(
