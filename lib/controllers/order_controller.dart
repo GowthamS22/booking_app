@@ -57,7 +57,9 @@ class OrderController extends GetxController {
             booking_payments (
               total
             ),
-            closed
+            closed,
+            is_cancelled,
+            is_showoff
           ),
           platform_status!court_id (
             platform_id,
@@ -82,10 +84,14 @@ class OrderController extends GetxController {
         query = query
             .eq('status', 'Booked')
             .eq('bookings.closed', false)
+            .eq('bookings.is_cancelled', false)
+            .eq('bookings.is_showoff', false)
             .lte('start_time', slotStart.toIso8601String())
             .gte('end_time', slotEnd.toIso8601String());
       } else if (filterType == 'upcoming') {
         query = query
+            .eq('bookings.is_cancelled', false)
+            .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
             .eq('status', 'Booked')
             .gt('start_time', nowStr);
@@ -103,6 +109,8 @@ class OrderController extends GetxController {
       } else if (filterType == 'unpaid') {
         // Filter by payment_status in the bookings table
         query = query
+            .eq('bookings.is_cancelled', false)
+            .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
             .neq('bookings.payment_status', 'Paid');
       } else if (filterType == 'paid') {
@@ -151,10 +159,31 @@ class OrderController extends GetxController {
         }
       }
 
+
+      final ordersResponse1 = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('booking_id, total, order_status')
+          //.eq('order_status', 'Pending')
+          .inFilter('booking_id', bookingIds);
+
+      final ordersData1 = ordersResponse1 as List<dynamic>;
+
+      // Create a map of booking_id to sum of order totals
+      final ordersMap1 = <String, double>{};
+      for (final order1 in ordersData1) {
+        final bookingId = order1['booking_id']?.toString();
+        if (bookingId != null) {
+          final total = (order1['total'] as num?)?.toDouble() ?? 0.0;
+          ordersMap1.update(bookingId, (value) => value + total, ifAbsent: () => total);
+        }
+      }
+
       // Process each booking slot to include orders total
       final processedData = data.map((item) {
         final bookingId = item['booking_id']?.toString();
         final ordersTotal = bookingId != null ? ordersMap[bookingId] ?? 0.0 : 0.0;
+        final ordersTotal1 = bookingId != null ? ordersMap1[bookingId] ?? 0.0 : 0.0;
 
         // Create a deep copy of the item
         final newItem = Map<String, dynamic>.from(item);
@@ -172,8 +201,11 @@ class OrderController extends GetxController {
             });
             finalGrandTotal = bookingGrandTotal - paymentsTotal;
           }
-
-          newItem['bookings']['grand_total'] = finalGrandTotal + ordersTotal;
+          if(filterType == 'unpaid') {
+            newItem['bookings']['grand_total'] = finalGrandTotal + ordersTotal;
+          } else {
+            newItem['bookings']['grand_total'] = bookingGrandTotal + ordersTotal1;
+          }
         }
 
         return newItem;

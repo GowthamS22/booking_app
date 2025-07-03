@@ -1,3 +1,4 @@
+import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/controllers/simple_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -772,6 +773,9 @@ void showCancelDialog(
   NewBookingController controller, {
   required VoidCallback onRefresh,
 }) {
+
+  final TextEditingController reasonController = TextEditingController(); // Step 1
+
   showDialog(
     context: context,
     barrierDismissible: false,
@@ -803,12 +807,14 @@ void showCancelDialog(
               ),
               const SizedBox(height: 20),
               TextField(
+                style: TextStyle(fontSize: 22),
+                controller: reasonController, // Step 2
                 maxLines: 3,
                 decoration: InputDecoration(
                   hintText: 'Reason for cancellation',
                   hintStyle: GoogleFonts.inter(
                     color: Colors.grey[500],
-                    fontSize: 20,
+                    fontSize: 22,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -844,7 +850,12 @@ void showCancelDialog(
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
-                        await controller.cancelBooking(bookingId);
+                        final reason = reasonController.text.trim(); // Step 3
+                        if(reason.isEmpty) {
+                          showCustomSnackbar('Warning', 'Cancellation reason required', Colors.orange);
+                          return;
+                        }
+                        await controller.cancelBooking(bookingId, reason); // Step 4
                         Navigator.of(context).pop(); // Close dialog
                         Navigator.of(context).pop(); // Close drawer
                         onRefresh(); // Call the refresh callback

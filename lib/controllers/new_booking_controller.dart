@@ -959,20 +959,45 @@ class NewBookingController extends GetxController {
     }
   }
 
-  Future<void> cancelBooking(String bookingId) async {
+  Future<void> cancelBooking(String bookingId, String? notes) async {
     final SharedPreferences pref = await SharedPreferences.getInstance();
     String? centerSlug = pref.getString('centerSlug');
+
     try {
+      // Step 1: Fetch current payment status of the booking
+      final bookingResponse = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('payment_status')
+          .eq('id', bookingId)
+          .single();
+
+      final String? paymentStatus = bookingResponse['payment_status'];
+
+      // Step 2: Conditionally build update map
+      final updateData = {
+        'is_cancelled': true,
+        'notes': notes,
+      };
+
+      if (paymentStatus == 'Paid') {
+        updateData['payment_type'] = 'On Acc. / Void';
+      }
+
+      // Step 3: Update bookings table
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
-          .update({'is_cancelled': true})
+          .update(updateData)
           .eq('id', bookingId);
+
+      // Step 4: Update booking_slots table
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('booking_slots')
           .update({'status': 'Cancelled'})
           .eq('booking_id', bookingId);
+
       showCustomSnackbar(
         'Success',
         'Booking cancelled successfully',
@@ -982,9 +1007,9 @@ class NewBookingController extends GetxController {
       await fetchBookedSlots();
     } catch (e) {
       showCustomSnackbar('Error', 'Failed to cancel booking: $e', Colors.red);
-      //Get.snackbar('Error', 'Failed to cancel booking: $e');
     }
   }
+
 
   Future<void> markNoShow(String bookingId) async {
     final SharedPreferences pref = await SharedPreferences.getInstance();
