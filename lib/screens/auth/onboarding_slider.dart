@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:get/get.dart';
+import 'dart:math' as math;
 
 void main() => runApp(MyApp());
 
@@ -419,17 +420,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               // Placeholder child – replace with your QR widget
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(15),
-                                child: QRView(
-                                  key: qrKey,
-                                  onQRViewCreated: _onQRViewCreated,
-                                  cameraFacing: CameraFacing.back,
-                                  overlay: QrScannerOverlayShape(
-                                    borderColor: Colors.white,
-                                    borderRadius: 10,
-                                    borderLength: 30,
-                                    borderWidth: 10,
-                                    overlayColor: Colors.white10,
-                                    cutOutSize: MediaQuery.of(context).size.width * 0.6,
+                                child: Transform.rotate(
+                                  angle: math.pi, // Rotate 180 degrees (π radians) to fix upside-down
+                                  child: QRView(
+                                    key: qrKey,
+                                    onQRViewCreated: _onQRViewCreated,
+                                    overlay: QrScannerOverlayShape(
+                                      borderColor: Colors.white,
+                                      borderRadius: 10,
+                                      borderLength: 30,
+                                      borderWidth: 10,
+                                      overlayColor: Colors.white10,
+                                      cutOutSize: MediaQuery.of(context).size.width * 0.6,
+                                    ),
                                   ),
                                 ),
                               ),

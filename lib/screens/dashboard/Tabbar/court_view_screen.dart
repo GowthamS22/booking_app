@@ -5,6 +5,7 @@ import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:booking_app/screens/shopping/addon_items_widget.dart';
 import 'package:booking_app/screens/shopping/cart_items.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -1369,6 +1370,41 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     }
 
+    void _updateUserData(Map<String, dynamic> userData) {
+      nameController.text = userData['name'];
+      mobileController.text = userData['mobile'];
+      setState(() {
+        hasMembership = (userData['membershipplan_id'] != null &&
+            userData['membershipplan_id'].toString().isNotEmpty);
+        memberPeakPrice = hasMembership
+            ? double.tryParse(userData['peak_price']?.toString() ?? '0')
+            : null;
+        memberNonPeakPrice = hasMembership
+            ? double.tryParse(userData['non_peak_price']?.toString() ?? '0')
+            : null;
+        membershipPlan = hasMembership ? userData['membership_plan'] : null;
+        membershipValidityDate = hasMembership
+            ? DateTime.tryParse(userData['validity_end']?.toString() ?? '')
+            : null;
+        updateCourtPrice();
+      });
+    }
+
+    Future<void> _validateAndFetchUserData(String mobile) async {
+      if (mobile.length == 10 && RegExp(r'^[0-9]{10}$').hasMatch(mobile)) {
+        final suggestions = await controller.fetchUserSuggestions(mobile);
+        if (suggestions.isNotEmpty) {
+          final exactMatch = suggestions.firstWhere(
+                (user) => user['mobile'] == mobile,
+            orElse: () => {},
+          );
+          if (exactMatch.isNotEmpty) {
+            _updateUserData(exactMatch);
+          }
+        }
+      }
+    }
+
     if (!mounted) return;
     await showGeneralDialog(
       context: context,
@@ -1495,6 +1531,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
+
                                 // Name Field
                                 Flexible(
                                   child: Column(
@@ -1661,11 +1698,155 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
+
                                 // Mobile Field
+                                // Flexible(
+                                //   child: Column(
+                                //     crossAxisAlignment:
+                                //         CrossAxisAlignment.start,
+                                //     children: [
+                                //       Text(
+                                //         'Mobile',
+                                //         style: GoogleFonts.inter(
+                                //           fontSize: 22,
+                                //           color: Colors.grey.shade900,
+                                //           fontWeight: FontWeight.w500,
+                                //         ),
+                                //       ),
+                                //       const SizedBox(height: 4),
+                                //       ConstrainedBox(
+                                //         constraints: BoxConstraints(
+                                //           minWidth: 200,
+                                //           maxWidth:
+                                //               MediaQuery.of(
+                                //                 context,
+                                //               ).size.width *
+                                //               0.50,
+                                //         ),
+                                //         child: TypeAheadField<
+                                //           Map<String, dynamic>
+                                //         >(
+                                //           controller: mobileController,
+                                //           suggestionsCallback: (pattern) async {
+                                //             return await controller
+                                //                 .fetchUserSuggestions(pattern);
+                                //           },
+                                //           // suggestionsCallback: (pattern) {
+                                //           //   if (pattern.isEmpty) return [];
+                                //           //   return controller.userList.where((
+                                //           //       user,
+                                //           //       ) {
+                                //           //     return user['mobile']!
+                                //           //         .toLowerCase()
+                                //           //         .contains(
+                                //           //       pattern.toLowerCase(),
+                                //           //     );
+                                //           //   }).toList();
+                                //           // },
+                                //           builder: (context, _, focusNode) {
+                                //             return TextFormField(
+                                //               controller: mobileController,
+                                //               focusNode: focusNode,
+                                //               keyboardType: TextInputType.phone,
+                                //               validator: (value) {
+                                //                 if (value == null ||
+                                //                     value.trim().isEmpty) {
+                                //                   return 'Mobile number is required';
+                                //                 }
+                                //                 if (!RegExp(
+                                //                   r'^[0-9]{10}$',
+                                //                 ).hasMatch(value)) {
+                                //                   return 'Enter a valid 10-digit number';
+                                //                 }
+                                //                 return null;
+                                //               },
+                                //               style: GoogleFonts.inter(
+                                //                 fontSize: 22,
+                                //                 color: Colors.grey.shade800,
+                                //                 fontWeight: FontWeight.w500,
+                                //               ),
+                                //               decoration: InputDecoration(
+                                //                 isDense: true,
+                                //                 contentPadding:
+                                //                     const EdgeInsets.symmetric(
+                                //                       vertical: 12,
+                                //                       horizontal: 12,
+                                //                     ),
+                                //                 border: OutlineInputBorder(
+                                //                   borderRadius:
+                                //                       BorderRadius.circular(8),
+                                //                   borderSide: BorderSide(
+                                //                     color: Colors.grey.shade300,
+                                //                   ),
+                                //                 ),
+                                //               ),
+                                //             );
+                                //           },
+                                //           itemBuilder: (context, suggestion) {
+                                //             return ListTile(
+                                //               title: Text(
+                                //                 suggestion['name'],
+                                //                 style: TextStyle(fontSize: 22),
+                                //               ),
+                                //               subtitle: Text(
+                                //                 suggestion['mobile'],
+                                //                 style: TextStyle(fontSize: 22),
+                                //               ),
+                                //             );
+                                //           },
+                                //           onSelected: (suggestion) {
+                                //             nameController.text =
+                                //                 suggestion['name'];
+                                //             mobileController.text =
+                                //                 suggestion['mobile'];
+                                //             setState(() {
+                                //               hasMembership =
+                                //                   (suggestion['membershipplan_id'] !=
+                                //                           null &&
+                                //                       suggestion['membershipplan_id']
+                                //                           .toString()
+                                //                           .isNotEmpty);
+                                //               memberPeakPrice =
+                                //                   hasMembership
+                                //                       ? double.tryParse(
+                                //                         suggestion['peak_price']
+                                //                                 ?.toString() ??
+                                //                             '0',
+                                //                       )
+                                //                       : null;
+                                //               memberNonPeakPrice =
+                                //                   hasMembership
+                                //                       ? double.tryParse(
+                                //                         suggestion['non_peak_price']
+                                //                                 ?.toString() ??
+                                //                             '0',
+                                //                       )
+                                //                       : null;
+                                //               membershipPlan =
+                                //                   hasMembership
+                                //                       ? suggestion['membership_plan']
+                                //                       : null;
+                                //
+                                //               membershipValidityDate =
+                                //                   hasMembership
+                                //                       ? DateTime.tryParse(
+                                //                         suggestion['validity_end']
+                                //                                 ?.toString() ??
+                                //                             '',
+                                //                       )
+                                //                       : null;
+                                //               updateCourtPrice();
+                                //             });
+                                //           },
+                                //         ),
+                                //       ),
+                                //     ],
+                                //   ),
+                                // ),
+
                                 Flexible(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Mobile',
@@ -1679,47 +1860,58 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minWidth: 200,
-                                          maxWidth:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.width *
-                                              0.50,
+                                          maxWidth: MediaQuery.of(context).size.width * 0.50,
                                         ),
-                                        child: TypeAheadField<
-                                          Map<String, dynamic>
-                                        >(
-                                          controller: mobileController,
-                                          suggestionsCallback: (pattern) async {
-                                            return await controller
-                                                .fetchUserSuggestions(pattern);
+                                        child: Autocomplete<Map<String, dynamic>>(
+                                          displayStringForOption: (option) => option['mobile'] ?? '',
+                                          optionsBuilder: (TextEditingValue textEditingValue) async {
+                                            if (textEditingValue.text.isEmpty) {
+                                              return const Iterable<Map<String, dynamic>>.empty();
+                                            }
+                                            return await controller.fetchUserSuggestions(textEditingValue.text);
                                           },
-                                          // suggestionsCallback: (pattern) {
-                                          //   if (pattern.isEmpty) return [];
-                                          //   return controller.userList.where((
-                                          //       user,
-                                          //       ) {
-                                          //     return user['mobile']!
-                                          //         .toLowerCase()
-                                          //         .contains(
-                                          //       pattern.toLowerCase(),
-                                          //     );
-                                          //   }).toList();
-                                          // },
-                                          builder: (context, _, focusNode) {
+                                          onSelected: (Map<String, dynamic> selection) {
+                                            _updateUserData(selection);
+                                            // Hide keyboard after selection
+                                            FocusScope.of(context).unfocus();
+                                          },
+                                          fieldViewBuilder: (BuildContext context,
+                                              TextEditingController fieldTextEditingController,
+                                              FocusNode fieldFocusNode,
+                                              VoidCallback onFieldSubmitted) {
+
+                                            if (mobileController.text != fieldTextEditingController.text) {
+                                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                fieldTextEditingController.text = mobileController.text;
+                                              });
+                                            }
+
                                             return TextFormField(
-                                              controller: mobileController,
-                                              focusNode: focusNode,
+                                              controller: fieldTextEditingController,
+                                              focusNode: fieldFocusNode,
                                               keyboardType: TextInputType.phone,
+                                              textInputAction: TextInputAction.done, // Changed to 'done' for better UX
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.digitsOnly,
+                                                MobileNumberFormatter(),
+                                              ],
+                                              onChanged: (value) {
+                                                mobileController.text = value;
+                                              },
+                                              onFieldSubmitted: (value) {
+                                                _validateAndFetchUserData(value);
+                                                // Hide keyboard after submission
+                                                FocusScope.of(context).unfocus();
+                                              },
+                                              onEditingComplete: () {
+                                                _validateAndFetchUserData(mobileController.text);
+                                                // Hide keyboard when editing completes
+                                                FocusScope.of(context).unfocus();
+                                              },
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.trim().isEmpty) {
-                                                  return 'Mobile number is required';
-                                                }
-                                                if (!RegExp(
-                                                  r'^[0-9]{10}$',
-                                                ).hasMatch(value)) {
-                                                  return 'Enter a valid 10-digit number';
-                                                }
+                                                final digitsOnly = value?.replaceAll(RegExp(r'\D'), '') ?? '';
+                                                if (digitsOnly.isEmpty) return 'Mobile number is required';
+                                                if (digitsOnly.length != 10) return 'Enter a valid 10-digit number';
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
@@ -1729,14 +1921,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                               decoration: InputDecoration(
                                                 isDense: true,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 12,
-                                                      horizontal: 12,
-                                                    ),
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  vertical: 12,
+                                                  horizontal: 12,
+                                                ),
                                                 border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
+                                                  borderRadius: BorderRadius.circular(8),
                                                   borderSide: BorderSide(
                                                     color: Colors.grey.shade300,
                                                   ),
@@ -1744,67 +1934,47 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                             );
                                           },
-                                          itemBuilder: (context, suggestion) {
-                                            return ListTile(
-                                              title: Text(
-                                                suggestion['name'],
-                                                style: TextStyle(fontSize: 22),
-                                              ),
-                                              subtitle: Text(
-                                                suggestion['mobile'],
-                                                style: TextStyle(fontSize: 22),
+                                          optionsViewBuilder: (BuildContext context,
+                                              AutocompleteOnSelected<Map<String, dynamic>> onSelected,
+                                              Iterable<Map<String, dynamic>> options) {
+                                            return Align(
+                                              alignment: Alignment.topLeft,
+                                              child: Material(
+                                                elevation: 4.0,
+                                                child: SizedBox(
+                                                  height: 200,
+                                                  child: ListView.builder(
+                                                    padding: EdgeInsets.zero,
+                                                    itemCount: options.length,
+                                                    itemBuilder: (BuildContext context, int index) {
+                                                      final Map<String, dynamic> option = options.elementAt(index);
+                                                      return ListTile(
+                                                        title: Text(
+                                                          option['name'],
+                                                          style: const TextStyle(fontSize: 22),
+                                                        ),
+                                                        subtitle: Text(
+                                                          option['mobile'],
+                                                          style: const TextStyle(fontSize: 22),
+                                                        ),
+                                                        onTap: () {
+                                                          onSelected(option);
+                                                          // Hide keyboard after tap
+                                                          FocusScope.of(context).unfocus();
+                                                        },
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
                                               ),
                                             );
-                                          },
-                                          onSelected: (suggestion) {
-                                            nameController.text =
-                                                suggestion['name'];
-                                            mobileController.text =
-                                                suggestion['mobile'];
-                                            setState(() {
-                                              hasMembership =
-                                                  (suggestion['membershipplan_id'] !=
-                                                          null &&
-                                                      suggestion['membershipplan_id']
-                                                          .toString()
-                                                          .isNotEmpty);
-                                              memberPeakPrice =
-                                                  hasMembership
-                                                      ? double.tryParse(
-                                                        suggestion['peak_price']
-                                                                ?.toString() ??
-                                                            '0',
-                                                      )
-                                                      : null;
-                                              memberNonPeakPrice =
-                                                  hasMembership
-                                                      ? double.tryParse(
-                                                        suggestion['non_peak_price']
-                                                                ?.toString() ??
-                                                            '0',
-                                                      )
-                                                      : null;
-                                              membershipPlan =
-                                                  hasMembership
-                                                      ? suggestion['membership_plan']
-                                                      : null;
-
-                                              membershipValidityDate =
-                                                  hasMembership
-                                                      ? DateTime.tryParse(
-                                                        suggestion['validity_end']
-                                                                ?.toString() ??
-                                                            '',
-                                                      )
-                                                      : null;
-                                              updateCourtPrice();
-                                            });
                                           },
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
+
                               ],
                             ),
                           ),
@@ -3553,5 +3723,31 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       courtPrice = total;
       print('courtPrice : $courtPrice');
     });
+  }
+}
+
+
+class MobileNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    // Remove non-digit characters
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    // Limit to 10 digits
+    final limited = digitsOnly.length > 10 ? digitsOnly.substring(0, 10) : digitsOnly;
+
+    // Apply formatting: XXXX XXX XXX
+    String formatted = '';
+    for (int i = 0; i < limited.length; i++) {
+      if (i == 4 || i == 7) {
+        formatted += ' ';
+      }
+      formatted += limited[i];
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
   }
 }
