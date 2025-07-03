@@ -172,16 +172,23 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   bool isSlotInPast(String slot) {
     final now = DateTime.now();
     final slotTime = parseTime(slot);
+
+    // If the selected date is before today, all slots are in the past
     if (selectedDateTime != null &&
         selectedDateTime!.isBefore(DateTime(now.year, now.month, now.day))) {
       return true;
     }
+
+    // If the selected date is today, check for the 10-minute grace period
     if (selectedDateTime != null &&
         selectedDateTime!.year == now.year &&
         selectedDateTime!.month == now.month &&
         selectedDateTime!.day == now.day) {
-      return slotTime.isBefore(now);
+      // Slot is in the past only if now is more than 10 minutes after slot start
+      return now.isAfter(slotTime.add(const Duration(minutes: 10)));
     }
+
+    // For future dates, slot is not in the past
     return false;
   }
 

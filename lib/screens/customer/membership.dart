@@ -447,7 +447,15 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                               final updatedName = editNameController.text.trim();
                                               final updatedMobile = editMobileController.text.trim();
                                               final updatedMembershipPlanId = editMembershipPlanId;
-                                              // Call your update method (e.g., customerController.updateCustomer)
+                                              // Duplicate check for editing
+                                              final duplicate = membershipController.customers.firstWhereOrNull(
+                                                (c) => c['mobile'] == updatedMobile && c['id'] != customer['id']
+                                              );
+                                              if (duplicate != null) {
+                                                showCustomSnackbar('Error', 'Another customer already uses this mobile number.', Colors.red);
+                                                return;
+                                              }
+                                              // Call your update method (e.g., membershipController.updateCustomer)
                                               await membershipController.updateCustomer(
                                                 customerId: customer['id'],
                                                 name: updatedName,
@@ -1333,6 +1341,18 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                     final mobile = membershipController.mobileController.text.trim();
                                                     final isMembershipExpired = membershipValidityDate != null &&
                                                         membershipValidityDate!.isBefore(DateTime.now());
+
+                                                    // Duplicate check for adding
+                                                    final existing = membershipController.customers.firstWhereOrNull((c) => c['mobile'] == mobile);
+                                                    if (existing != null) {
+                                                      if ((existing['name'] ?? '').toLowerCase() != name.toLowerCase()) {
+                                                        showCustomSnackbar('Error', 'This number already belongs to ${existing['name']} – please select that customer or enter a different number.', Colors.red);
+                                                        return;
+                                                      } else {
+                                                        showCustomSnackbar('Error', 'This mobile number already exists.', Colors.red);
+                                                        return;
+                                                      }
+                                                    }
 
                                                     // Check membership upgrade/downgrade logic
                                                     if (hasMembership) {
