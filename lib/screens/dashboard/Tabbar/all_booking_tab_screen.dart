@@ -105,14 +105,14 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                   ],
                 ),
                 Spacer(),
-
                 Expanded(
                   child: SizedBox(
                     width: MediaQuery.of(context).size.width * 0.3,
                     child: TextField(
-                      style: GoogleFonts.roboto(fontSize: 14),
+                      controller: _searchController,
+                      style: GoogleFonts.roboto(fontSize: 22),
                       decoration: InputDecoration(
-                        hintText: 'Search "john"',
+                        hintText: 'search "john"',
                         hintStyle: GoogleFonts.inter(
                           fontSize: 22,
                           color: Colors.grey.shade400,
@@ -145,6 +145,45 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                     ),
                   ),
                 ),
+                // Expanded(
+                //   child: SizedBox(
+                //     width: MediaQuery.of(context).size.width * 0.3,
+                //     child: TextField(
+                //       style: GoogleFonts.roboto(fontSize: 14),
+                //       decoration: InputDecoration(
+                //         hintText: 'Search "john"',
+                //         hintStyle: GoogleFonts.inter(
+                //           fontSize: 22,
+                //           color: Colors.grey.shade400,
+                //           fontWeight: FontWeight.w400,
+                //         ),
+                //         contentPadding: const EdgeInsets.symmetric(
+                //           horizontal: 16,
+                //           vertical: 15,
+                //         ),
+                //         filled: true,
+                //         fillColor: Colors.white,
+                //         border: OutlineInputBorder(
+                //           borderRadius: BorderRadius.circular(10),
+                //           borderSide: BorderSide(color: Colors.grey.shade200),
+                //         ),
+                //         enabledBorder: OutlineInputBorder(
+                //           borderRadius: BorderRadius.circular(8),
+                //           borderSide: BorderSide(color: Colors.grey.shade300),
+                //         ),
+                //         focusedBorder: OutlineInputBorder(
+                //           borderRadius: BorderRadius.circular(8),
+                //           borderSide: BorderSide(
+                //             color: Colors.grey.shade500,
+                //             width: 1.5,
+                //           ),
+                //         ),
+                //         isDense: true,
+                //       ),
+                //       onChanged: (_) => filterBookings(),
+                //     ),
+                //   ),
+                // ),
                 //const SizedBox(width: 20),
                 // SizedBox(
                 //   width: MediaQuery.of(context).size.width / 8,
