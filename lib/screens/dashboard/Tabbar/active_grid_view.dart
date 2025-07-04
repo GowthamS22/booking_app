@@ -153,7 +153,7 @@ class _BookingCardWidgetState extends State<BookingCardWidget> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _formatDuration(remainingDuration),
+                            '${remainingDuration.inMinutes > 0 ? remainingDuration.inMinutes : 0} mins',
                             style: GoogleFonts.inter(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,

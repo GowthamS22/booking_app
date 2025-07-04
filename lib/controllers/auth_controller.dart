@@ -79,6 +79,35 @@ class AuthController extends GetxController {
       await preferences.setString('paymentDevices', jsonEncode(paymentDeviceResponse));
       await preferences.setString('sportsWithPlatforms', jsonEncode(sportsWithPlatformResponse));
 
+      // Add this section to fetch and cache ALL active days data (not just today)
+      final activeDaysResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('active_days')
+          .select('sport_id, day_name, status');
+
+      final sportsResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('sports')
+          .select(
+            'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,peak_hour_status',
+          )
+          .order('platform_index', ascending: true);
+
+      // Add this to your pinLogin function after caching other data
+      final platformStatusResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('platform_status')
+          .select('*');
+
+      if (sportsResponse != null && activeDaysResponse != null && platformStatusResponse != null) {
+        // Cache all sports data
+        await preferences.setString('allSports', jsonEncode(sportsResponse));
+        // Cache all active days data
+        await preferences.setString('allActiveDays', jsonEncode(activeDaysResponse));
+        // Cache all platform status data
+        await preferences.setString('platformStatus', jsonEncode(platformStatusResponse));
+      }
+
       if (userResponse != null) {
         emailID.value = userResponse['email'];
         final String password = userResponse['password'];
