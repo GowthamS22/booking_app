@@ -28,6 +28,7 @@ class CustomerController extends GetxController {
   RxBool cancelSlotIsLoading = false.obs;
   final TextEditingController nameController = TextEditingController();
   final TextEditingController mobileController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
   String? selectedMembershipplan;
 
   RxBool buyNowLoading = false.obs;
@@ -603,6 +604,7 @@ class CustomerController extends GetxController {
   Future<Map<String, dynamic>?> addCustomer({
     required String firstName,
     required String mobile,
+    required String email,
     String? membershipPlanId,
   }) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
@@ -616,6 +618,7 @@ class CustomerController extends GetxController {
               .insert({
                 'first_name': firstName,
                 'mobile': mobile,
+                'email': email,
                 'membershipplan_id': membershipPlanId,
                 'status': true,
               })
@@ -630,11 +633,12 @@ class CustomerController extends GetxController {
     }
   }
 
-  // Add new customer
+  // Update customer
   Future<bool> updateCustomer({
     required String customerId,
     required String name,
     required String mobile,
+    required String email,
     String? membershipPlanId,
   }) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
@@ -647,6 +651,7 @@ class CustomerController extends GetxController {
           .update({
             'first_name': name,
             'mobile': mobile,
+            'email': email,
             'membershipplan_id': membershipPlanId,
             'status': true,
           })

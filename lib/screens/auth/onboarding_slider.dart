@@ -7,6 +7,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:get/get.dart';
 import 'dart:math' as math;
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -75,15 +76,15 @@ class _OnboardingSliderState extends State<OnboardingSlider> {
             ],
           ),
           Positioned(
-            bottom: 30,
+            bottom: 30.h,
             child: SmoothPageIndicator(
               controller: _controller,
               count: 4,
               effect: WormEffect(
                 dotColor: Colors.grey.shade500,
                 activeDotColor: Colors.white,
-                dotHeight: 8,
-                dotWidth: 8,
+                dotHeight: 8.h,
+                dotWidth: 8.w,
               ),
             ),
           )
@@ -235,13 +236,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
         // Logo for the last page
         if (widget.isLastPage)
           Positioned(
-            top: 60,
-            left: 60,
+            top: 60.h,
+            left: 60.w,
             child: Image.asset(
               'assets/images/dropin_logo.png',
               fit: BoxFit.cover,
-              height: 90,
-              width: 250,
+              height: 90.h,
+              width: 250.w,
             ),
           ),
 
@@ -250,7 +251,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
           alignment: showScanner ? Alignment.center : Alignment.centerRight,
           child: Container(
             width: MediaQuery.of(context).size.width * (showScanner ? 0.50 : 0.32),
-            padding: EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -473,19 +474,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               // Placeholder child – replace with your QR widget
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(15),
-                                child: Transform.rotate(
-                                  angle: math.pi, // Rotate 180 degrees (π radians) to fix upside-down
-                                  child: QRView(
-                                    key: qrKey,
-                                    onQRViewCreated: _onQRViewCreated,
-                                    overlay: QrScannerOverlayShape(
-                                      borderColor: Colors.white,
-                                      borderRadius: 10,
-                                      borderLength: 30,
-                                      borderWidth: 10,
-                                      overlayColor: Colors.white10,
-                                      cutOutSize: MediaQuery.of(context).size.width * 0.6,
-                                    ),
+                                child: QRView(
+                                  key: qrKey,
+                                  onQRViewCreated: _onQRViewCreated,
+                                  overlay: QrScannerOverlayShape(
+                                    borderColor: Colors.white,
+                                    borderRadius: 10,
+                                    borderLength: 30,
+                                    borderWidth: 10,
+                                    overlayColor: Colors.white10,
+                                    cutOutSize: MediaQuery.of(context).size.width * 0.6,
                                   ),
                                 ),
                               ),

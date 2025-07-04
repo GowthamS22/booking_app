@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../app/getx_binding.dart';
 import '../../config/constants.dart';
@@ -594,40 +595,56 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           }).toList(),
                     ),
                     if (widget.isMembershipApplied == true) ...[
-                      Container(
-                        width: MediaQuery.of(context).size.width / 2.5,
+                      const SizedBox(height: 8),
+                      Divider(thickness: 1, color: Colors.grey.shade300),
+                      const SizedBox(height: 8),
+                      // Membership item aligned like other items
+                      Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 5,
+                          vertical: 8,
                         ),
-                        decoration: BoxDecoration(
-                          color: backgroundColor,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: borderColor!),
-                        ),
-
                         child: Row(
+                          spacing: 30,
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              '${widget.membershipName} Membership' ?? '',
-                              style: GoogleFonts.inter(
-                                fontSize: 23,
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${widget.membershipName} Membership',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
-
-                            // Text(
-                            //   membershipValidityDate != null
-                            //       ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
-                            //       : '$membershipPlan : (No Validity Info)',
-                            //   style: GoogleFonts.inter(
-                            //     fontSize: 14,
-                            //     fontWeight: FontWeight.w700,
-                            //     color: textColor,
-                            //   ),
-                            // ),
+                            Container(
+                              width: 110,
+                              child: Text(
+                                'x1',
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                            Container(
+                              width: 110,
+                              child: Text(
+                                '\$${(widget.membershipPrice ?? 0.0).toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -832,7 +849,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${((widget.billAmount - discountAmount) * 0.1).toStringAsFixed(2)}',
+                      '\$${(widget.billAmount * 0.1).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -852,7 +869,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount - discountAmount).toStringAsFixed(2)}',
+                      '\$${(widget.billAmount * 1.1 - discountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w700,
@@ -1120,7 +1137,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       padding: const EdgeInsets.all(0.0),
                       child: Row(
                         children: [
-                          if(widget.type=='Product') ...[
+                          // Show Apply Discount button only if there are products in cart
+                          if(cartItems.isNotEmpty) ...[
 
                           // Discount Applied
                           if (isDiscountApplied)
@@ -1205,7 +1223,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                           if (!isDiscountApplied) const SizedBox(width: 12),
-
+                          
                           ],
 
                           // Receipt Toggle

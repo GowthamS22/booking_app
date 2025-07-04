@@ -556,17 +556,17 @@ class CheckoutController extends GetxController {
             ? '0.0'
             : authController.gst.value.toString();
     var value = double.parse(
-      ((totalAmount - discount.value) * double.parse(gst) / 100).toString(),
+      (totalAmount * double.parse(gst) / 100).toString(),
     );
     return value;
   }
 
   double get totalPrice {
-    return (totalAmount - discount.value) - gstPrice;
+    return totalAmount - discount.value;
   }
 
   double get grandtotalPrice {
-    return totalPrice + gstPrice;
+    return totalAmount + gstPrice - discount.value;
   }
 
   double get subTotal {

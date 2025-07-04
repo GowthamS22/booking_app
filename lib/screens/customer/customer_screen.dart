@@ -9,6 +9,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:booking_app/components/mobile_number_formatter.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 final supabase = Supabase.instance.client;
 
@@ -28,6 +29,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
   String? editingCustomerId;
   TextEditingController editNameController = TextEditingController();
   TextEditingController editMobileController = TextEditingController();
+  TextEditingController editEmailController = TextEditingController();
   String? editMembershipPlanId;
   List<Map<String, dynamic>> filteredCustomers = [];
   String? selectedMembershipId;
@@ -63,7 +65,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -76,7 +78,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                       'Customer',
                       style: GoogleFonts.inter(
                         color: Colors.black,
-                        fontSize: 23,
+                        fontSize: 23.sp,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -84,7 +86,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                       'Get a glance of all customers at once',
                       style: GoogleFonts.inter(
                         color: Colors.grey.shade500,
-                        fontSize: 22,
+                        fontSize: 22.sp,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -96,29 +98,29 @@ class _CustomerScreenState extends State<CustomerScreen> {
                   DateFormat('MMM d, yyyy EEEE').format(DateTime.now()),
                   style: GoogleFonts.inter(
                     color: Colors.black,
-                    fontSize: 23,
+                    fontSize: 23.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 CircleAvatar(
-                  radius: 25,
+                  radius: 25.r,
                   backgroundImage: AssetImage("assets/images/pic/Avatar.png"),
                 ),
-                SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 Text(
                   'Staff Name',
                   style: GoogleFonts.inter(
                     color: Colors.black,
-                    fontSize: 23,
+                    fontSize: 23.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 10),
+            SizedBox(height: 10.h),
             _buildTopBar(),
-            SizedBox(height: 20),
+            SizedBox(height: 20.h),
             // Custom Header Row
             Container(
               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 16),
@@ -543,6 +545,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                     customerId: customer['id'],
                                                     name: updatedName,
                                                     mobile: updatedMobile,
+                                                    email: customer['email'] ?? '',
                                                     membershipPlanId:
                                                         updatedMembershipPlanId,
                                                   );
@@ -708,6 +711,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
 
     customerController.nameController.clear();
     customerController.mobileController.clear();
+    customerController.emailController.clear();
     selectedMembershipPlanId = null;
 
     // Form key for validation
@@ -810,6 +814,66 @@ class _CustomerScreenState extends State<CustomerScreen> {
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
                                   return 'Please enter customer name';
+                                }
+                                return null;
+                              },
+                            ),
+
+                            // Email Field
+                            const SizedBox(height: 10),
+                            RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: 'Email ',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: '*',
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 22,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: customerController.emailController,
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.grey.shade900,
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(10),
+                                  ),
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade100,
+                                  ),
+                                ),
+                                errorStyle: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter email address';
+                                }
+                                // Basic email validation
+                                final emailRegExp = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                if (!emailRegExp.hasMatch(value)) {
+                                  return 'Please enter a valid email address';
                                 }
                                 return null;
                               },
@@ -1110,6 +1174,11 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                 .mobileController
                                                 .text
                                                 .trim();
+                                        final email =
+                                            customerController
+                                                .emailController
+                                                .text
+                                                .trim();
                                         final membershipId =
                                             selectedMembershipPlanId;
 
@@ -1169,6 +1238,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                   .addCustomer(
                                                     firstName: name,
                                                     mobile: mobile,
+                                                    email: email,
                                                   );
 
                                           if (customer != null) {
@@ -1183,6 +1253,8 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                           customerController.nameController
                                               .clear();
                                           customerController.mobileController
+                                              .clear();
+                                          customerController.emailController
                                               .clear();
                                           selectedMembershipPlanId = null;
                                           setState(() {});
