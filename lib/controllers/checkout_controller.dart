@@ -1030,6 +1030,7 @@ class CheckoutController extends GetxController {
     String? paymentResponse,
     bool? receiptToggle,
     bool? printBoth,
+    String? customerId,
   }) async {
     try {
 
@@ -1043,32 +1044,39 @@ class CheckoutController extends GetxController {
       // Convert to 2 decimal places
       double to2(double? value) => value != null ? double.parse(value.toStringAsFixed(2)) : 0.0;
 
+      final Map<String, dynamic> updateData = {
+        'token_number': tokenNumber,
+        'cart_items': jsonDecode(cartJson!),
+        'bill_details': {
+          'order_id': order_id!,
+          'price': to2(price),
+          'taxes': to2(taxes),
+          'surcharge': to2(surcharge),
+          'discount': to2(discount),
+          'billAmount': to2(billAmount),
+          'paidAmount': to2(paidAmount),
+          'balanceAmount': to2(balanceAmount),
+          'paymentType': paymentType,
+          'paymentNotes': paymentNotes,
+        },
+        'transaction_data': paymentResponse,
+        'payment_response': paymentResponse,
+        'total': to2(billAmount),
+        'paid_amount': to2(paidAmount),
+        'payment_type': paymentType,
+        'payment_via': 'App',
+        'order_status': 'Completed',
+      };
+
+      // Conditionally add customer_id if not null
+      if (customerId != null) {
+        updateData['customer_id'] = customerId;
+      }
+
       final response = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('orders')
-          .update({
-            'token_number': tokenNumber,
-            'cart_items': jsonDecode(cartJson!),
-            'bill_details': {
-              'order_id': order_id!,
-              'price' : to2(price),
-              'taxes' : to2(taxes),
-              'surcharge' : to2(surcharge),
-              'discount' : to2(discount),
-              'billAmount' : to2(billAmount),
-              'paidAmount' : to2(paidAmount),
-              'balanceAmount' : to2(balanceAmount),
-              'paymentType' : paymentType,
-              'paymentNotes' : paymentNotes,
-            },
-            'transaction_data': paymentResponse,
-            'payment_response': paymentResponse,
-            'total': to2(billAmount),
-            'paid_amount': to2(paidAmount),
-            'payment_type': paymentType,
-            'payment_via': 'App',
-            'order_status': 'Completed',
-          })
+          .update(updateData)
           .eq('id', order_id!)
           .select('*')
           .single();
@@ -1081,6 +1089,8 @@ class CheckoutController extends GetxController {
           showPaymentSuccessAlert();
           await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));  
         }
+      } else {
+        showPaymentSuccessAlert();
       }
 
       final prefs = await SharedPreferences.getInstance();

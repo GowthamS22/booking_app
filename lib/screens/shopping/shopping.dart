@@ -6,6 +6,8 @@ import 'package:booking_app/controllers/orders_list_controller.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:booking_app/stores/order_store.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -804,39 +806,412 @@ class _ShoppingScreenState extends State<ShoppingScreen>
       return;
     }
 
-    // Update order data before navigation
-    final orderController = Get.find<PosOrderController>();
-    orderController.updateOrder(_tempOrderId, cart, _orderNotes, total);
+    String userId = '';
+    TextEditingController nameController = TextEditingController();
+    TextEditingController mobileController = TextEditingController();
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => CheckoutScreen(
-              type: 'Product',
-              customerName: 'Guest',
-              mobileno: '+61 0000 000 000',
-              selectedDateTime: DateTime.now(),
-              billAmount: total,
-              bookings: [],
-              membershipID: '',
-              membershipName: '',
-              isMembershipApplied: false,
-              membershipPrice: 0.0,
-              forpayment: 'product-only',
+    void _updateUserData(Map<String, dynamic> userData) {
+      nameController.text = userData['name'];
+      mobileController.text = userData['mobile'];
+      userId = userData['id'];
+    }
+
+    Future<void> _validateAndFetchUserData(String mobile) async {
+      if (mobile.length == 12) {
+        final suggestions = await ordersListController.fetchUserSuggestions(mobile);
+        if (suggestions.isNotEmpty) {
+          final exactMatch = suggestions.firstWhere((user) => user['mobile'] == mobile,orElse: () => {},);
+          if (exactMatch.isNotEmpty) {
+            _updateUserData(exactMatch);
+          } else {
+            userId = '';
+          }
+        } else {
+          userId = '';
+        }
+      } else {
+        userId = '';
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-      ),
-    ).then((_) {
-      // After returning from checkout
-      _loadCartFromPrefs();
-      _generateTempOrderId();
-      setState(() {
-        cart.clear();
-        _orderNotes = '';
-      });
-      _saveCartToPrefs();
-      _saveOrderNotesToPrefs();
-    });
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.5,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Customer Details',
+                      style: TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Please enter the customer details',
+                      style: TextStyle(color: Colors.grey, fontSize: 22),
+                    ),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      spacing: 30,
+                      children: [
+
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Name',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      color: Colors.grey.shade900,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: 200,
+                                  maxWidth:
+                                  MediaQuery.of(
+                                    context,
+                                  ).size.width *
+                                      0.50,
+                                ),
+                                child: TypeAheadField<
+                                    Map<String, dynamic>
+                                >(
+                                  controller: nameController,
+                                  suggestionsCallback: (pattern) async {
+                                    return await ordersListController.fetchUserSuggestions(pattern);
+                                  },
+                                  builder: (context, _, focusNode) {
+                                    return TextFormField(
+                                      controller: nameController,
+                                      focusNode: focusNode,
+                                      keyboardType: TextInputType.name,
+                                      validator: (value) {
+                                        if (value == null ||
+                                            value.trim().isEmpty) {
+                                          return 'Name is required';
+                                        }
+                                        return null;
+                                      },
+                                      style: GoogleFonts.inter(
+                                        fontSize: 22,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        contentPadding:
+                                        const EdgeInsets.symmetric(
+                                          vertical: 15,
+                                          horizontal: 12,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                          BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  itemBuilder: (context, suggestion) {
+                                    return ListTile(
+                                      title: Text(
+                                        suggestion['name'],
+                                        style: TextStyle(fontSize: 22),
+                                      ),
+                                      subtitle: Text(
+                                        suggestion['mobile'],
+                                        style: TextStyle(fontSize: 22),
+                                      ),
+                                    );
+                                  },
+                                  onSelected: (suggestion) {
+                                    setState(() {
+                                      mobileController.text = suggestion['mobile'];
+                                      nameController.text = suggestion['name'];
+                                      userId = suggestion['id'];
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Mobile',
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.grey.shade900,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minWidth: 200,
+                                  maxWidth: MediaQuery.of(context).size.width * 0.50,
+                                ),
+                                child: Autocomplete<Map<String, dynamic>>(
+                                  displayStringForOption: (option) => option['mobile'] ?? '',
+                                  optionsBuilder: (TextEditingValue textEditingValue) async {
+                                    if (textEditingValue.text.isEmpty) {
+                                      return const Iterable<Map<String, dynamic>>.empty();
+                                    }
+                                    return await ordersListController.fetchUserSuggestions(textEditingValue.text);
+                                  },
+                                  onSelected: (Map<String, dynamic> selection) {
+                                    _updateUserData(selection);
+                                    // Hide keyboard after selection
+                                    FocusScope.of(context).unfocus();
+                                  },
+                                  fieldViewBuilder: (BuildContext context,
+                                      TextEditingController fieldTextEditingController,
+                                      FocusNode fieldFocusNode,
+                                      VoidCallback onFieldSubmitted) {
+
+                                    if (mobileController.text != fieldTextEditingController.text) {
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        fieldTextEditingController.text = mobileController.text;
+                                      });
+                                    }
+
+                                    return TextFormField(
+                                      controller: fieldTextEditingController,
+                                      focusNode: fieldFocusNode,
+                                      keyboardType: TextInputType.phone,
+                                      textInputAction: TextInputAction.done, // Changed to 'done' for better UX
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        MobileNumberFormatter(),
+                                      ],
+                                      onChanged: (value) {
+                                        mobileController.text = value;
+                                        _validateAndFetchUserData(mobileController.text);
+                                      },
+                                      onFieldSubmitted: (value) {
+                                        _validateAndFetchUserData(value);
+                                        FocusScope.of(context).unfocus();
+                                      },
+                                      onEditingComplete: () {
+                                        final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
+                                        if (digitsOnly.length == 10) {
+                                          _validateAndFetchUserData(mobileController.text);
+                                        }
+                                        FocusScope.of(context).unfocus();
+                                      },
+                                      validator: (value) {
+                                        final digitsOnly = value?.replaceAll(RegExp(r'\D'), '') ?? '';
+                                        if (digitsOnly.isEmpty) return 'Mobile number is required';
+                                        if (digitsOnly.length != 10) return 'Enter a valid 10-digit number';
+                                        return null;
+                                      },
+                                      style: GoogleFonts.inter(
+                                        fontSize: 22,
+                                        color: Colors.grey.shade800,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                          horizontal: 12,
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                          borderSide: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  optionsViewBuilder: (BuildContext context,
+                                      AutocompleteOnSelected<Map<String, dynamic>> onSelected,
+                                      Iterable<Map<String, dynamic>> options) {
+                                    return Align(
+                                      alignment: Alignment.topLeft,
+                                      child: Material(
+                                        elevation: 4.0,
+                                        child: SizedBox(
+                                          height: 200,
+                                          child: ListView.builder(
+                                            padding: EdgeInsets.zero,
+                                            itemCount: options.length,
+                                            itemBuilder: (BuildContext context, int index) {
+                                              final Map<String, dynamic> option = options.elementAt(index);
+                                              return ListTile(
+                                                title: Text(
+                                                  option['name'],
+                                                  style: const TextStyle(fontSize: 22),
+                                                ),
+                                                subtitle: Text(
+                                                  option['mobile'],
+                                                  style: const TextStyle(fontSize: 22),
+                                                ),
+                                                onTap: () {
+                                                  onSelected(option);
+                                                  // Hide keyboard after tap
+                                                  FocusScope.of(context).unfocus();
+                                                },
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      ],
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // Buttons Row
+                    Row(
+                      spacing: 10,
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Palette.white,
+                              minimumSize: const Size(150, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 25,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+
+                              if(nameController.text.trim().isEmpty) {
+                                showCustomSnackbar('Warning', 'Please enter the customer name', Colors.orangeAccent);
+                                return;
+                              }
+
+                              final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
+                              if (digitsOnly.isEmpty) {
+                                showCustomSnackbar('Warning', 'Mobile number is required', Colors.orangeAccent);
+                                return;
+                              }
+
+                              if (digitsOnly.length != 10) {
+                                showCustomSnackbar('Warning', 'Enter a valid 10-digit mobile number', Colors.orangeAccent);
+                                return;
+                              }
+
+                              // Update order data before navigation
+                              final orderController = Get.find<PosOrderController>();
+                              orderController.updateOrder(_tempOrderId, cart, _orderNotes, total);
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => CheckoutScreen(
+                                    type: 'Product',
+                                    customerName: nameController.text,
+                                    mobileno: mobileController.text,
+                                    selectedDateTime: DateTime.now(),
+                                    billAmount: total,
+                                    bookings: [],
+                                    membershipID: '',
+                                    membershipName: '',
+                                    isMembershipApplied: false,
+                                    membershipPrice: 0.0,
+                                    forpayment: 'product-only',
+                                    exuserId: userId,
+                                  ),
+                                ),
+                              ).then((_) {
+                                // After returning from checkout
+                                _loadCartFromPrefs();
+                                _generateTempOrderId();
+                                setState(() {
+                                  cart.clear();
+                                  _orderNotes = '';
+                                });
+                                _saveCartToPrefs();
+                                _saveOrderNotesToPrefs();
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Palette.newColor,
+                              minimumSize: const Size(150, 50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text(
+                              'Proceed',
+                              style: TextStyle(
+                                fontSize: 25,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      )
+    );
+
+    return;
   }
 
   Future<void> _selectDate(BuildContext context, bool isFromDate) async {
@@ -1701,6 +2076,31 @@ class _ShoppingScreenState extends State<ShoppingScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+class MobileNumberFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    // Remove non-digit characters
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'\D'), '');
+
+    // Limit to 10 digits
+    final limited = digitsOnly.length > 10 ? digitsOnly.substring(0, 10) : digitsOnly;
+
+    // Apply formatting: XXXX XXX XXX
+    String formatted = '';
+    for (int i = 0; i < limited.length; i++) {
+      if (i == 4 || i == 7) {
+        formatted += ' ';
+      }
+      formatted += limited[i];
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

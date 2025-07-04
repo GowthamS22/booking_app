@@ -154,6 +154,78 @@ class OrdersListController extends GetxController {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchUserSuggestions(String query) async {
+    if (query.isEmpty) return [];
 
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('customers')
+        .select('''
+        id,
+        mobile,
+        first_name,
+        membershipplan_id,
+        membership_data,
+        created_at,
+        status,
+        membershipplan (
+          name,
+          price,
+          billing_cycle,
+          peak_price,
+          non_peak_price,
+          validity
+        )
+      ''')
+        .eq('status',true)
+        .or(
+      'first_name.ilike.%$query%,mobile.ilike.%$query%',
+    ) // Dynamic search on name or mobile
+        .limit(10); // Pagination or limit to reduce data size
+
+    return response.map((user) {
+      final plan = user['membershipplan'];
+      final membershipData = user['membership_data'] as Map<String, dynamic>?;
+      // Use purchased_date from membership_data if available, otherwise fall back to null
+      DateTime? startDate =
+      membershipData != null
+          ? DateTime.tryParse(
+        membershipData['purchased_date']?.toString() ?? '',
+      )
+          : null;
+      DateTime? endDate;
+      if (startDate != null && plan != null && plan['validity'] != null) {
+        final billingCycle = plan['billing_cycle']?.toString().toLowerCase();
+        final validity = int.tryParse(plan['validity'].toString()) ?? 0;
+
+        if (billingCycle == 'month') {
+          endDate = startDate.add(Duration(days: validity));
+        } else if (billingCycle == 'year') {
+          endDate = DateTime(
+            startDate.year,
+            startDate.month + validity,
+            startDate.day,
+          );
+        }
+      }
+
+      return {
+        'id': user['id'] ?? '',
+        'name': user['first_name'] ?? '',
+        'mobile': user['mobile'] ?? '',
+        'membership_plan': plan?['name'] ?? '',
+        'price': plan?['price']?.toString() ?? '',
+        'billing_cycle': plan?['billing_cycle'] ?? '',
+        'peak_price': plan?['peak_price']?.toString() ?? '',
+        'non_peak_price': plan?['non_peak_price']?.toString() ?? '',
+        'validity_start': startDate?.toIso8601String() ?? '',
+        'validity_end': endDate?.toIso8601String() ?? '',
+        'membershipplan_id': user['membershipplan_id'] ?? '',
+      };
+    }).toList();
+  }
 
 }

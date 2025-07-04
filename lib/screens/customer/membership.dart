@@ -1607,16 +1607,16 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                       // New membership purchase code remains the same
 
                                                       // Duplicate check for adding
-                                                      final existing = membershipController.customers.firstWhereOrNull((c) => c['mobile'] == mobile);
-                                                      if (existing != null) {
-                                                        if ((existing['name'] ?? '').toLowerCase() != name.toLowerCase()) {
-                                                          showCustomSnackbar('Error', 'This number already belongs to ${existing['name']} – please select that customer or enter a different number.', Colors.red);
-                                                          return;
-                                                        } else {
-                                                          showCustomSnackbar('Error', 'This mobile number already exists.', Colors.red);
-                                                          return;
-                                                        }
-                                                      }
+                                                      // final existing = membershipController.customers.firstWhereOrNull((c) => c['mobile'] == mobile);
+                                                      // if (existing != null) {
+                                                      //   if ((existing['name'] ?? '').toLowerCase() != name.toLowerCase()) {
+                                                      //     showCustomSnackbar('Error', 'This number already belongs to ${existing['name']} – please select that customer or enter a different number.', Colors.red);
+                                                      //     return;
+                                                      //   } else {
+                                                      //     showCustomSnackbar('Error', 'This mobile number already exists.', Colors.red);
+                                                      //     return;
+                                                      //   }
+                                                      // }
 
                                                       try {
                                                         String? customerId = '';

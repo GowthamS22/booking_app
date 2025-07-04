@@ -1491,6 +1491,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     paymentNotes: notesController.text,
                                                     receiptToggle: receiptToggle,
                                                     printBoth: true,
+                                                    customerId: widget.exuserId
                                                   );
                                                 }
 
@@ -1523,6 +1524,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paymentNotes: notesController.text,
                                                   receiptToggle: receiptToggle,
                                                   printBoth: true,
+                                                  customerId: widget.exuserId
                                                 );
                                               }
 
@@ -1628,6 +1630,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                         paymentNotes: notesController.text,
                                                         receiptToggle: receiptToggle,
                                                         printBoth: true,
+                                                        customerId: checkoutController.userData.value.id
                                                       );
                                                     }
 
@@ -1700,6 +1703,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paymentNotes: notesController.text,
                                                   receiptToggle: receiptToggle,
                                                   printBoth: true,
+                                                  customerId: checkoutController.userData.value.id
                                                 );
                                               }
 
@@ -1730,21 +1734,51 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                             posProductVendor: paymentDeviceData['product_vendor'],
                                                             posProductName: paymentDeviceData['product_name'],
                                                             posProductVersion: paymentDeviceData['product_version'],
-                                                          ).then((value) {
-                                                            checkoutController.productsPayment(
-                                                              order_id: orderId,
-                                                              price: widget.billAmount - discountAmount,
-                                                              taxes: (widget.billAmount - discountAmount) * 0.1,
-                                                              surcharge: 0,
-                                                              discount: discountAmount,
-                                                              billAmount: widget.billAmount,
-                                                              paidAmount: totalPaid,
-                                                              balanceAmount: double.parse(balanceAmountController.text,),
-                                                              paymentType: selectedMethod,
-                                                              paymentNotes: notesController.text,
-                                                              paymentResponse: value.toString(),
-                                                              receiptToggle: receiptToggle,
-                                                            );
+                                                          ).then((value) async {
+
+                                                            if(widget.exuserId!=null && widget.exuserId!='') {
+
+                                                              checkoutController.productsPayment(
+                                                                order_id: orderId,
+                                                                price: widget.billAmount - discountAmount,
+                                                                taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                                surcharge: 0,
+                                                                discount: discountAmount,
+                                                                billAmount: widget.billAmount,
+                                                                paidAmount: totalPaid,
+                                                                balanceAmount: double.parse(balanceAmountController.text,),
+                                                                paymentType: selectedMethod,
+                                                                paymentNotes: notesController.text,
+                                                                paymentResponse: value.toString(),
+                                                                receiptToggle: receiptToggle,
+                                                                customerId: widget.exuserId,
+                                                              );
+
+                                                            } else {
+                                                              await checkoutController.registerUser(
+                                                                mobile: widget.mobileno,
+                                                                firstName: widget.customerName,
+                                                              ).then((userInfo) {
+
+                                                                checkoutController.productsPayment(
+                                                                  order_id: orderId,
+                                                                  price: widget.billAmount - discountAmount,
+                                                                  taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                                  surcharge: 0,
+                                                                  discount: discountAmount,
+                                                                  billAmount: widget.billAmount,
+                                                                  paidAmount: totalPaid,
+                                                                  balanceAmount: double.parse(balanceAmountController.text,),
+                                                                  paymentType: selectedMethod,
+                                                                  paymentNotes: notesController.text,
+                                                                  paymentResponse: value.toString(),
+                                                                  receiptToggle: receiptToggle,
+                                                                  customerId: checkoutController.userData.value.id,
+                                                                );
+
+                                                              });
+                                                            }
+
                                                           });
 
                                                       if (paymentController.paymentStatus.value == 'Payment successful') {
@@ -1760,19 +1794,45 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                       );
                                                     }
                                                   } else {
-                                                    checkoutController.productsPayment(
-                                                      order_id: orderId,
-                                                      price: widget.billAmount - discountAmount,
-                                                      taxes: (widget.billAmount - discountAmount) * 0.1,
-                                                      surcharge: 0,
-                                                      discount: discountAmount,
-                                                      billAmount: widget.billAmount - discountAmount,
-                                                      paidAmount: totalPaid,
-                                                      balanceAmount: double.parse(balanceAmountController.text,),
-                                                      paymentType: selectedMethod,
-                                                      paymentNotes: notesController.text,
-                                                      receiptToggle: receiptToggle,
-                                                    );
+                                                    if(widget.exuserId!=null && widget.exuserId!='') {
+                                                      checkoutController.productsPayment(
+                                                        order_id: orderId,
+                                                        price: widget.billAmount - discountAmount,
+                                                        taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                        surcharge: 0,
+                                                        discount: discountAmount,
+                                                        billAmount: widget.billAmount - discountAmount,
+                                                        paidAmount: totalPaid,
+                                                        balanceAmount: double.parse(balanceAmountController.text,),
+                                                        paymentType: selectedMethod,
+                                                        paymentNotes: notesController.text,
+                                                        receiptToggle: receiptToggle,
+                                                        customerId: widget.exuserId,
+                                                      );
+                                                    } else {
+                                                      await checkoutController.registerUser(
+                                                        mobile: widget.mobileno,
+                                                        firstName: widget.customerName,
+                                                      ).then((userInfo) {
+
+                                                        checkoutController.productsPayment(
+                                                          order_id: orderId,
+                                                          price: widget.billAmount - discountAmount,
+                                                          taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                          surcharge: 0,
+                                                          discount: discountAmount,
+                                                          billAmount: widget.billAmount - discountAmount,
+                                                          paidAmount: totalPaid,
+                                                          balanceAmount: double.parse(balanceAmountController.text,),
+                                                          paymentType: selectedMethod,
+                                                          paymentNotes: notesController.text,
+                                                          receiptToggle: receiptToggle,
+                                                          customerId: checkoutController.userData.value.id,
+                                                        );
+
+                                                      });
+                                                    }
+
                                                   }
                                                 });
                                           }
