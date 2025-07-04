@@ -320,7 +320,7 @@ class CustomerController extends GetxController {
     update();
   }
 
-  Future<void> fetchCustomerDetails({bool? hasMembership}) async {
+  Future<void> fetchCustomerDetails1({bool? hasMembership}) async {
     try {
       final SharedPreferences preferences =
           await SharedPreferences.getInstance();
@@ -400,6 +400,196 @@ class CustomerController extends GetxController {
               'totalSpent': totalSpent.toStringAsFixed(2),
             };
           }).toList();
+
+      customers.value = result;
+    } catch (e) {
+      print('Error fetching customers: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchCustomerDetails2({bool? hasMembership}) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+
+      isLoading.value = true;
+
+      var query = supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('''
+          id,
+          first_name,
+          last_name,
+          mobile,
+          membershipplan (
+            id,
+            name
+          ),
+          bookings (
+            id,
+            status,
+            is_cancelled,
+            booking_slots (
+              price
+            )
+          ),
+          orders (
+            id,
+            total
+          )
+        ''')
+          .eq('status', true);
+
+      if (hasMembership != null) {
+        if (hasMembership) {
+          query = query.neq('membership_id', null!); // With membership
+        } else {
+          query = query.eq('membership_id', null!); // Without membership
+        }
+      }
+
+      final response = await query;
+      final data = response as List<dynamic>;
+
+      final result = data.map((customer) {
+        final bookingList = customer['bookings'] as List<dynamic>? ?? [];
+        final orders = customer['orders'] as List<dynamic>? ?? [];
+
+        // Filter out cancelled bookings
+        final nonCancelledBookings = bookingList.where((b) {
+          final status = (b['status'] ?? '').toString().toLowerCase();
+          final isCancelled = b['is_cancelled'] == true;
+          return status != 'cancelled' && !isCancelled;
+        }).toList();
+
+        // Sum all slot prices for non-cancelled bookings
+        final bookingSpent = nonCancelledBookings.fold<double>(0.0, (sum, b) {
+          final slots = b['booking_slots'] as List<dynamic>? ?? [];
+          return sum + slots.fold<double>(0.0, (slotSum, slot) {
+            return slotSum + ((slot['price'] as num?)?.toDouble() ?? 0.0);
+          });
+        });
+
+        // Sum all order total amounts
+        final orderSpent = orders.fold<double>(0.0, (sum, order) {
+          return sum + ((order['total'] as num?)?.toDouble() ?? 0.0);
+        });
+
+        final totalSpent = bookingSpent + orderSpent;
+        final totalBookings = nonCancelledBookings.length;
+
+        return {
+          'id': customer['id'],
+          'name': '${customer['first_name']}',
+          'mobile': customer['mobile'],
+          'membership': customer['membershipplan']?['name'] ?? 'N/A',
+          'totalBookings': totalBookings,
+          'totalSpent': totalSpent.toStringAsFixed(2),
+        };
+      }).toList();
+
+      customers.value = result;
+    } catch (e) {
+      print('Error fetching customers: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> fetchCustomerDetails({bool? hasMembership}) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+
+      isLoading.value = true;
+
+      var query = supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('''
+          id,
+          first_name,
+          last_name,
+          mobile,
+          membershipplan (
+            id,
+            name
+          ),
+          bookings (
+            id,
+            status,
+            is_cancelled,
+            booking_slots (
+              price
+            )
+          ),
+          orders (
+            id,
+            total
+          ),
+          membershippayment (
+            id,
+            total
+          )
+        ''')
+          .eq('status', true);
+
+      if (hasMembership != null) {
+        if (hasMembership) {
+          query = query.neq('membership_id', null!); // With membership
+        } else {
+          query = query.eq('membership_id', null!); // Without membership
+        }
+      }
+
+      final response = await query;
+      final data = response as List<dynamic>;
+
+      final result = data.map((customer) {
+        final bookingList = customer['bookings'] as List<dynamic>? ?? [];
+        final orders = customer['orders'] as List<dynamic>? ?? [];
+        final payments = customer['membershippayment'] as List<dynamic>? ?? [];
+
+        // Filter out cancelled bookings
+        final nonCancelledBookings = bookingList.where((b) {
+          final status = (b['status'] ?? '').toString().toLowerCase();
+          final isCancelled = b['is_cancelled'] == true;
+          return status != 'cancelled' && !isCancelled;
+        }).toList();
+
+        // Sum booking slot prices
+        final bookingSpent = nonCancelledBookings.fold<double>(0.0, (sum, b) {
+          final slots = b['booking_slots'] as List<dynamic>? ?? [];
+          return sum + slots.fold<double>(0.0, (slotSum, slot) {
+            return slotSum + ((slot['price'] as num?)?.toDouble() ?? 0.0);
+          });
+        });
+
+        // Sum order totals
+        final orderSpent = orders.fold<double>(0.0, (sum, order) {
+          return sum + ((order['total'] as num?)?.toDouble() ?? 0.0);
+        });
+
+        // Sum membership payments
+        final membershipSpent = payments.fold<double>(0.0, (sum, payment) {
+          return sum + ((payment['total'] as num?)?.toDouble() ?? 0.0);
+        });
+
+        final totalSpent = bookingSpent + orderSpent + membershipSpent;
+        final totalBookings = nonCancelledBookings.length;
+
+        return {
+          'id': customer['id'],
+          'name': '${customer['first_name']}',
+          'mobile': customer['mobile'],
+          'membership': customer['membershipplan']?['name'] ?? 'N/A',
+          'totalBookings': totalBookings,
+          'totalSpent': totalSpent.toStringAsFixed(2),
+        };
+      }).toList();
 
       customers.value = result;
     } catch (e) {

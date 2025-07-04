@@ -1588,6 +1588,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                                 isMembershipApplied: true,
                                                                 membershipPrice: selectedPrice,
                                                                 exuserId: customerId,
+                                                                forpayment: 'membership-payment',
                                                               ),
                                                             );
 
@@ -1650,6 +1651,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                               isMembershipApplied: true,
                                                               membershipPrice: double.tryParse(selectedPlan['price']?.toString() ?? '0') ?? 0,
                                                               exuserId: customerId,
+                                                              forpayment: 'membership-payment',
                                                             ),
                                                           );
 

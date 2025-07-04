@@ -8,6 +8,8 @@ import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:get/get.dart';
 import 'dart:math' as math;
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
@@ -134,20 +136,50 @@ class _OnboardingPageState extends State<OnboardingPage> {
         // Pause the camera
         controller.pauseCamera();
 
-        // Store centerSlug in SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('centerSlug', scannedCode.toString());
+        try {
+          final response = await Supabase.instance.client
+              .schema('${scannedCode}_prod_schema')
+              .from('store_details')
+              .select('id')
+              .limit(1);
 
-        // Hide the scanner UI
-        setState(() {
-          showScanner = false;
+          if (response.isEmpty) {
+            showCustomSnackbar('Invalid Client ID', 'No store details found in this client schema.', Colors.redAccent);
+            return;
+          }
+
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('centerSlug', scannedCode);
           authController.centerSlug.value = scannedCode.toString();
-        });
 
-        Get.offAllNamed('/');
+          setState(() {
+            showManualInput = false;
+            showScanner = false;
+          });
 
-        // Optional: Navigate to next screen or show a confirmation
-        // Navigator.push(...);
+          Get.offAllNamed('/');
+
+        } catch (e) {
+          // Check if it's a PostgrestException and show a clean error
+          if (e is PostgrestException) {
+            showCustomSnackbar('Invalid Client ID', 'Please enter the correct client id', Colors.redAccent);
+          } else {
+            showCustomSnackbar('Error', 'Something went wrong. Please try again.', Colors.redAccent);
+          }
+        }
+
+        // Store centerSlug in SharedPreferences
+        // final prefs = await SharedPreferences.getInstance();
+        // await prefs.setString('centerSlug', scannedCode.toString());
+        //
+        // // Hide the scanner UI
+        // setState(() {
+        //   showScanner = false;
+        //   authController.centerSlug.value = scannedCode.toString();
+        // });
+        //
+        // Get.offAllNamed('/');
+
       }
     });
   }
@@ -256,7 +288,24 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         child: ElevatedButton(
                           onPressed: () async {
                             final manualValue = manualInputController.text.trim();
-                            if (manualValue.isNotEmpty) {
+
+                            if (manualValue.isEmpty) {
+                              showCustomSnackbar('Error', 'Please enter a valid client ID', Colors.redAccent);
+                              return;
+                            }
+
+                            try {
+                              final response = await Supabase.instance.client
+                                  .schema('${manualValue}_prod_schema')
+                                  .from('store_details')
+                                  .select('id')
+                                  .limit(1);
+
+                              if (response.isEmpty) {
+                                showCustomSnackbar('Invalid Client ID', 'No store details found in this client schema.', Colors.redAccent);
+                                return;
+                              }
+
                               final prefs = await SharedPreferences.getInstance();
                               await prefs.setString('centerSlug', manualValue);
                               authController.centerSlug.value = manualValue;
@@ -268,9 +317,13 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
                               Get.offAllNamed('/');
 
-                              // Optional: Navigate to next screen or show a success message
-                            } else {
-                              showCustomSnackbar('Error', 'Please enter a valid client id', Colors.redAccent);
+                            } catch (e) {
+                              // Check if it's a PostgrestException and show a clean error
+                              if (e is PostgrestException) {
+                                showCustomSnackbar('Invalid Client ID', 'Please enter the correct client id', Colors.redAccent);
+                              } else {
+                                showCustomSnackbar('Error', 'Something went wrong. Please try again.', Colors.redAccent);
+                              }
                             }
                           },
                           child: Text(

@@ -569,6 +569,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                         exbookingId: bookingData.id,
                                                         exorderId: orderData!=null ? orderData.id: null,
                                                         exuserId: userData['id'],
+                                                        forpayment: 'existing-order-payment',
                                                       ));
                                                     }
                                                   },);

@@ -1,6 +1,7 @@
 // ignore_for_file: unnecessary_null_comparison
 
 import 'package:booking_app/controllers/cart_controller.dart';
+import 'package:booking_app/models/user.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:booking_app/screens/shopping/addon_items_widget.dart';
 import 'package:booking_app/screens/shopping/cart_items.dart';
@@ -63,6 +64,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     selectedSlots.clear();
     showTodayButton = false;
     controller.clearSelectedSlots();
+    controller.userData.value = User();
     cartController.clearCart();
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
@@ -91,7 +93,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     // Clear cart items when screen is disposed
     cartController.clearCart();
     controller.clearSelectedSlots();
-
+    controller.userData.value = User();
     super.dispose();
   }
 
@@ -1717,7 +1719,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               hasMembership = (suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty);
                                               memberPeakPrice = hasMembership ? double.tryParse(suggestion['peak_price']?.toString() ?? '0',) : null;
                                               memberNonPeakPrice = hasMembership ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0',) : null;
-                                              membershipPlan = hasMembership ? suggestion['membership_plan'] : null;
+                                              membershipPlan = hasMembership ? suggestion['membership_plan'] : '';
                                               membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '',) : null;
                                               updateCourtPrice();
                                             });
@@ -2572,7 +2574,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           context,
                                           nameController.text,
                                           mobileController.text,
-                                          controller.selectedCourt.toString(),
+                                          '${selectedName} ${controller.selectedCourt.toString()}',
                                           TotalAmount,
                                           selectedDateTime ?? DateTime.now(),
                                           bookings,
@@ -2744,7 +2746,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     context,
                                     nameController.text,
                                     mobileController.text,
-                                    controller.selectedCourt.toString(),
+                                    '${selectedName} ${controller.selectedCourt.toString()}',
                                     totalPrice,
                                     selectedDateTime ?? DateTime.now(),
                                     bookings,
@@ -3325,6 +3327,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   membershipName: selectedMembershipPlan,
                                   isMembershipApplied: isMembershipApplied,
                                   membershipPrice: memberPrice,
+                                  forpayment: 'new-booking-payment',
                                 ),
                               );
                             },

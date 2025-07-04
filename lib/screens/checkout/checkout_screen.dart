@@ -34,6 +34,7 @@ class CheckoutScreen extends StatefulWidget {
   final String? exbookingId;
   final String? exorderId;
   final String? exuserId;
+  final String? forpayment;
   CheckoutScreen({
     Key? key,
     required this.type,
@@ -48,7 +49,8 @@ class CheckoutScreen extends StatefulWidget {
     required this.membershipPrice,
     this.exbookingId,
     this.exorderId,
-    this.exuserId
+    this.exuserId,
+    required this.forpayment,
   }) : super(key: key);
 
   @override
@@ -70,7 +72,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   TextEditingController balanceAmountController = TextEditingController();
 
   // String? _selectedPaymentType = 'Credit Card';
-  bool receiptToggle = true;
+  bool receiptToggle = false;
   Map<String, List<BookingInfo>> groupedBookings = {};
   double totalPaid = 0.0;
   String customAmountString = '';
@@ -789,7 +791,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount - discountAmount).toStringAsFixed(2)}',
+                      '\$${(widget.billAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w600,
@@ -1256,6 +1258,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Padding(
                 padding: const EdgeInsets.only(right: 15),
                 child: Row(
+                  spacing: 20,
                   children: [
                     Expanded(
                       child: ElevatedButton(
@@ -1286,7 +1289,67 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     ),
-                    SizedBox(width: 10),
+                    if(widget.forpayment=='new-booking-payment' ) ...[
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+
+                            if (controller.userData.value.id != null) {
+                              populateCartWithSubSlots(widget.bookings);
+                              controller.processCheckout(
+                                name: controller.nameController.text,
+                                email: controller.userData.value.email,
+                                mobile: controller.userData.value.mobile,
+                                bookingId: controller.bookingId,
+                                paymentType: 'Pending', // Set payment type as Pending
+                                promoCode: '',
+                                notes: 'Payment pending - Pay Later option selected',
+                                bookings: widget.bookings,
+                              );
+                              Navigator.pop(context);
+                            } else {
+                              // Create new user and then create booking with pending payment
+                              controller.registerUser(
+                                mobile: widget.mobileno,
+                                firstName: widget.customerName,
+                              ).then((value) {
+                                // Create booking with pending payment
+                                populateCartWithSubSlots(widget.bookings);
+                                controller.processCheckout(
+                                  name: controller.nameController.text,
+                                  email: controller.userData.value.email,
+                                  mobile: controller.userData.value.mobile,
+                                  paymentType: 'Pending', // Set payment type as Pending
+                                  promoCode: '',
+                                  notes: 'Payment pending - Pay Later option selected',
+                                  bookingId: controller.bookingId,
+                                  bookings: widget.bookings,
+                                );
+                              });
+                              Navigator.pop(context);
+                            }
+
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 44),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                          ),
+                          child: Text(
+                            'Pay Later',
+                            style: GoogleFonts.inter(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 25,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     Expanded(
                       child: Obx(() {
                         final isProcessing =
@@ -1297,14 +1360,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ? null
                                   : () async {
                                     if (totalPaid > 0) {
-                                      if (double.parse(
-                                            balanceAmountController.text,
-                                          ) <=
-                                          0 && totalPaid >= widget.billAmount) {
+                                      print(widget.billAmount);
+                                      print(discountAmount);
+                                      if (double.parse(balanceAmountController.text,) <= 0 && totalPaid >= (widget.billAmount - discountAmount)) {
                                         setState(() {
-                                          checkoutController
-                                              .checkoutPayBtn
-                                              .value = true;
+                                          checkoutController.checkoutPayBtn.value = true;
                                         });
 
                                         if (isDiscountApplied) {
@@ -2422,6 +2482,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<bool?> _showCancelBookingDialog() async {
+    String title = '';
+    String description = '';
+    if(widget.forpayment=='product-only') {
+      title = 'Cancel Order';
+      description = 'Are you sure you want to cancel the order? \nAll entered details will be cleared.';
+    } else if(widget.forpayment=='existing-order-payment') {
+      title = 'Cancel Payment';
+      description = 'Are you sure you want to cancel the payment?';
+    } else if(widget.forpayment=='new-booking-payment') {
+      title = 'Cancel Booking';
+      description = 'Are you sure you want to cancel the booking? \nAll entered details will be cleared.';
+    } else if(widget.forpayment=='membership-payment') {
+      title = 'Cancel Membership';
+      description = 'Are you sure you want to cancel the membership payment? \nAll entered details will be cleared.';
+    }
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -2432,8 +2507,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           title: Center(
             child: Text(
-              'Cancel Booking',
-
+              title,
               style: GoogleFonts.inter(
                 fontWeight: FontWeight.bold,
                 fontSize: 28,
@@ -2441,7 +2515,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           content: Text(
-            'Are you sure you want to cancel the booking? \nAll entered details will be cleared.',
+            description,
             style: GoogleFonts.inter(fontSize: 22),
           ),
           actionsAlignment: MainAxisAlignment.spaceBetween,
@@ -2462,28 +2536,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ElevatedButton(
               onPressed: () {
                 // Clear all booking details
-                newBookingController.clearSelectedSlots();
-                newBookingController.mobileNumberController.clear();
-                newBookingController.nameController.clear();
-                newBookingController.serviceController.clear();
-                newBookingController.bookingdateController.clear();
-                notesController.clear();
-                promoCodeController.clear();
-                paidAmountController.clear();
-                balanceAmountController.clear();
-                setState(() {
-                  totalPaid = 0.0;
-                  customAmountString = '';
-                  selectedAmount = '';
-                  selectedMethod = 'CASH';
-                  discountAmount = 0.0;
-                  isDiscountApplied = false;
-                  receiptToggle = true;
-                });
-                // Ensure UI refresh before navigating away
-                setState(() {});
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.pop(context); // Return to booking screen
+                final defaultController = Get.find<DefaultController>();
+                defaultController.tabIndex.value = 0; // Reset to Dashboard
+                defaultController.dashboardTabController?.index = 0;
+                Get.offAllNamed('/');
+                // newBookingController.clearSelectedSlots();
+                // newBookingController.mobileNumberController.clear();
+                // newBookingController.nameController.clear();
+                // newBookingController.serviceController.clear();
+                // newBookingController.bookingdateController.clear();
+                // notesController.clear();
+                // promoCodeController.clear();
+                // paidAmountController.clear();
+                // balanceAmountController.clear();
+                // setState(() {
+                //   totalPaid = 0.0;
+                //   customAmountString = '';
+                //   selectedAmount = '';
+                //   selectedMethod = 'CASH';
+                //   discountAmount = 0.0;
+                //   isDiscountApplied = false;
+                //   receiptToggle = true;
+                // });
+                // // Ensure UI refresh before navigating away
+                // setState(() {});
+                // Navigator.of(context).pop(); // Close dialog
+                // Navigator.pop(context); // Return to booking screen
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade400,

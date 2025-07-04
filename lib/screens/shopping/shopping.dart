@@ -823,6 +823,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
               membershipName: '',
               isMembershipApplied: false,
               membershipPrice: 0.0,
+              forpayment: 'product-only',
             ),
       ),
     ).then((_) {

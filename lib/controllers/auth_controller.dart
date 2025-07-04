@@ -33,7 +33,7 @@ class AuthController extends GetxController {
 
   Future<void> pinLogin({required String memberPin}) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-    String? centerSlug                  = 's22';
+    String? centerSlug                  = preferences.getString('centerSlug');
     try {
 
       final userResponse = await supabase

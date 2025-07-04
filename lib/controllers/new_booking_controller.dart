@@ -322,6 +322,7 @@ class NewBookingController extends GetxController {
     String? centerSlug = preferences.getString('centerSlug');
 
     currentPlan.clear();
+    userData.value = User();
     try {
       // Step 1: Get user by mobile
       final userResponse =
