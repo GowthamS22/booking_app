@@ -523,7 +523,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                         Expanded(
                                           child: Center(
                                             child: Text(
-                                              "\$ ${b.grandTotal.toStringAsFixed(2)}",
+                                              "\$ ${b.grandTotal?.toStringAsFixed(2)}",
                                               style: GoogleFonts.inter(
                                                 fontSize: 23,
                                                 fontWeight: FontWeight.w500,

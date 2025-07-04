@@ -72,22 +72,16 @@ class OrderController extends GetxController {
         ''');
 
       if (filterType == 'Active') {
-        final minute = now.minute;
-        final slotStart = DateTime(
-          now.year,
-          now.month,
-          now.day,
-          now.hour,
-          minute < 30 ? 0 : 30,
-        );
-        final slotEnd = slotStart.add(Duration(minutes: 30));
+        // Fetch all slots for today
+        final todayStart = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
         query = query
             .eq('status', 'Booked')
             .eq('bookings.closed', false)
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
-            .lte('start_time', slotStart.toIso8601String())
-            .gte('end_time', slotEnd.toIso8601String());
+            .gte('start_time', todayStart.toIso8601String())
+            .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'upcoming') {
         query = query
             .eq('bookings.is_cancelled', false)
@@ -164,7 +158,7 @@ class OrderController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('orders')
           .select('booking_id, total, order_status')
-          //.eq('order_status', 'Pending')
+      //.eq('order_status', 'Pending')
           .inFilter('booking_id', bookingIds);
 
       final ordersData1 = ordersResponse1 as List<dynamic>;
@@ -238,10 +232,10 @@ class OrderController extends GetxController {
 
         final isSameBooking =
             last['booking_id'] == item['booking_id'] &&
-            last['court_id'] == item['court_id'] &&
-            last['service_id'] == item['service_id'] &&
-            last['status'] == item['status'] &&
-            (last['bookings']?['customer_id'] == item['bookings']?['customer_id']);
+                last['court_id'] == item['court_id'] &&
+                last['service_id'] == item['service_id'] &&
+                last['status'] == item['status'] &&
+                (last['bookings']?['customer_id'] == item['bookings']?['customer_id']);
 
         final lastEnd = DateTime.parse(last['end_time']);
         final currStart = DateTime.parse(item['start_time']);
@@ -254,8 +248,19 @@ class OrderController extends GetxController {
         }
       }
 
+      // For 'Active', only show merged blocks that are currently active
+      List<Map<String, dynamic>> filteredMerged = merged;
+      if (filterType == 'Active') {
+        final now = DateTime.now();
+        filteredMerged = merged.where((item) {
+          final start = DateTime.parse(item['start_time']);
+          final end = DateTime.parse(item['end_time']);
+          return start.isBefore(now) && end.isAfter(now);
+        }).toList();
+      }
+
       // ✅ STEP 3: Sort by booking_no ascending
-      merged.sort((a, b) {
+      filteredMerged.sort((a, b) {
         final aNo = (a['bookings']?['booking_no'] ?? '').toString();
         final bNo = (b['bookings']?['booking_no'] ?? '').toString();
         return aNo.compareTo(bNo);
@@ -263,11 +268,11 @@ class OrderController extends GetxController {
 
       // ✅ STEP 4: Format & map to model
       final result =
-          merged.map((e) {
-            e['start_time_formatted'] = format12Hour(e['start_time']);
-            e['end_time_formatted'] = format12Hour(e['end_time']);
-            return BookingModel.fromJson(e);
-          }).toList();
+      filteredMerged.map((e) {
+        e['start_time_formatted'] = format12Hour(e['start_time']);
+        e['end_time_formatted'] = format12Hour(e['end_time']);
+        return BookingModel.fromJson(e);
+      }).toList();
 
       bookings.value = result;
     } catch (e) {

@@ -538,27 +538,21 @@ class CustomerController extends GetxController {
         ''')
           .eq('status', true);
 
-      if (hasMembership != null) {
-        if (hasMembership) {
-          query = query.neq('membership_id', null!); // With membership
-        } else {
-          query = query.eq('membership_id', null!); // Without membership
-        }
-      }
-
       final response = await query;
       final data = response as List<dynamic>;
 
       final result = data.map((customer) {
         final bookingList = customer['bookings'] as List<dynamic>? ?? [];
-        final orders = customer['orders'] as List<dynamic>? ?? [];
+        final orders = (customer['orders'] as List<dynamic>? ?? []).where((order) {
+          return order['order_status']?.toString().toLowerCase() == 'completed';
+        }).toList();
         final payments = customer['membershippayment'] as List<dynamic>? ?? [];
 
         // Filter out cancelled bookings
         final nonCancelledBookings = bookingList.where((b) {
           final status = (b['status'] ?? '').toString().toLowerCase();
           final isCancelled = b['is_cancelled'] == true;
-          return status != 'cancelled' && !isCancelled;
+          return status != 'cancelled' && !isCancelled && b['is_showoff']==false;
         }).toList();
 
         // Sum booking slot prices

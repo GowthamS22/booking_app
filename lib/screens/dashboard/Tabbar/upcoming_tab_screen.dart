@@ -388,8 +388,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                                             .center,
                                                     children: [
                                                       Text(
-                                                        booking.customerName! ??
-                                                            '',
+                                                        booking.customerName ?? '',
                                                         style:
                                                             GoogleFonts.inter(
                                                               fontSize: 22,
@@ -416,7 +415,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
-                                                    booking.customerMobile!,
+                                                    booking.customerMobile ?? '',
                                                     style: GoogleFonts.inter(
                                                       fontSize: 22,
                                                       fontWeight:
@@ -503,7 +502,7 @@ class _UpcomingTabScreenState extends State<UpcomingTabScreen> {
                                             Expanded(
                                               child: Center(
                                                 child: Text(
-                                                  "\$ ${b.grandTotal!.toStringAsFixed(2)}",
+                                                  "\$ ${b.grandTotal?.toStringAsFixed(2)}",
                                                   style: GoogleFonts.inter(
                                                     fontSize: 23,
                                                     fontWeight: FontWeight.w500,

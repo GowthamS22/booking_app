@@ -2549,7 +2549,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   child: ElevatedButton(
                                     onPressed: () {
                                       if (_formKey.currentState!.validate()) {
-                                        Navigator.pop(context);
+                                        //Navigator.pop(context);
                                         final double TotalAmount;
                                         final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
                                         controller.getUserDatabyMobile(
@@ -2749,7 +2749,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             ElevatedButton(
                               onPressed: () {
                                 if (_formKey.currentState!.validate()) {
-                                  Navigator.pop(context);
+                                  //Navigator.pop(context);
                                   controller.getUserDatabyMobile(
                                     mobileController.text,
                                   );
@@ -3326,7 +3326,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 dialogContext,
                               ).pop(); // Close the dialog first
 
-                              await Future.delayed(Duration(seconds: 1));
+                              //await Future.delayed(Duration(seconds: 1));
                               //print(updatedBookings[0].subSlots[0].price);
                               Get.to(
                                 //Checkout(),

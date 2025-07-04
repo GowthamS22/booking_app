@@ -351,7 +351,7 @@ class NewBookingController extends GetxController {
     }
   }
 
-  Future<void> fetchServiceList() async {
+  Future<void> fetchServiceListOld() async {
     final SharedPreferences pref = await SharedPreferences.getInstance();
     String? centerSlug = pref.getString('centerSlug');
     isLoading.value = true;
@@ -476,6 +476,127 @@ class NewBookingController extends GetxController {
       _serviceStreamController.add(
         serviceList,
       ); // Always update the stream here once at the end of this block
+    } catch (e) {
+      print('Error fetching services: $e');
+      _serviceStreamController.addError(e);
+      showCustomSnackbar(
+        'Error',
+        'An error occurred while fetching services.',
+        Colors.red,
+      );
+    } finally {
+      isLoading.value = false;
+      update();
+    }
+  }
+
+  Future<void> fetchServiceList() async {
+    final SharedPreferences pref = await SharedPreferences.getInstance();
+    String? centerSlug = pref.getString('centerSlug');
+    isLoading.value = true;
+
+    try {
+      final String? cachedSports = pref.getString('allSports');
+      final String? cachedActiveDays = pref.getString('allActiveDays');
+      final dayName = DateFormat('EEE').format(selectedDate); // Use selectedDate
+
+      if (cachedSports != null && cachedActiveDays != null) {
+        final List<dynamic> sportsData = jsonDecode(cachedSports);
+        final List<dynamic> activeDaysData = jsonDecode(cachedActiveDays);
+
+        // Filter active days for the selected date
+        final activeDaysForSelectedDate = activeDaysData.where(
+                (activeDay) => activeDay['day_name'] == dayName && activeDay['status'] == true
+        ).toList();
+
+        final List<Map<String, dynamic>> availableSports = [];
+
+        for (var sport in sportsData) {
+          final sportId = sport['id'];
+          final sportStatus = sport['status'] ?? false;
+
+          // Check if this sport is active for the selected date
+          final isActiveOnSelectedDate = activeDaysForSelectedDate.any(
+                  (activeDay) => activeDay['sport_id'] == sportId
+          );
+
+          availableSports.add({
+            'id': sport['id'],
+            'name': sport['sport_name'],
+            'icon': '',
+            'peak_hour_status': sport['peak_hour_status'],
+            'platform_from_time': sport['platform_from_time'],
+            'platform_to_time': sport['platform_to_time'],
+            'regular_fee': sport['regular_fee'],
+            'peak_fee': sport['peak_fee'],
+            'platform_index': sport['platform_index'],
+            'is_available': sportStatus && isActiveOnSelectedDate,
+          });
+        }
+
+        availableSports.sort((a, b) {
+          final nameA = (a['name'] ?? '').toLowerCase();
+          final nameB = (b['name'] ?? '').toLowerCase();
+          return nameA.compareTo(nameB);
+        });
+
+        serviceList.clear();
+        serviceList.addAll(
+          availableSports.where((sport) => sport['is_available'] == true).toList(),
+        );
+
+        if (serviceList.isNotEmpty) {
+          final firstAvailableSport = serviceList.firstWhere(
+                (sport) => sport['is_available'] == true,
+            orElse: () => null,
+          );
+
+          if (firstAvailableSport != null) {
+            selectedService.value = firstAvailableSport['name'];
+            selectedServiceId.value = firstAvailableSport['id'];
+            fetchCourtList();
+          } else {
+            showCustomSnackbar(
+              'No Sports Available',
+              'No sports are scheduled for the selected date.',
+              Colors.orange,
+            );
+            selectedService.value = '';
+            selectedServiceId.value = '';
+          }
+        } else {
+          showCustomSnackbar(
+            'No Sports Available',
+            'No sports are scheduled for the selected date.',
+            Colors.orange,
+          );
+          selectedService.value = '';
+          selectedServiceId.value = '';
+        }
+
+        _serviceStreamController.add(serviceList);
+        isLoading.value = false;
+        update();
+        return;
+      }
+
+      // Fallback: If no cached data, fetch fresh data for the selected date
+      final sportsResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('sports')
+          .select(
+        'id, sport_name, platform_name,platform_index,no_of_platform,regular_fee,peak_fee,platform_from_time,platform_to_time,status,peak_hour_status',
+      )
+          .order('platform_index', ascending: true);
+
+      final activeDaysResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('active_days')
+          .select('sport_id, day_name, status')
+          .eq('day_name', dayName);
+
+      // ... rest of your existing fetch logic ...
+
     } catch (e) {
       print('Error fetching services: $e');
       _serviceStreamController.addError(e);
@@ -785,7 +906,7 @@ class NewBookingController extends GetxController {
     }
   }
 
-  Future<void> fetchCourtList() async {
+  Future<void> fetchCourtListOld() async {
     final SharedPreferences pref = await SharedPreferences.getInstance();
     String? centerSlug = pref.getString('centerSlug');
     isLoading.value = true;
@@ -874,6 +995,169 @@ class NewBookingController extends GetxController {
         await fetchBookedSlots();
       } else {
         courtList.clear();
+      }
+    } catch (e) {
+      print('Error fetching court list: $e');
+      _serviceStreamController.addError(e);
+    } finally {
+      isLoading.value = false;
+      update();
+    }
+  }
+
+  Future<void> fetchCourtList() async {
+    final SharedPreferences pref = await SharedPreferences.getInstance();
+    String? centerSlug = pref.getString('centerSlug');
+    isLoading.value = true;
+
+    try {
+      if (selectedServiceId.isEmpty) {
+        courtList.clear();
+        _serviceStreamController.add(serviceList);
+        isLoading.value = false;
+        update();
+        return;
+      }
+
+      // Check for cached sports data
+      final String? cachedSports = pref.getString('allSports');
+      final String? cachedPlatformStatus = pref.getString('platformStatus');
+      final dayName = DateFormat('EEE').format(selectedDate);
+
+      if (cachedSports != null && cachedPlatformStatus != null) {
+        final List<dynamic> sportsData = jsonDecode(cachedSports);
+        final List<dynamic> platformStatusData = jsonDecode(cachedPlatformStatus);
+
+        // Filter sports for the selected service ID
+        final selectedSport = sportsData.firstWhere(
+              (sport) => sport['id'] == selectedServiceId.value,
+          orElse: () => null,
+        );
+
+        if (selectedSport == null) {
+          print('No sports found for selectedServiceId: ${selectedServiceId.value}');
+          courtList.clear();
+          isLoading.value = false;
+          update();
+          return;
+        }
+
+        List<Map<String, dynamic>> generatedCourts = [];
+        final Uuid uuid = Uuid();
+
+        final int numberOfPlatforms = selectedSport['no_of_platform'] ?? 0;
+        final String platformName = selectedSport['platform_name'] ?? 'Court';
+        final bool sportOverallStatus = selectedSport['status'] ?? false;
+        final String platformIndexType = selectedSport['platform_index'] ?? 'numeric';
+
+        // Filter platform statuses for this sport
+        final currentSportPlatformStatuses = platformStatusData.where(
+                (ps) => ps['sport_id'] == selectedServiceId.value
+        ).toList();
+
+        final Map<String, bool> platformStatusMap = {};
+        final Map<String, String> platformIdMap = {};
+
+        for (var ps in currentSportPlatformStatuses) {
+          platformStatusMap[ps['platform_id'].toString()] = ps['status'] ?? false;
+          platformIdMap[ps['platform_id'].toString()] = ps['id'];
+        }
+
+        for (int i = 1; i <= numberOfPlatforms; i++) {
+          String generatedCourtName;
+          if (platformIndexType == 'alphabetical') {
+            generatedCourtName = '${platformName} ${String.fromCharCode(64 + i)}';
+          } else {
+            generatedCourtName = '${platformName} ${i.toString().padLeft(2, '0')}';
+          }
+
+          bool individualCourtStatus = sportOverallStatus;
+          if (platformStatusMap.containsKey(i.toString())) {
+            individualCourtStatus = platformStatusMap[i.toString()]!;
+          }
+
+          final String courtId = platformIdMap[i.toString()] ?? uuid.v4();
+
+          generatedCourts.add({
+            'id': courtId,
+            'name': generatedCourtName,
+            'price': selectedSport['regular_fee'],
+            'no_of_platform': 1,
+            'peak_fee': selectedSport['peak_fee'],
+            'peak_hour_status': selectedSport['peak_hour_status'],
+            'sport_id': selectedSport['id'],
+            'status': individualCourtStatus,
+          });
+        }
+
+        courtList.value = generatedCourts;
+        await fetchSpecialHours();
+        await fetchBookedSlots();
+      } else {
+        // Fallback to API call if no cached data
+        final response = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('sports')
+            .select(
+          'id, sport_name, platform_name, platform_index, no_of_platform, regular_fee, peak_fee, peak_hour_status, status, platform_status(id, sport_id, platform_id, status, created_at, updated_at)',
+        )
+            .eq('id', selectedServiceId.value)
+            .eq('status', true)
+            .order('platform_index', ascending: true);
+
+        if (response is List && response.isNotEmpty) {
+          List<Map<String, dynamic>> generatedCourts = [];
+          final Uuid uuid = Uuid();
+
+          for (var sport in response) {
+            final int numberOfPlatforms = sport['no_of_platform'] ?? 0;
+            final String platformName = sport['platform_name'] ?? 'Court';
+            final bool sportOverallStatus = sport['status'] ?? false;
+            final String platformIndexType = sport['platform_index'] ?? 'numeric';
+
+            final List<dynamic> currentSportPlatformStatuses =
+                sport['platform_status'] ?? [];
+            final Map<String, bool> platformStatusMap = {};
+            final Map<String, String> platformIdMap = {};
+
+            for (var ps in currentSportPlatformStatuses) {
+              platformStatusMap[ps['platform_id'].toString()] = ps['status'] ?? false;
+              platformIdMap[ps['platform_id'].toString()] = ps['id'];
+            }
+
+            for (int i = 1; i <= numberOfPlatforms; i++) {
+              String generatedCourtName;
+              if (platformIndexType == 'alphabetical') {
+                generatedCourtName = '${platformName} ${String.fromCharCode(64 + i)}';
+              } else {
+                generatedCourtName = '${platformName} ${i.toString().padLeft(2, '0')}';
+              }
+
+              bool individualCourtStatus = sportOverallStatus;
+              if (platformStatusMap.containsKey(i.toString())) {
+                individualCourtStatus = platformStatusMap[i.toString()]!;
+              }
+
+              final String courtId = platformIdMap[i.toString()] ?? uuid.v4();
+
+              generatedCourts.add({
+                'id': courtId,
+                'name': generatedCourtName,
+                'price': sport['regular_fee'],
+                'no_of_platform': 1,
+                'peak_fee': sport['peak_fee'],
+                'peak_hour_status': sport['peak_hour_status'],
+                'sport_id': sport['id'],
+                'status': individualCourtStatus,
+              });
+            }
+          }
+          courtList.value = generatedCourts;
+          await fetchSpecialHours();
+          await fetchBookedSlots();
+        } else {
+          courtList.clear();
+        }
       }
     } catch (e) {
       print('Error fetching court list: $e');
