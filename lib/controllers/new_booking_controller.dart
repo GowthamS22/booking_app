@@ -18,6 +18,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../config/constants.dart';
 import '../config/palette.dart';
 import '../models/booking_model.dart';
+import '../models/order.dart';
 import '../models/user.dart';
 import '../../../config/palette.dart';
 import '../../../controllers/new_booking_controller.dart';
@@ -269,7 +270,7 @@ class NewBookingController extends GetxController {
           validity
         )
       ''')
-        .eq('status',true)
+        .eq('status', true)
         .or(
           'first_name.ilike.%$query%,mobile.ilike.%$query%',
         ) // Dynamic search on name or mobile
@@ -959,45 +960,20 @@ class NewBookingController extends GetxController {
     }
   }
 
-  Future<void> cancelBooking(String bookingId, String? notes) async {
+  Future<void> cancelBooking(String bookingId) async {
     final SharedPreferences pref = await SharedPreferences.getInstance();
     String? centerSlug = pref.getString('centerSlug');
-
     try {
-      // Step 1: Fetch current payment status of the booking
-      final bookingResponse = await Supabase.instance.client
-          .schema('${centerSlug}_prod_schema')
-          .from('bookings')
-          .select('payment_status')
-          .eq('id', bookingId)
-          .single();
-
-      final String? paymentStatus = bookingResponse['payment_status'];
-
-      // Step 2: Conditionally build update map
-      final updateData = {
-        'is_cancelled': true,
-        'notes': notes,
-      };
-
-      if (paymentStatus == 'Paid') {
-        updateData['payment_type'] = 'On Acc. / Void';
-      }
-
-      // Step 3: Update bookings table
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
-          .update(updateData)
+          .update({'is_cancelled': true})
           .eq('id', bookingId);
-
-      // Step 4: Update booking_slots table
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('booking_slots')
           .update({'status': 'Cancelled'})
           .eq('booking_id', bookingId);
-
       showCustomSnackbar(
         'Success',
         'Booking cancelled successfully',
@@ -1007,9 +983,9 @@ class NewBookingController extends GetxController {
       await fetchBookedSlots();
     } catch (e) {
       showCustomSnackbar('Error', 'Failed to cancel booking: $e', Colors.red);
+      //Get.snackbar('Error', 'Failed to cancel booking: $e');
     }
   }
-
 
   Future<void> markNoShow(String bookingId) async {
     final SharedPreferences pref = await SharedPreferences.getInstance();
@@ -2771,23 +2747,7 @@ class NewBookingController extends GetxController {
         return;
       }
       final slots =
-          (response as List).map((slot) {
-            return BookingSlot(
-              id: slot['id'],
-              userId: slot['user_id'],
-              name: slot['name'],
-              mobile: slot['mobile'],
-              date: DateTime.parse(slot['start_time']),
-              serviceId: slot['service_id'],
-              courtId: slot['court_id'],
-              startTime: DateTime.parse(slot['start_time']),
-              endTime: DateTime.parse(slot['end_time']),
-              price: (slot['price'] as num).toDouble(),
-              status: slot['status'],
-              subBookingId: slot['sub_booking_id'],
-              membershipPlanId: slot['membershipplan_id'],
-            );
-          }).toList();
+          (response as List).map((slot) => BookingSlot.fromJson(slot)).toList();
 
       _bookingSlotsStreamController.add(slots);
     } catch (e) {
@@ -3024,7 +2984,7 @@ class NewBookingController extends GetxController {
 
       await fetchBookedSlots();
 
-      Get.back(); // Close the drawer
+      // Do not close the dialog here. Let the UI handle dialog closing.
       showCustomSnackbar(
         'Success',
         'Booking extended successfully ',
@@ -3053,6 +3013,8 @@ class NewBookingController extends GetxController {
     double defaultPrice = 0,
   }) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
+    isLoading.value = true;
+    update();
     List<Map<String, dynamic>> newSlotsData = [];
     double extendedSlotsTotal = 0.0;
     List<BookingSubSlotInfo> extendedSubSlots = [];
@@ -3176,11 +3138,11 @@ class NewBookingController extends GetxController {
             );
           }
         }
-        //selectedCourtSlots.clear();
-        clearSelectedSlots();
+        // //selectedCourtSlots.clear();
+        // clearSelectedSlots();
         await fetchBookedSlots();
 
-        Get.back(); // Close the drawer
+        // Do not close the dialog here. Let the UI hasssndle dialog closing.
         showCustomSnackbar(
           'Success',
           'Booking extended successfully ',
@@ -3198,5 +3160,72 @@ class NewBookingController extends GetxController {
         update();
       }
     }
+  }
+
+  Future<List<BookingSlot>> getExtensionSlotsForBooking(
+    String bookingId,
+  ) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('booking_slots')
+        .select()
+        .eq('booking_id', bookingId)
+        .eq('is_extended_booking', true);
+
+    return (response as List)
+        .map((slot) => BookingSlot.fromJson(slot))
+        .toList();
+  }
+
+  Future<Orders?> getOriginalOrderForBooking(String bookingId) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    final response =
+        await Supabase.instance.client
+            .schema('${centerSlug}_prod_schema')
+            .from('orders')
+            .select()
+            .eq('booking_id', bookingId)
+            .eq('order_status', 'Paid')
+            .maybeSingle();
+
+    if (response == null) return null;
+    return Orders.fromJson(response);
+  }
+
+  Future<Orders?> getExtensionOrderForBooking(String bookingId) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    final response =
+        await Supabase.instance.client
+            .schema('${centerSlug}_prod_schema')
+            .from('orders')
+            .select()
+            .eq('booking_id', bookingId)
+            .eq(
+              'order_type',
+              'extension',
+            ) // or another flag you use for extension
+            .maybeSingle();
+
+    if (response == null) return null;
+    return Orders.fromJson(response); // Implement Orders.fromJson
+  }
+
+  Future<List<BookingSlot>> getPaidSlotsForBooking(String bookingId) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    final response = await Supabase.instance.client
+        .schema('${centerSlug}_prod_schema')
+        .from('booking_slots')
+        .select()
+        .eq('booking_id', bookingId)
+        .eq('is_extended_booking', false);
+
+    return (response as List)
+        .map((slot) => BookingSlot.fromJson(slot))
+        .toList();
   }
 }
