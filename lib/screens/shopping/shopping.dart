@@ -46,6 +46,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
   String _tempOrderId = '';
   DateTime selectedDateTime = DateTime.now();
 
+  String? staffName;
   late TabController _tabController;
 
   @override
@@ -54,6 +55,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
     _tabController = TabController(length: 2, vsync: this);
     _clearPrefsData();
     _clearExistingOrderData();
+    _loadCenterSlug();
     _loadData().then((_) async {
       await _loadOrderIdFromPrefs();
       await _loadOrderNotesFromPrefs();
@@ -136,6 +138,13 @@ class _ShoppingScreenState extends State<ShoppingScreen>
     await prefs.remove(_prefsCartKey);
     await prefs.remove(_prefsOrderNotesKey);
     await prefs.remove(_prefsOrderIdKey);
+  }
+
+  Future<void> _loadCenterSlug() async {
+    final preferences = await SharedPreferences.getInstance();
+    setState(() {
+      staffName = preferences.getString('userName');
+    });
   }
 
   Future<void> _loadData() async {
@@ -1404,8 +1413,18 @@ class _ShoppingScreenState extends State<ShoppingScreen>
 
     String _getMonthName(int month) {
       const months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
       ];
       return months[month - 1];
     }
@@ -1432,9 +1451,15 @@ class _ShoppingScreenState extends State<ShoppingScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('All Orders', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+              const Text(
+                'All Orders',
+                style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
-              Text('View all current and past orders in one place.', style: TextStyle(color: Colors.grey[600], fontSize: 25)),
+              Text(
+                'View all current and past orders in one place.',
+                style: TextStyle(color: Colors.grey[600], fontSize: 25),
+              ),
             ],
           ),
           Expanded(
@@ -1444,9 +1469,14 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                 decoration: InputDecoration(
                   hintText: 'e.g John',
                   hintStyle: const TextStyle(fontSize: 22),
-                  prefixIcon: const Icon(Icons.search, size: 35,),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                  prefixIcon: const Icon(Icons.search, size: 35),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 15,
+                    horizontal: 20,
+                  ),
                   filled: true,
                   fillColor: Colors.white,
                 ),
@@ -1471,19 +1501,24 @@ class _ShoppingScreenState extends State<ShoppingScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
-          children: items.map((item) {
-            // Handle both Map and String formats
-            final product = item is Map ? item['product'] : jsonDecode(item)['product'];
-            final quantity = item is Map ? item['quantity'] : jsonDecode(item)['quantity'];
+          children:
+              items.map((item) {
+                // Handle both Map and String formats
+                final product =
+                    item is Map ? item['product'] : jsonDecode(item)['product'];
+                final quantity =
+                    item is Map
+                        ? item['quantity']
+                        : jsonDecode(item)['quantity'];
 
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: Text(
-                '${product['name']} (x$quantity) - \$${(double.parse(product['price'].toString()) * quantity)}',
-                style: TextStyle(fontSize: 22),
-              ),
-            );
-          }).toList(),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Text(
+                    '${product['name']} (x$quantity) - \$${(double.parse(product['price'].toString()) * quantity)}',
+                    style: TextStyle(fontSize: 22),
+                  ),
+                );
+              }).toList(),
         ),
       );
     }
@@ -1514,10 +1549,12 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                 return Center(child: Text('Error: ${snapshot.error}'));
               }
 
-              final orders = (snapshot.data ?? []).where((order) {
-                final token = order['token_number'];
-                return token != null && !(token.toString().startsWith('TMP'));
-              }).toList();
+              final orders =
+                  (snapshot.data ?? []).where((order) {
+                    final token = order['token_number'];
+                    return token != null &&
+                        !(token.toString().startsWith('TMP'));
+                  }).toList();
 
               return Container(
                 decoration: BoxDecoration(
@@ -1539,9 +1576,13 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                           child: DataTable(
                             columnSpacing: 24,
                             dataRowMinHeight: 60, // Reduced from 80
-                            dataRowMaxHeight: double.infinity, // Allow rows to expand as needed
+                            dataRowMaxHeight:
+                                double
+                                    .infinity, // Allow rows to expand as needed
                             headingRowHeight: 70,
-                            headingRowColor: MaterialStateProperty.all(Colors.black),
+                            headingRowColor: MaterialStateProperty.all(
+                              Colors.black,
+                            ),
                             headingTextStyle: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -1555,75 +1596,169 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                               DataColumn(label: Text('Amount (\$)')),
                               DataColumn(label: Text('Order Status')),
                             ],
-                            rows: orders.map((order) {
-                              final cartItems = order['cart_items'] ?? order['items'];
-                              final itemCount = cartItems is List ? cartItems.length : 1;
-                              final rowHeight = 60.0 + (itemCount * 30.0); // Base height + additional for each item
+                            rows:
+                                orders.map((order) {
+                                  final cartItems =
+                                      order['cart_items'] ?? order['items'];
+                                  final itemCount =
+                                      cartItems is List ? cartItems.length : 1;
+                                  final rowHeight =
+                                      60.0 +
+                                      (itemCount *
+                                          30.0); // Base height + additional for each item
 
-                              return DataRow(
-                                cells: [
-                                  DataCell(Text('#${order['token_number'] ?? ''}', style: const TextStyle(fontSize: 22))),
-                                  DataCell(
-                                    order['customer_id'] == null
-                                        ? Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: const [
-                                        Text('Guest', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
-                                        Text('-', style: TextStyle(fontSize: 22, color: Colors.grey)),
-                                      ],
-                                    )
-                                        : FutureBuilder(
-                                      future: Supabase.instance.client
-                                          .schema('${centerSlug}_prod_schema')
-                                          .from('customers')
-                                          .select()
-                                          .eq('id', order['customer_id'])
-                                          .maybeSingle(),
-                                      builder: (context, snapshot) {
-                                        if (snapshot.connectionState == ConnectionState.waiting) {
-                                          return const SizedBox(
-                                            width: 100,
-                                            height: 40,
-                                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                          );
-                                        }
+                                  return DataRow(
+                                    cells: [
+                                      DataCell(
+                                        Text(
+                                          '#${order['token_number'] ?? ''}',
+                                          style: const TextStyle(fontSize: 22),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        order['customer_id'] == null
+                                            ? Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: const [
+                                                Text(
+                                                  'Guest',
+                                                  style: TextStyle(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  '-',
+                                                  style: TextStyle(
+                                                    fontSize: 22,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                            : FutureBuilder(
+                                              future:
+                                                  Supabase.instance.client
+                                                      .schema(
+                                                        '${centerSlug}_prod_schema',
+                                                      )
+                                                      .from('customers')
+                                                      .select()
+                                                      .eq(
+                                                        'id',
+                                                        order['customer_id'],
+                                                      )
+                                                      .maybeSingle(),
+                                              builder: (context, snapshot) {
+                                                if (snapshot.connectionState ==
+                                                    ConnectionState.waiting) {
+                                                  return const SizedBox(
+                                                    width: 100,
+                                                    height: 40,
+                                                    child: Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
+                                                    ),
+                                                  );
+                                                }
 
-                                        if (snapshot.hasError || snapshot.data == null) {
-                                          return Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: const [
-                                              Text('Unknown', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
-                                              Text('-', style: TextStyle(fontSize: 22, color: Colors.grey)),
-                                            ],
-                                          );
-                                        }
+                                                if (snapshot.hasError ||
+                                                    snapshot.data == null) {
+                                                  return Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: const [
+                                                      Text(
+                                                        'Unknown',
+                                                        style: TextStyle(
+                                                          fontSize: 22,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '-',
+                                                        style: TextStyle(
+                                                          fontSize: 22,
+                                                          color: Colors.grey,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  );
+                                                }
 
-                                        final customer = snapshot.data as Map<String, dynamic>;
-                                        return Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                final customer =
+                                                    snapshot.data
+                                                        as Map<String, dynamic>;
+                                                return Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      customer['first_name'] ??
+                                                          'No Name',
+                                                      style: const TextStyle(
+                                                        fontSize: 22,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      customer['mobile'] ?? '-',
+                                                      style: TextStyle(
+                                                        fontSize: 22,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            ),
+                                      ),
+                                      DataCell(
+                                        Row(
+                                          spacing: 10,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
-                                            Text(customer['first_name'] ?? 'No Name', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500)),
-                                            Text(customer['mobile'] ?? '-', style: TextStyle(fontSize: 22, color: Colors.grey[600])),
+                                            Text(
+                                              _formatDate(order['created_at']),
+                                              style: const TextStyle(
+                                                fontSize: 22,
+                                              ),
+                                            ),
+                                            Text(
+                                              _formatTime(order['created_at']),
+                                              style: TextStyle(
+                                                fontSize: 22,
+                                                color: Colors.grey[600],
+                                              ),
+                                            ),
                                           ],
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                  DataCell(Row(
-                                    spacing: 10,
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(_formatDate(order['created_at']), style: const TextStyle(fontSize: 22)),
-                                      Text(_formatTime(order['created_at']), style: TextStyle(fontSize: 22, color: Colors.grey[600])),
+                                        ),
+                                      ),
+                                      DataCell(_buildCartItems(cartItems)),
+                                      DataCell(
+                                        Text(
+                                          '\$${order['bill_details']?['billAmount']?.toStringAsFixed(2) ?? '0.00'}',
+                                          style: const TextStyle(fontSize: 22),
+                                        ),
+                                      ),
+                                      DataCell(
+                                        Text(
+                                          order['order_status'] ?? '-',
+                                          style: const TextStyle(fontSize: 22),
+                                        ),
+                                      ),
                                     ],
-                                  )),
-                                  DataCell(_buildCartItems(cartItems)),
-                                  DataCell(Text('\$${order['bill_details']?['billAmount']?.toStringAsFixed(2) ?? '0.00'}', style: const TextStyle(fontSize: 22))),
-                                  DataCell(Text(order['order_status'] ?? '-', style: const TextStyle(fontSize: 22))),
-                                ],
-                              );
-                            }).toList(),
+                                  );
+                                }).toList(),
                           ),
                         ),
                       ),
@@ -1637,55 +1772,84 @@ class _ShoppingScreenState extends State<ShoppingScreen>
       );
     }
 
-
     return Scaffold(
       backgroundColor: Colors.grey[200],
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            margin: EdgeInsets.only(left: 20, right: 20, top: 20),
-            width: MediaQuery.of(context).size.width / 4,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(30),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade300,
-                  blurRadius: 5,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Container(
-              height: 70,
-              child: TabBar(
-                controller: _tabController,
-                //isScrollable: true,
-                indicator: BoxDecoration(
-                  color: Colors.indigo.shade500,
+          Row(
+            children: [
+              Container(
+                margin: EdgeInsets.only(left: 20, right: 20, top: 20),
+                width: MediaQuery.of(context).size.width / 4,
+                decoration: BoxDecoration(
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.shade300,
+                      blurRadius: 5,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
-                indicatorPadding: EdgeInsets.all(4),
-                // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
-                labelColor: Colors.white,
-                unselectedLabelColor: Colors.grey.shade600,
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelStyle: GoogleFonts.inter(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade50,
+                child: Container(
+                  height: 70,
+                  child: TabBar(
+                    controller: _tabController,
+                    //isScrollable: true,
+                    indicator: BoxDecoration(
+                      color: Colors.indigo.shade500,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    indicatorPadding: EdgeInsets.all(4),
+                    // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.grey.shade600,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    labelStyle: GoogleFonts.inter(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.grey.shade50,
+                    ),
+                    unselectedLabelStyle: GoogleFonts.inter(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    dividerColor: Colors.transparent,
+                    overlayColor: WidgetStateProperty.all(Colors.transparent),
+                    tabs: const [
+                      Tab(text: 'New Order'),
+                      Tab(text: 'All Orders'),
+                    ],
+                  ),
                 ),
-                unselectedLabelStyle: GoogleFonts.inter(
-                  fontSize: 22,
+              ),
+              Spacer(),
+              Text(
+                DateFormat('MMM d, yyyy EEEE').format(DateTime.now()),
+                style: GoogleFonts.inter(
+                  color: Colors.black,
+                  fontSize: 23,
                   fontWeight: FontWeight.w500,
                 ),
-                dividerColor: Colors.transparent,
-                overlayColor: WidgetStateProperty.all(Colors.transparent),
-                tabs: const [Tab(text: 'New Order'), Tab(text: 'All Orders')],
               ),
-            ),
+              SizedBox(width: 10),
+              CircleAvatar(
+                radius: 25,
+                backgroundImage: AssetImage("assets/images/pic/Avatar.png"),
+              ),
+              SizedBox(width: 10),
+              Text(
+                '${staffName}',
+                style: GoogleFonts.inter(
+                  color: Colors.black,
+                  fontSize: 23,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
           Expanded(
             child: TabBarView(

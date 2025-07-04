@@ -32,6 +32,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
   List<Map<String, dynamic>> filteredCustomers = [];
   String? selectedMembershipId;
   double _selectedPrice = 0.0;
+  String? staffName;
 
   @override
   void initState() {
@@ -50,6 +51,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
     final preferences = await SharedPreferences.getInstance();
     setState(() {
       customerController.centerSlug = preferences.getString('centerSlug');
+      staffName = preferences.getString('userName');
       isLoading = false;
     });
   }
@@ -107,7 +109,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                 ),
                 SizedBox(width: 10),
                 Text(
-                  'Staff Name',
+                  '${staffName}',
                   style: GoogleFonts.inter(
                     color: Colors.black,
                     fontSize: 23,
@@ -330,7 +332,7 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                 keyboardType:
                                                     TextInputType.phone,
                                                 inputFormatters: [
-                                                  MobileNumberFormatter()
+                                                  MobileNumberFormatter(),
                                                 ],
                                                 validator: (value) {
                                                   final digitsOnly =
@@ -343,9 +345,10 @@ class _CustomerScreenState extends State<CustomerScreen> {
                                                     return 'Mobile number is required';
                                                   if (digitsOnly.length != 10)
                                                     return 'Enter a valid 10-digit number';
-                                                  final ausMobileRegExp = RegExp(
-                                                    r'^\d{4} \d{3} \d{3}$',
-                                                  );
+                                                  final ausMobileRegExp =
+                                                      RegExp(
+                                                        r'^\d{4} \d{3} \d{3}$',
+                                                      );
                                                   if (!ausMobileRegExp.hasMatch(
                                                     value ?? '',
                                                   )) {
