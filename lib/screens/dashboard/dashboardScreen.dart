@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../controllers/default_controller.dart';
 import 'Tabbar/active_tab_screen.dart';
 import 'Tabbar/all_booking_tab_screen.dart';
@@ -56,19 +57,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             const Text('Unpaid'),
             if (defaultController.pendingPaymentCount.value > 0) ...[
-              const SizedBox(width: 8),
+              SizedBox(width: 8.w),
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: EdgeInsets.all(4.w),
                 decoration: const BoxDecoration(
                   color: Colors.red,
                   shape: BoxShape.circle,
                 ),
-                constraints: const BoxConstraints(minWidth: 30, minHeight: 25),
+                constraints: BoxConstraints(minWidth: 30.w, minHeight: 25.h),
                 child: Text(
                   defaultController.pendingPaymentCount.value > 99
                       ? '99'
                       : defaultController.pendingPaymentCount.value.toString(),
-                  style: const TextStyle(color: Colors.white, fontSize: 22),
+                  style: TextStyle(color: Colors.white, fontSize: 22.sp),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -172,25 +173,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // ],
       // ),
       body: Padding(
-        padding: EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(16.0.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: MediaQuery.of(context).size.width / 1.7,
-                  height: MediaQuery.of(context).size.height * .06,
+                  width: 950.w,
+                  height: 60.h,
                   //    margin: const EdgeInsets.only(left: 16, top: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius: BorderRadius.circular(30.r),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.grey.shade300,
-                        blurRadius: 5,
-                        spreadRadius: 1,
-                        offset: const Offset(0, 3),
+                        blurRadius: 5.r,
+                        spreadRadius: 1.r,
+                        offset: Offset(0, 3.h),
                       ),
                     ],
                   ),
@@ -205,20 +206,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     //isScrollable: true,
                     indicator: BoxDecoration(
                       color: Colors.indigo.shade500,
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(30.r),
                     ),
-                    indicatorPadding: EdgeInsets.all(4),
+                    indicatorPadding: EdgeInsets.all(4.w),
                     // labelPadding: const EdgeInsets.symmetric(horizontal: 24),
                     labelColor: Colors.white,
                     unselectedLabelColor: Colors.grey.shade400,
                     indicatorSize: TabBarIndicatorSize.tab,
                     labelStyle: GoogleFonts.inter(
-                      fontSize: 23,
+                      fontSize: 23.sp,
                       fontWeight: FontWeight.w700,
                       color: Colors.grey.shade50,
                     ),
                     unselectedLabelStyle: GoogleFonts.inter(
-                      fontSize: 23,
+                      fontSize: 23.sp,
                       fontWeight: FontWeight.w500,
                     ),
 
@@ -243,27 +244,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   DateFormat('MMM d, yyyy EEEE').format(DateTime.now()),
                   style: GoogleFonts.inter(
                     color: Colors.black,
-                    fontSize: 23,
+                    fontSize: 23.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 CircleAvatar(
-                  radius: 25,
+                  radius: 25.r,
                   backgroundImage: AssetImage("assets/images/pic/Avatar.png"),
                 ),
-                SizedBox(width: 10),
+                SizedBox(width: 10.w),
                 Text(
                   '${staffName}',
                   style: GoogleFonts.inter(
                     color: Colors.black,
-                    fontSize: 23,
+                    fontSize: 23.sp,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            SizedBox(width: 10),
+            SizedBox(height: 10.h),
             Expanded(
               child: TabBarView(
                 controller: defaultController.dashboardTabController,

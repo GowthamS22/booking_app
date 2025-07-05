@@ -1,7 +1,7 @@
 // ignore_for_file: unnecessary_null_comparison
 
 import 'package:booking_app/controllers/cart_controller.dart';
-import 'package:booking_app/models/user.dart';
+import 'package:booking_app/models/user.dart' as AppUser;
 import 'package:booking_app/screens/checkout/checkout_screen.dart';
 import 'package:booking_app/screens/shopping/addon_items_widget.dart';
 import 'package:booking_app/screens/shopping/cart_items.dart';
@@ -11,13 +11,19 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/constants.dart';
 import '../../../config/palette.dart';
 import '../../../controllers/new_booking_controller.dart';
 import '../../../models/booking_model.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:booking_app/components/mobile_number_formatter.dart';
 
 import '../extended_bookings.dart';
+
+final supabase = Supabase.instance.client;
 
 class CourtViewScreen extends StatefulWidget {
   const CourtViewScreen({super.key});
@@ -64,7 +70,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     selectedSlots.clear();
     showTodayButton = false;
     controller.clearSelectedSlots();
-    controller.userData.value = User();
+    controller.userData.value = AppUser.User();
     cartController.clearCart();
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
@@ -93,7 +99,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     // Clear cart items when screen is disposed
     cartController.clearCart();
     controller.clearSelectedSlots();
-    controller.userData.value = User();
+    controller.userData.value = AppUser.User();
     super.dispose();
   }
 
@@ -202,8 +208,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
+    return Container(
+      child: Column(
+        children: [
         const SizedBox(height: 15),
         Row(
           children: [
@@ -1131,6 +1138,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           }),
         ),
       ],
+    ),
     );
   }
 
@@ -1570,114 +1578,54 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
 
-                                // Name Field
+                                // Mobile Field
                                 Flexible(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-
-                                        children: [
-                                          Text(
-                                            'Name',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              color: Colors.grey.shade900,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-
-                                          if (hasMembership) ...[
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: backgroundColor,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                                border: Border.all(
-                                                  color: borderColor!,
-                                                ),
-                                              ),
-                                              child: Text(
-                                                    () {
-                                                  if (membershipValidityDate == null) {
-                                                    return '$membershipPlan : (No Validity Info)';
-                                                  }
-
-                                                  final now = DateTime.now();
-                                                  final today = DateTime(now.year, now.month, now.day);
-                                                  final expiry = DateTime(
-                                                    membershipValidityDate!.year,
-                                                    membershipValidityDate!.month,
-                                                    membershipValidityDate!.day,
-                                                  );
-
-                                                  final difference = expiry.difference(today).inDays;
-
-                                                  if (difference > 0) {
-                                                    return '$membershipPlan : (Valid for $difference days)';
-                                                  } else if (difference == 0) {
-                                                    return '$membershipPlan : (Expires Today)';
-                                                  } else {
-                                                    return '$membershipPlan : (Expired)';
-                                                  }
-                                                }(),
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
+                                      Text(
+                                        'Mobile',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          color: Colors.grey.shade900,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
-
                                       ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minWidth: 200,
-                                          maxWidth:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.width *
-                                              0.50,
+                                          maxWidth: MediaQuery.of(context).size.width * 0.50,
                                         ),
-                                        child: TypeAheadField<
-                                          Map<String, dynamic>
-                                        >(
-                                          controller: nameController,
-                                          suggestionsCallback: (pattern) async {
-                                            return await controller
-                                                .fetchUserSuggestions(pattern);
+                                        child: Autocomplete<Map<String, dynamic>>(
+                                          displayStringForOption: (option) => option['mobile'] ?? '',
+                                          optionsBuilder: (TextEditingValue textEditingValue) async {
+                                            if (textEditingValue.text.isEmpty) {
+                                              return const Iterable<Map<String, dynamic>>.empty();
+                                            }
+                                            final pattern = textEditingValue.text;
+                                            final suggestions = await controller.fetchUserSuggestions(pattern);
+                                            return suggestions.where((user) => 
+                                              user['mobile'].toString().contains(pattern)
+                                            );
                                           },
-                                          // suggestionsCallback: (pattern) {
-                                          //   if (pattern.isEmpty) return [];
-                                          //   return controller.userList.where((user,) {
-                                          //     return user['name']!
-                                          //         .toLowerCase()
-                                          //         .contains(
-                                          //       pattern.toLowerCase(),
-                                          //     );
-                                          //   }).toList();
-                                          // },
-                                          builder: (context, _, focusNode) {
+                                          fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                                            mobileController = textEditingController;
                                             return TextFormField(
-                                              controller: nameController,
+                                              controller: textEditingController,
                                               focusNode: focusNode,
-                                              keyboardType: TextInputType.name,
+                                              keyboardType: TextInputType.phone,
+                                              inputFormatters: [
+                                                FilteringTextInputFormatter.digitsOnly,
+                                                MobileNumberFormatter(),
+                                              ],
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.trim().isEmpty) {
-                                                  return 'Name is required';
+                                                if (value == null || value.trim().isEmpty) {
+                                                  return 'Mobile number is required';
+                                                }
+                                                final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                                                if (digitsOnly.length != 10) {
+                                                  return 'Enter a valid 10-digit number';
                                                 }
                                                 return null;
                                               },
@@ -1688,14 +1636,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                               decoration: InputDecoration(
                                                 isDense: true,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 15,
-                                                      horizontal: 12,
-                                                    ),
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  vertical: 15,
+                                                  horizontal: 12,
+                                                ),
                                                 border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
+                                                  borderRadius: BorderRadius.circular(8),
                                                   borderSide: BorderSide(
                                                     color: Colors.grey.shade300,
                                                   ),
@@ -1703,35 +1649,66 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                             );
                                           },
-                                          itemBuilder: (context, suggestion) {
-                                            return ListTile(
-                                              title: Text(
-                                                suggestion['name'],
-                                                style: TextStyle(fontSize: 22),
-                                              ),
-                                              subtitle: Text(
-                                                suggestion['mobile'],
-                                                style: TextStyle(fontSize: 22),
-                                              ),
-                                            );
-                                          },
-                                          onSelected: (suggestion) {
+                                          onSelected: (Map<String, dynamic> suggestion) {
                                             mobileController.text = suggestion['mobile'];
                                             nameController.text = suggestion['name'];
+                                            print('Selected customer data: $suggestion');
                                             if(suggestion['already_in_cart']==true) {
                                               membershipInCart = true;
                                             }
-                                            print(
-                                              'Selected customer data: $suggestion',
-                                            );
                                             setState(() {
-                                              hasMembership = (suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty);
-                                              memberPeakPrice = hasMembership ? double.tryParse(suggestion['peak_price']?.toString() ?? '0',) : null;
-                                              memberNonPeakPrice = hasMembership ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0',) : null;
-                                              membershipPlan = hasMembership ? suggestion['membership_plan'] : '';
-                                              membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '',) : null;
+                                              hasMembership = (suggestion['membershipplan_id'] != null && 
+                                                  suggestion['membershipplan_id'].toString().isNotEmpty);
+                                              memberPeakPrice = hasMembership 
+                                                  ? double.tryParse(suggestion['peak_price']?.toString() ?? '0') 
+                                                  : null;
+                                              memberNonPeakPrice = hasMembership 
+                                                  ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0') 
+                                                  : null;
+                                              membershipPlan = hasMembership 
+                                                  ? suggestion['membership_plan'] 
+                                                  : '';
+                                              membershipValidityDate = hasMembership 
+                                                  ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '') 
+                                                  : null;
                                               updateCourtPrice();
                                             });
+                                            // Hide keyboard after selection
+                                            FocusScope.of(context).unfocus();
+                                          },
+                                          optionsViewBuilder: (context, onSelected, options) {
+                                            return Align(
+                                              alignment: Alignment.topLeft,
+                                              child: Material(
+                                                elevation: 4.0,
+                                                child: Container(
+                                                  constraints: const BoxConstraints(maxHeight: 200),
+                                                  child: ListView.builder(
+                                                    padding: EdgeInsets.zero,
+                                                    shrinkWrap: true,
+                                                    itemCount: options.length,
+                                                    itemBuilder: (BuildContext context, int index) {
+                                                      final Map<String, dynamic> option = options.elementAt(index);
+                                                      return ListTile(
+                                                        title: Text(
+                                                          option['name'],
+                                                          style: const TextStyle(fontSize: 22),
+                                                        ),
+                                                        subtitle: Text(
+                                                          option['mobile'],
+                                                          style: const TextStyle(fontSize: 22),
+                                                        ),
+                                                        onTap: () {
+                                                          onSelected(option);
+                                                          // Hide keyboard after tap
+                                                          FocusScope.of(context).unfocus();
+                                                        },
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                            );
                                           },
                                         ),
                                       ),
@@ -1885,81 +1862,105 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 //   ),
                                 // ),
 
+                                // Name Field
                                 Flexible(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        'Mobile',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 22,
-                                          color: Colors.grey.shade900,
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+
+                                        children: [
+                                          Text(
+                                            'Name',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 22,
+                                              color: Colors.grey.shade900,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+
+                                          if (hasMembership) ...[
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: backgroundColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                border: Border.all(
+                                                  color: borderColor!,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                    () {
+                                                  if (membershipValidityDate == null) {
+                                                    return '$membershipPlan : (No Validity Info)';
+                                                  }
+
+                                                  final now = DateTime.now();
+                                                  final today = DateTime(now.year, now.month, now.day);
+                                                  final expiry = DateTime(
+                                                    membershipValidityDate!.year,
+                                                    membershipValidityDate!.month,
+                                                    membershipValidityDate!.day,
+                                                  );
+
+                                                  final difference = expiry.difference(today).inDays;
+
+                                                  if (difference > 0) {
+                                                    return '$membershipPlan : (Valid for $difference days)';
+                                                  } else if (difference == 0) {
+                                                    return '$membershipPlan : (Expires Today)';
+                                                  } else {
+                                                    return '$membershipPlan : (Expired)';
+                                                  }
+                                                }(),
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                       const SizedBox(height: 4),
+
                                       ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minWidth: 200,
-                                          maxWidth: MediaQuery.of(context).size.width * 0.50,
+                                          maxWidth:
+                                              MediaQuery.of(
+                                                context,
+                                              ).size.width *
+                                              0.50,
                                         ),
-                                        child: Autocomplete<Map<String, dynamic>>(
-                                          displayStringForOption: (option) => option['mobile'] ?? '',
-                                          optionsBuilder: (TextEditingValue textEditingValue) async {
-                                            if (textEditingValue.text.isEmpty) {
-                                              return const Iterable<Map<String, dynamic>>.empty();
-                                            }
-                                            return await controller.fetchUserSuggestions(textEditingValue.text);
+                                        child: TypeAheadField<
+                                          Map<String, dynamic>
+                                        >(
+                                          controller: nameController,
+                                          suggestionsCallback: (pattern) async {
+                                            return await controller
+                                                .fetchUserSuggestions(pattern);
                                           },
-                                          onSelected: (Map<String, dynamic> selection) {
-                                            _updateUserData(selection);
-                                            // Hide keyboard after selection
-                                            FocusScope.of(context).unfocus();
-                                          },
-                                          fieldViewBuilder: (BuildContext context,
-                                              TextEditingController fieldTextEditingController,
-                                              FocusNode fieldFocusNode,
-                                              VoidCallback onFieldSubmitted) {
-
-                                            if (mobileController.text != fieldTextEditingController.text) {
-                                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                fieldTextEditingController.text = mobileController.text;
-                                              });
-                                            }
-
+                                          builder: (context, _, focusNode) {
                                             return TextFormField(
-                                              controller: fieldTextEditingController,
-                                              focusNode: fieldFocusNode,
-                                              keyboardType: TextInputType.phone,
-                                              textInputAction: TextInputAction.done, // Changed to 'done' for better UX
-                                              inputFormatters: [
-                                                FilteringTextInputFormatter.digitsOnly,
-                                                MobileNumberFormatter(),
-                                              ],
-                                              onChanged: (value) {
-                                                mobileController.text = value;
-                                                if (value.length < 12) { // Only clear if not a complete number
-                                                  _clearMembershipData();
-                                                }
-                                              },
-                                              onFieldSubmitted: (value) {
-                                                _validateAndFetchUserData(value);
-                                                // Hide keyboard after submission
-                                                FocusScope.of(context).unfocus();
-                                              },
-                                              onEditingComplete: () {
-                                                final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
-                                                if (digitsOnly.length == 10) {
-                                                  _validateAndFetchUserData(mobileController.text);
-                                                } else {
-                                                  _clearMembershipData();
-                                                }
-                                                FocusScope.of(context).unfocus();
-                                              },
+                                              controller: nameController,
+                                              focusNode: focusNode,
+                                              keyboardType: TextInputType.name,
                                               validator: (value) {
-                                                final digitsOnly = value?.replaceAll(RegExp(r'\D'), '') ?? '';
-                                                if (digitsOnly.isEmpty) return 'Mobile number is required';
-                                                if (digitsOnly.length != 10) return 'Enter a valid 10-digit number';
+                                                if (value == null ||
+                                                    value.trim().isEmpty) {
+                                                  return 'Name is required';
+                                                }
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
@@ -1969,12 +1970,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                               decoration: InputDecoration(
                                                 isDense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                  vertical: 12,
-                                                  horizontal: 12,
-                                                ),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 15,
+                                                      horizontal: 12,
+                                                    ),
                                                 border: OutlineInputBorder(
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                   borderSide: BorderSide(
                                                     color: Colors.grey.shade300,
                                                   ),
@@ -1982,40 +1985,32 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                             );
                                           },
-                                          optionsViewBuilder: (BuildContext context,
-                                              AutocompleteOnSelected<Map<String, dynamic>> onSelected,
-                                              Iterable<Map<String, dynamic>> options) {
-                                            return Align(
-                                              alignment: Alignment.topLeft,
-                                              child: Material(
-                                                elevation: 4.0,
-                                                child: SizedBox(
-                                                  height: 200,
-                                                  child: ListView.builder(
-                                                    padding: EdgeInsets.zero,
-                                                    itemCount: options.length,
-                                                    itemBuilder: (BuildContext context, int index) {
-                                                      final Map<String, dynamic> option = options.elementAt(index);
-                                                      return ListTile(
-                                                        title: Text(
-                                                          option['name'],
-                                                          style: const TextStyle(fontSize: 22),
-                                                        ),
-                                                        subtitle: Text(
-                                                          option['mobile'],
-                                                          style: const TextStyle(fontSize: 22),
-                                                        ),
-                                                        onTap: () {
-                                                          onSelected(option);
-                                                          // Hide keyboard after tap
-                                                          FocusScope.of(context).unfocus();
-                                                        },
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
+                                          itemBuilder: (context, suggestion) {
+                                            return ListTile(
+                                              title: Text(
+                                                suggestion['name'],
+                                                style: TextStyle(fontSize: 22),
+                                              ),
+                                              subtitle: Text(
+                                                suggestion['mobile'],
+                                                style: TextStyle(fontSize: 22),
                                               ),
                                             );
+                                          },
+                                          onSelected: (suggestion) {
+                                            mobileController.text = suggestion['mobile'];
+                                            nameController.text = suggestion['name'];
+                                            print(
+                                              'Selected customer data: $suggestion',
+                                            );
+                                            setState(() {
+                                              hasMembership = (suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty);
+                                              memberPeakPrice = hasMembership ? double.tryParse(suggestion['peak_price']?.toString() ?? '0',) : null;
+                                              memberNonPeakPrice = hasMembership ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0',) : null;
+                                              membershipPlan = hasMembership ? suggestion['membership_plan'] : '';
+                                              membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '',) : null;
+                                              updateCourtPrice();
+                                            });
                                           },
                                         ),
                                       ),
@@ -2041,7 +2036,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 ),
                               ),
                               Text(
-                                'Sport : ${bookings.isNotEmpty ? '${selectedName}' : ' '}',
+                                bookings.isNotEmpty ? selectedName : '',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   color: Colors.black,
@@ -2567,8 +2562,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       if (_formKey.currentState!.validate()) {
                                         //Navigator.pop(context);
                                         final double TotalAmount;
+                                        final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
                                         controller.getUserDatabyMobile(
-                                          mobileController.text,
+                                          digitsOnly,
                                         );
                                         if (isMembershipApplied) {
                                           TotalAmount =
@@ -2696,7 +2692,24 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   mobileController.text
                                                       .trim()
                                                       .isNotEmpty)
-                                              ? () {
+                                              ? () async {
+                                                // First get user data if mobile is entered
+                                                final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
+                                                if (digitsOnly.length == 10) {
+                                                  await controller.getUserDatabyMobile(digitsOnly);
+                                                }
+                                                
+                                                // Check for pending membership payment
+                                                final hasPending = await checkPendingMembershipPayment();
+                                                if (hasPending) {
+                                                  showCustomSnackbar(
+                                                    'Error',
+                                                    'This customer has a pending membership payment. Please complete the existing payment first.',
+                                                    Colors.redAccent,
+                                                  );
+                                                  return;
+                                                }
+                                                
                                                 Navigator.pop(context);
                                                 openMembershipDrawer(
                                                   context,
@@ -2853,13 +2866,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
     await showDialog(
       context: parentContext,
+      barrierDismissible: false, // Prevent closing by tapping outside
       builder:
-          (dialogContext) => Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
+          (dialogContext) => WillPopScope(
+            onWillPop: () async {
+              // Clear cart when dialog is closed
+              cartController.clearCart();
+              return true;
+            },
+            child: Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Stack(
+                children: [
+                  Padding(
               padding: const EdgeInsets.all(16.0),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
@@ -2915,7 +2937,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Icon(LucideIcons.gamepad2, size: 18),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'Sport',
+                                  controller.serviceList.firstWhere(
+                                    (e) => e['id'].toString() == controller.selectedServiceId.toString(),
+                                    orElse: () => {'name': 'Sport'},
+                                  )['name'] ?? 'Sport',
                                   style: GoogleFonts.inter(
                                     color: Colors.grey.shade800,
                                     fontSize: 25,
@@ -3203,14 +3228,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                /*Text(
-                                  '\$ ${.toStringAsFixed(2)}',
+                                Text(
+                                  '\$ ${membershipPrice.toStringAsFixed(2)}',
                                   style: GoogleFonts.inter(
                                     fontSize: 23,
                                     color: Palette.newColor,
                                     fontWeight: FontWeight.w600,
                                   ),
-                                ),*/
+                                ),
                               ],
                             ),
                           ),
@@ -3241,17 +3266,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   membershipName: selectedMembershipPlan,
                                   membershipPrice: memberPrice,
                                 );
-                                // // After booking, clear slots and reset form
-                                // controller.clearSelectedSlots();
-                                // nameController.clear();
-                                // mobileController.clear();
-                                // hasMembership = false;
-                                // isMembershipApplied = false;
-                                // membershipPrice = 0.0;
-                                // selectedMembershipId = null;
-                                // selectedSlots.clear();
-                                // cartController.clearCart();
-                                // if (Navigator.canPop(context))
+                                // After booking, clear slots and reset form
+                                controller.clearSelectedSlots();
+                                nameController.clear();
+                                mobileController.clear();
+                                hasMembership = false;
+                                isMembershipApplied = false;
+                                membershipPrice = 0.0;
+                                selectedMembershipId = null;
+                                selectedSlots.clear();
+                                cartController.clearCart();
                                 Navigator.pop(context);
                               } else {
                                 // Create new user and then create booking with pending payment
@@ -3275,18 +3299,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         membershipPrice: memberPrice,
                                       );
                                     });
-                                // // After booking, clear slots and reset form
-                                // controller.clearSelectedSlots();
-                                // nameController.clear();
-                                // mobileController.clear();
-                                // hasMembership = false;
-                                // isMembershipApplied = false;
-                                // membershipPrice = 0.0;
-                                // selectedMembershipId = null;
-                                // selectedSlots.clear();
-                                // cartController.clearCart();
-                                // if (Navigator.canPop(context))
-                                //   Navigator.pop(context);
+                                // After booking, clear slots and reset form
+                                controller.clearSelectedSlots();
+                                nameController.clear();
+                                mobileController.clear();
+                                hasMembership = false;
+                                isMembershipApplied = false;
+                                membershipPrice = 0.0;
+                                selectedMembershipId = null;
+                                selectedSlots.clear();
+                                cartController.clearCart();
                                 Navigator.pop(context);
                               }
                             },
@@ -3357,6 +3379,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     ),
                   ],
                 ),
+              ),
+            ),
+                  // Add close button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: Colors.grey),
+                      onPressed: () {
+                        cartController.clearCart();
+                        Navigator.of(dialogContext).pop();
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -3691,12 +3728,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         bool isApplied = true;
                                         setState(() {
                                           membershipPrice = price;
+                                          memberPrice = price; // Fix: Set memberPrice too
                                           isMembershipApplied = isApplied;
                                           updateTotalPrice();
                                         });
                                         print(
                                           "Selected: $planName | Price: $price | Applied: $isApplied | membershipID: $selectedMembershipId",
                                         );
+                                        // Store current values before reopening drawer
+                                        final currentName = nameController.text;
+                                        final currentMobile = mobileController.text;
+                                        
                                         openBookingRightDrawer(
                                           context,
                                           planName,
@@ -3707,6 +3749,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           onCancel:
                                               null, // No setState or UI logic here
                                         );
+                                        
+                                        // Restore values after drawer opens
+                                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                                          nameController.text = currentName;
+                                          mobileController.text = currentMobile;
+                                        });
                                       }
                                     });
                                   },
@@ -3767,6 +3815,43 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       courtPrice = total;
       print('courtPrice : $courtPrice');
     });
+  }
+
+  Future<bool> checkPendingMembershipPayment() async {
+    if (controller.userData.value.id == null) return false;
+    
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    
+    try {
+      // Check if customer has any bookings with pending membership payments
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('id, membership_id, paymentstatus')
+          .eq('customers_id', controller.userData.value.id!)
+          .not('membership_id', 'is', null)
+          .eq('paymentstatus', 'Pending')
+          .limit(1);
+      
+      if (response.isNotEmpty) {
+        return true;
+      }
+      
+      // Also check membershippayment table if it exists
+      final membershipResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .select('id')
+          .eq('customers_id', controller.userData.value.id!)
+          .eq('status', false)
+          .limit(1);
+      
+      return membershipResponse.isNotEmpty;
+    } catch (e) {
+      print('Error checking pending membership payment: $e');
+      return false;
+    }
   }
 }
 

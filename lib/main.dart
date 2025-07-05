@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:toastification/toastification.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'app/getx_binding.dart';
 import 'components/nonetwork_widget.dart';
@@ -79,25 +80,32 @@ class _MyAppState extends State<MyApp> {
       widget.preferences.getString('openCloseId') ?? '',
     );
 
-    return ToastificationWrapper(
-      child: GetMaterialApp(
-        debugShowCheckedModeBanner: false,
-        initialBinding: InitialBinding(),
-        smartManagement: SmartManagement.keepFactory,
-        theme: ThemeData(
-          textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
-        ),
-        getPages: Routes.routes,
-        scrollBehavior: const MaterialScrollBehavior().copyWith(
-          dragDevices: {
-            PointerDeviceKind.mouse,
-            PointerDeviceKind.touch,
-            PointerDeviceKind.stylus,
-            PointerDeviceKind.unknown,
-          },
-        ),
-        home: Root(), // Changed from the connectivity check to directly show Root
-      ),
+    return ScreenUtilInit(
+      designSize: const Size(1920, 1080), // Standard Full HD for 14 inch tablet
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) {
+        return ToastificationWrapper(
+          child: GetMaterialApp(
+            debugShowCheckedModeBanner: false,
+            initialBinding: InitialBinding(),
+            smartManagement: SmartManagement.keepFactory,
+            theme: ThemeData(
+              textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
+            ),
+            getPages: Routes.routes,
+            scrollBehavior: const MaterialScrollBehavior().copyWith(
+              dragDevices: {
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.touch,
+                PointerDeviceKind.stylus,
+                PointerDeviceKind.unknown,
+              },
+            ),
+            home: Root(), // Changed from the connectivity check to directly show Root
+          ),
+        );
+      },
     );
   }
 }

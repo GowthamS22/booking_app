@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../config/constants.dart';
 import '../../config/palette.dart';
