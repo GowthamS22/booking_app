@@ -217,31 +217,31 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
                               )).toList(),
                             ),
                           ),
-                          // Padding(
-                          //   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          //   child: TextField(
-                          //     controller: dialogSearchController,
-                          //     onChanged: (value) {
-                          //       setState(() {
-                          //         dialogSearchQuery = value;
-                          //       });
-                          //     },
-                          //     style: TextStyle(fontSize: 25),
-                          //     decoration: InputDecoration(
-                          //       prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35),
-                          //       hintText: 'e.g Young Shuttlecock',
-                          //       hintStyle: TextStyle(fontSize: 25),
-                          //       filled: true,
-                          //       fillColor: Colors.white,
-                          //       border: UnderlineInputBorder(
-                          //         borderSide: BorderSide(
-                          //           color: Colors.grey.shade300,
-                          //           width: 1.0,
-                          //         ),
-                          //       ),
-                          //     ),
-                          //   ),
-                          // ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            child: TextField(
+                              controller: dialogSearchController,
+                              onChanged: (value) {
+                                setState(() {
+                                  dialogSearchQuery = value;
+                                });
+                              },
+                              style: TextStyle(fontSize: 25),
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 35),
+                                hintText: 'e.g Young Shuttlecock',
+                                hintStyle: TextStyle(fontSize: 25),
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Colors.grey.shade300,
+                                    width: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                           Expanded(
                             child: getDialogFilteredProducts().isEmpty
                                 ? const Center(child: Text('No products found'))
@@ -318,7 +318,7 @@ class _AddonItemsWidgetState extends State<AddonItemsWidget> {
       },
     );
 
-    dialogSearchController.dispose();
+    //dialogSearchController.dispose();
   }
 
   @override
