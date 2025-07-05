@@ -551,14 +551,10 @@ class CheckoutController extends GetxController {
   }
 
   double get gstPrice {
-    var gst =
-        authController.gst.isEmpty
-            ? '0.0'
-            : authController.gst.value.toString();
-    var value = double.parse(
-      (totalAmount * double.parse(gst) / 100).toString(),
-    );
-    return value;
+    // For GST inclusive prices, GST = (Total - Discount) / 11
+    // This assumes 10% GST rate (10/110 = 1/11)
+    var discountedTotal = totalAmount - discount.value;
+    return discountedTotal / 11;
   }
 
   double get totalPrice {
@@ -566,11 +562,13 @@ class CheckoutController extends GetxController {
   }
 
   double get grandtotalPrice {
-    return totalAmount + gstPrice - discount.value;
+    // Since prices are GST inclusive, grand total is just total minus discount
+    return totalAmount - discount.value;
   }
 
   double get subTotal {
-    return totalAmount;
+    // Subtotal should be the GST exclusive amount
+    return totalAmount - (totalAmount / 11);
   }
 
   Future<void> printBookingReceipt({

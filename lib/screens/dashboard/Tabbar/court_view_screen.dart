@@ -208,8 +208,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
+    return Container(
+      child: Column(
+        children: [
         const SizedBox(height: 15),
         Row(
           children: [
@@ -1137,6 +1138,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           }),
         ),
       ],
+    ),
     );
   }
 
@@ -2859,13 +2861,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
     await showDialog(
       context: parentContext,
+      barrierDismissible: false, // Prevent closing by tapping outside
       builder:
-          (dialogContext) => Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
+          (dialogContext) => WillPopScope(
+            onWillPop: () async {
+              // Clear cart when dialog is closed
+              cartController.clearCart();
+              return true;
+            },
+            child: Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Stack(
+                children: [
+                  Padding(
               padding: const EdgeInsets.all(16.0),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 800),
@@ -3249,17 +3260,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       'Payment pending - Pay Later option selected',
                                   bookings: updatedBookings,
                                 );
-                                // // After booking, clear slots and reset form
-                                // controller.clearSelectedSlots();
-                                // nameController.clear();
-                                // mobileController.clear();
-                                // hasMembership = false;
-                                // isMembershipApplied = false;
-                                // membershipPrice = 0.0;
-                                // selectedMembershipId = null;
-                                // selectedSlots.clear();
-                                // cartController.clearCart();
-                                // if (Navigator.canPop(context))
+                                // After booking, clear slots and reset form
+                                controller.clearSelectedSlots();
+                                nameController.clear();
+                                mobileController.clear();
+                                hasMembership = false;
+                                isMembershipApplied = false;
+                                membershipPrice = 0.0;
+                                selectedMembershipId = null;
+                                selectedSlots.clear();
+                                cartController.clearCart();
                                 Navigator.pop(context);
                               } else {
                                 // Create new user and then create booking with pending payment
@@ -3285,18 +3295,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         bookings: updatedBookings,
                                       );
                                     });
-                                // // After booking, clear slots and reset form
-                                // controller.clearSelectedSlots();
-                                // nameController.clear();
-                                // mobileController.clear();
-                                // hasMembership = false;
-                                // isMembershipApplied = false;
-                                // membershipPrice = 0.0;
-                                // selectedMembershipId = null;
-                                // selectedSlots.clear();
-                                // cartController.clearCart();
-                                // if (Navigator.canPop(context))
-                                //   Navigator.pop(context);
+                                // After booking, clear slots and reset form
+                                controller.clearSelectedSlots();
+                                nameController.clear();
+                                mobileController.clear();
+                                hasMembership = false;
+                                isMembershipApplied = false;
+                                membershipPrice = 0.0;
+                                selectedMembershipId = null;
+                                selectedSlots.clear();
+                                cartController.clearCart();
                                 Navigator.pop(context);
                               }
                             },
@@ -3367,6 +3375,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     ),
                   ],
                 ),
+              ),
+            ),
+                  // Add close button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: Colors.grey),
+                      onPressed: () {
+                        cartController.clearCart();
+                        Navigator.of(dialogContext).pop();
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

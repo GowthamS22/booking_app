@@ -11,6 +11,8 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app/getx_binding.dart';
 import '../../config/constants.dart';
@@ -19,7 +21,9 @@ import '../../controllers/checkout_controller.dart';
 import '../../controllers/customer_controller.dart';
 import '../../controllers/new_booking_controller.dart';
 import '../../controllers/default_controller.dart';
+import '../../controllers/cart_controller.dart' as cart;
 import '../../models/booking_model.dart';
+import '../../widgets/number_pad_widget.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final String type;
@@ -65,6 +69,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final DefaultController defaultController = Get.put(DefaultController());
   final CustomerController customerController = Get.put(CustomerController());
   final PaymentController paymentController = Get.put(PaymentController());
+  final cart.CartController cartController = Get.put(cart.CartController());
 
   TextEditingController notesController = TextEditingController();
   TextEditingController promoCodeController = TextEditingController();
@@ -119,6 +124,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double discountAmount = 0.0;
   bool isDiscountApplied = false;
   TextEditingController discountController = TextEditingController();
+  String discountType = 'flat'; // 'flat' or 'percentage'
+  double discountValue = 0.0; // The raw value entered (e.g., 10 for 10% or $10)
+  bool isBookingOnlyDiscount = false; // Whether discount applies only to booking
 
   double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
 
@@ -153,6 +161,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void showCancelBookingConfirmationDialog() {
+    _showCancelBookingDialog();
+  }
+  
+  void showCancelBookingConfirmationDialog_old() {
     Get.dialog(
       AlertDialog(
         backgroundColor: Colors.white,
@@ -223,8 +235,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return GetBuilder(
       init: CheckoutController(),
       builder: (controller) {
-        return Scaffold(
-          appBar: AppBar(
+        return WillPopScope(
+          onWillPop: () async {
+            // Clear cart when going back
+            cartController.clearCart();
+            return true;
+          },
+          child: Scaffold(
+            appBar: AppBar(
             elevation: 0,
             toolbarHeight: 100,
             titleSpacing: 0,
@@ -265,7 +283,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ],
                         ),
                       ),
-                      onPressed: () => Get.back(result: true),
+                      onPressed: () {
+                        // Clear cart when going back
+                        cartController.clearCart();
+                        Get.back(result: true);
+                      },
                     ),
                   ),
                   SizedBox(width: 18 * ffem),
@@ -357,10 +379,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),  // End of Scaffold
+        );  // End of WillPopScope
+      },  // End of GetBuilder builder
+    );  // End of GetBuilder
+  }  // End of build method
+
   // Add this function to CheckoutController
 
   void populateCartWithSubSlots(List<BookingInfo> bookings) {
@@ -439,7 +463,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
         child: Column(
           children: [
-            Expanded(
+            Flexible(
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,9 +623,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
                       // Membership item aligned like other items
-                      Padding(
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
                         padding: const EdgeInsets.symmetric(
                           vertical: 8,
+                          horizontal: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: backgroundColor?.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: borderColor ?? Colors.grey.shade300,
+                            width: 1.5,
+                          ),
                         ),
                         child: Row(
                           spacing: 30,
@@ -616,6 +650,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     style: GoogleFonts.inter(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w500,
+                                      color: textColor ?? Colors.black,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -797,11 +832,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               children: [
                 Divider(color: Colors.grey.shade300, thickness: 3),
                 const SizedBox(height: 10),
+                // Subtotal (excluding GST)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Total',
+                      'Subtotal (ex GST)',
+                      style: GoogleFonts.inter(
+                        fontSize: 25,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    Text(
+                      '\$${(widget.billAmount - widget.billAmount / 11).toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 25,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total (GST Inc)',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w600,
@@ -825,14 +881,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         'Discount',
                         style: GoogleFonts.inter(
                           fontSize: 25,
-                          color: Colors.grey.shade600,
+                          color: Colors.red.shade600,
                         ),
                       ),
                       Text(
-                        '\$${(discountAmount).toStringAsFixed(2)}',
+                        '-\$${(discountAmount).toStringAsFixed(2)}',
                         style: GoogleFonts.inter(
                           fontSize: 25,
-                          color: Colors.grey.shade600,
+                          color: Colors.red.shade600,
                         ),
                       ),
                     ],
@@ -842,14 +898,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'GST Incl',
+                      'GST Included',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount * 0.1).toStringAsFixed(2)}',
+                      '\$${((widget.billAmount - discountAmount) / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -869,7 +925,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount * 1.1 - discountAmount).toStringAsFixed(2)}',
+                      '\$${(widget.billAmount - discountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w700,
@@ -1137,9 +1193,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       padding: const EdgeInsets.all(0.0),
                       child: Row(
                         children: [
-                          // Show Apply Discount button only if there are products in cart
-                          if(cartItems.isNotEmpty) ...[
-
+                          // Discount buttons - always show for admin override capability
                           // Discount Applied
                           if (isDiscountApplied)
                             Expanded(
@@ -1152,7 +1206,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
-                                  '\$${(discountAmount ?? 0).toStringAsFixed(2)} Discount Applied',
+                                  discountType == 'percentage' 
+                                    ? '${discountValue.toStringAsFixed(0)}% Discount Applied${isBookingOnlyDiscount ? ' (Booking Only)' : ''}'
+                                    : '\$${discountAmount.toStringAsFixed(2)} Discount Applied${isBookingOnlyDiscount ? ' (Booking Only)' : ''}',
                                   style: GoogleFonts.inter(
                                     color: Colors.indigo.shade500,
                                     fontWeight: FontWeight.w600,
@@ -1171,6 +1227,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   setState(() {
                                     discountAmount = 0.0;
                                     isDiscountApplied = false;
+                                    discountType = 'flat';
+                                    discountValue = 0.0;
+                                    isBookingOnlyDiscount = false;
+                                    discountController.clear();
+                                    notesController.clear();
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -1223,8 +1284,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             ),
                           if (!isDiscountApplied) const SizedBox(width: 12),
-                          
-                          ],
 
                           // Receipt Toggle
                           Expanded(
@@ -1285,6 +1344,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           if (result == true) {
                             // User cancelled, so clear selection here
                             controller.clearSelectedSlots();
+                            // Also clear cart items
+                            Get.find<cart.CartController>().clearCart();
                             setState(() {});
                           }
                         },
@@ -1464,9 +1525,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
 
                                             double? itemSubTotal  = cartItemsTotal;
-                                            double? itemTotal     = cartItemsTotal - discountAmount;
-                                            double? bookingTotal  = widget.billAmount - itemTotal;
-                                            double? overallTotal  = itemTotal + bookingTotal;
+                                            double? bookingSubTotal = widget.billAmount - cartItemsTotal;
+                                            double? itemTotal;
+                                            double? bookingTotal;
+                                            double? overallTotal;
+                                            
+                                            if (isBookingOnlyDiscount) {
+                                              // Apply discount only to booking, not products
+                                              itemTotal = cartItemsTotal;
+                                              bookingTotal = bookingSubTotal - discountAmount;
+                                              overallTotal = itemTotal + bookingTotal;
+                                            } else {
+                                              // Apply discount to cart items (existing behavior)
+                                              itemTotal = cartItemsTotal - discountAmount;
+                                              bookingTotal = bookingSubTotal;
+                                              overallTotal = itemTotal + bookingTotal;
+                                            }
 
                                             if (selectedMethod == 'EFTPOS') {
                                               final total = overallTotal;
@@ -1499,7 +1573,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   checkoutController.productsPayment(
                                                     order_id: widget.exorderId,
                                                     price: itemSubTotal,
-                                                    taxes: (itemTotal) * 0.1,
+                                                    taxes: (itemTotal ?? 0) * 0.1,
                                                     surcharge: 0,
                                                     discount: discountAmount,
                                                     billAmount: itemTotal,
@@ -1556,9 +1630,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
 
                                             double? itemSubTotal  = cartItemsTotal;
-                                            double? itemTotal     = cartItemsTotal - discountAmount;
-                                            double? bookingTotal  = widget.billAmount - itemTotal;
-                                            double? overallTotal  = itemTotal + bookingTotal;
+                                            double? bookingSubTotal = widget.billAmount - cartItemsTotal;
+                                            double? itemTotal;
+                                            double? bookingTotal;
+                                            double? overallTotal;
+                                            
+                                            if (isBookingOnlyDiscount) {
+                                              // Apply discount only to booking, not products
+                                              itemTotal = cartItemsTotal;
+                                              bookingTotal = bookingSubTotal - discountAmount;
+                                              overallTotal = itemTotal + bookingTotal;
+                                            } else {
+                                              // Apply discount to cart items (existing behavior)
+                                              itemTotal = cartItemsTotal - discountAmount;
+                                              bookingTotal = bookingSubTotal;
+                                              overallTotal = itemTotal + bookingTotal;
+                                            }
 
                                             String? orderId = '';
                                             //double? total   = 0;
@@ -1638,7 +1725,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                       checkoutController.productsPayment(
                                                         order_id: orderId,
                                                         price: itemSubTotal,
-                                                        taxes: (itemTotal) * 0.1,
+                                                        taxes: (itemTotal ?? 0) * 0.1,
                                                         surcharge: 0,
                                                         discount: discountAmount,
                                                         billAmount: itemTotal,
@@ -1918,140 +2005,259 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ],
       ),
-    );
-  }
+    );  // End of body Column
+  }  // End of buildCheckout method
 
   Future<void> _showDiscountDialog(
     CheckoutController checkoutController,
   ) async {
+    print('Enhanced discount dialog called'); // Debug print
     discountController.clear();
+    String discountType = 'flat'; // 'flat' or 'percentage'
+    bool isBookingOnly = false;
+    double bookingTotal = 0;
+    double productTotal = 0;
+    
+    // Calculate booking total and product total separately
+    for (var booking in widget.bookings) {
+      bookingTotal += booking.subSlots.fold(0.0, (sum, slot) => sum + slot.price);
+    }
+    productTotal = cartItems.fold(0, (sum, item) => 
+        sum + (double.tryParse(item.product.price) ?? 0) * item.quantity);
+    
+    // Add membership if applied
+    if (widget.isMembershipApplied == true && widget.membershipPrice != null) {
+      productTotal += widget.membershipPrice!;
+    }
 
     await showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          // Use insetPadding to control the dialog's position and size
-          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minWidth:
-                  MediaQuery.of(context).size.width *
-                  0.3, // 70% of screen width
-              maxWidth:
-                  MediaQuery.of(context).size.width * 0.3, // Optional max width
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Apply Discount',
-                    style: GoogleFonts.inter(
-                      fontSize: 25,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Enter discount amount (max \$${widget.billAmount.toStringAsFixed(2)})',
-                    style: GoogleFonts.inter(fontSize: 22),
-                  ),
-                  SizedBox(height: 20),
-                  TextField(
-                    controller: discountController,
-                    keyboardType: TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}'),
-                      ),
-                    ],
-                    decoration: InputDecoration(
-                      prefixText: '\$',
-                      border: OutlineInputBorder(),
-                      hintText: '0.00',
-                    ),
-                    style: GoogleFonts.inter(fontSize: 25),
-                  ),
-                  SizedBox(height: 30),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Palette.newColorbg,
-                            minimumSize: const Size(
-                              0,
-                              60,
-                            ), // 0 width means expand
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(color: Palette.newColor),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: GoogleFonts.inter(
-                              fontSize: 22,
-                              color: Palette.newColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 20),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            final enteredAmount =
-                                double.tryParse(discountController.text) ?? 0.0;
-                            if (enteredAmount > 0 &&
-                                enteredAmount <= widget.billAmount) {
-                              setState(() {
-                                discountAmount = enteredAmount;
-                                isDiscountApplied = true;
-                              });
-                              Navigator.pop(context);
-                            } else {
-                              showCustomSnackbar(
-                                'Invalid Amount',
-                                'Discount must be between 0 and ${widget.billAmount.toStringAsFixed(2)}',
-                                Colors.red,
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Palette.newColor,
-                            minimumSize: const Size(
-                              0,
-                              60,
-                            ), // 0 width means expand
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            'Apply',
-                            style: GoogleFonts.inter(
-                              fontSize: 22,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
-            ),
-          ),
+              insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: MediaQuery.of(context).size.width * 0.4,
+                  maxWidth: MediaQuery.of(context).size.width * 0.4,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Apply Discount',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                      
+                      // Breakdown of amounts
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Booking Total:', style: GoogleFonts.inter(fontSize: 20)),
+                                Text('\$${bookingTotal.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 20)),
+                              ],
+                            ),
+                            if (productTotal > 0) ...[
+                              SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Product Total:', style: GoogleFonts.inter(fontSize: 20)),
+                                  Text('\$${productTotal.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 20)),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      
+                      SizedBox(height: 20),
+                      
+                      // Discount Type Selection
+                      Text('Discount Type', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w500)),
+                      SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: Text('Flat Fee', style: GoogleFonts.inter(fontSize: 18)),
+                              value: 'flat',
+                              groupValue: discountType,
+                              onChanged: (value) {
+                                setState(() {
+                                  discountType = value!;
+                                  discountController.clear();
+                                });
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: RadioListTile<String>(
+                              title: Text('Percentage', style: GoogleFonts.inter(fontSize: 18)),
+                              value: 'percentage',
+                              groupValue: discountType,
+                              onChanged: (value) {
+                                setState(() {
+                                  discountType = value!;
+                                  discountController.clear();
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      // Apply to booking only checkbox (only show if there are products)
+                      if (productTotal > 0)
+                        CheckboxListTile(
+                          title: Text('Apply to booking only', style: GoogleFonts.inter(fontSize: 18)),
+                          subtitle: Text('Discount will not apply to products', style: GoogleFonts.inter(fontSize: 16, color: Colors.grey)),
+                          value: isBookingOnly,
+                          onChanged: (value) {
+                            setState(() {
+                              isBookingOnly = value!;
+                            });
+                          },
+                        ),
+                      
+                      SizedBox(height: 20),
+                      
+                      // Discount Input
+                      TextField(
+                        controller: discountController,
+                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d+\.?\d{0,2}'),
+                          ),
+                        ],
+                        decoration: InputDecoration(
+                          prefixText: discountType == 'flat' ? '\$' : '',
+                          suffixText: discountType == 'percentage' ? '%' : '',
+                          border: OutlineInputBorder(),
+                          hintText: discountType == 'flat' ? '0.00' : '0',
+                          labelText: 'Discount Amount',
+                        ),
+                        style: GoogleFonts.inter(fontSize: 25),
+                      ),
+                      
+                      SizedBox(height: 30),
+                      
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(context),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Palette.newColorbg,
+                                minimumSize: const Size(0, 60),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(color: Palette.newColor),
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Palette.newColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 20),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                final enteredValue = double.tryParse(discountController.text) ?? 0.0;
+                                if (enteredValue <= 0) {
+                                  showCustomSnackbar('Invalid Amount', 'Please enter a valid discount amount', Colors.red);
+                                  return;
+                                }
+                                
+                                double calculatedDiscount = 0;
+                                double maxDiscount = isBookingOnly ? bookingTotal : widget.billAmount;
+                                
+                                if (discountType == 'percentage') {
+                                  if (enteredValue > 100) {
+                                    showCustomSnackbar('Invalid Percentage', 'Percentage cannot exceed 100%', Colors.red);
+                                    return;
+                                  }
+                                  calculatedDiscount = maxDiscount * (enteredValue / 100);
+                                } else {
+                                  if (enteredValue > maxDiscount) {
+                                    showCustomSnackbar('Invalid Amount', 'Discount cannot exceed \$${maxDiscount.toStringAsFixed(2)}', Colors.red);
+                                    return;
+                                  }
+                                  calculatedDiscount = enteredValue;
+                                }
+                                
+                                // Check if this is a booking discount that needs admin approval
+                                bool needsAdminApproval = isBookingOnly || 
+                                    (discountType == 'percentage' && enteredValue >= 100 && bookingTotal > 0);
+                                
+                                if (needsAdminApproval) {
+                                  // Show admin PIN dialog
+                                  final approved = await _showAdminPinDialog();
+                                  if (!approved) {
+                                    return;
+                                  }
+                                }
+                                
+                                setState(() {
+                                  this.discountAmount = calculatedDiscount;
+                                  this.isDiscountApplied = true;
+                                  this.discountType = discountType;
+                                  this.discountValue = enteredValue;
+                                  this.isBookingOnlyDiscount = isBookingOnly;
+                                });
+                                Navigator.pop(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Palette.newColor,
+                                minimumSize: const Size(0, 60),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: Text(
+                                'Apply',
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -2066,7 +2272,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           sum + (double.tryParse(item.product.price) ?? 0) * item.quantity,
     );
 
-    final double billAmount = widget.billAmount - discountAmount;
+    // Calculate bill amount based on discount type
+    final double billAmount;
+    if (isBookingOnlyDiscount) {
+      // For booking-only discount, the total bill is unchanged for products
+      // but reduced for the booking portion
+      billAmount = widget.billAmount - discountAmount;
+    } else {
+      // For regular discount, it's applied to the full amount
+      billAmount = widget.billAmount - discountAmount;
+    }
+    
     final double totalPaid = this.totalPaid;
     final double balance = billAmount - totalPaid;
 
@@ -2559,6 +2775,213 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Future<bool> _showAdminPinDialog() async {
+    TextEditingController pinController = TextEditingController();
+    bool isLoading = false;
+    bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.4,
+                padding: EdgeInsets.all(30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      LucideIcons.shieldAlert,
+                      size: 60,
+                      color: Colors.orange.shade600,
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      'Admin Approval Required',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 28,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      'Please enter the 4-digit admin PIN',
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        color: Colors.grey.shade600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 30),
+                    // PIN Code Field
+                    Container(
+                      width: 250,
+                      child: PinCodeTextField(
+                        controller: pinController,
+                        appContext: context,
+                        length: 4,
+                        obscureText: true,
+                        obscuringCharacter: '●',
+                        blinkWhenObscuring: false,
+                        animationType: AnimationType.fade,
+                        pinTheme: PinTheme(
+                          shape: PinCodeFieldShape.box,
+                          borderRadius: BorderRadius.circular(8),
+                          fieldHeight: 60,
+                          fieldWidth: 50,
+                          activeFillColor: Colors.white,
+                          selectedFillColor: Colors.grey.shade100,
+                          inactiveFillColor: Colors.grey.shade100,
+                          activeColor: Palette.newColor,
+                          selectedColor: Palette.newColor,
+                          inactiveColor: Colors.grey.shade300,
+                        ),
+                        cursorColor: Colors.black,
+                        animationDuration: const Duration(milliseconds: 300),
+                        enableActiveFill: true,
+                        keyboardType: TextInputType.none,
+                        onCompleted: (value) async {
+                          setState(() {
+                            isLoading = true;
+                          });
+                          
+                          try {
+                            final prefs = await SharedPreferences.getInstance();
+                            String? centerSlug = prefs.getString('centerSlug');
+                            
+                            final response = await Supabase.instance.client
+                                .schema('${centerSlug}_prod_schema')
+                                .from('store_details')
+                                .select('admin_pin')
+                                .single();
+                            
+                            final adminPin = response['admin_pin']?.toString() ?? '1234';
+                            
+                            if (value == adminPin) {
+                              Navigator.of(context).pop(true);
+                            } else {
+                              setState(() {
+                                isLoading = false;
+                                pinController.clear();
+                              });
+                              showCustomSnackbar(
+                                'Invalid PIN',
+                                'The admin PIN you entered is incorrect',
+                                Colors.red,
+                              );
+                            }
+                          } catch (e) {
+                            setState(() {
+                              isLoading = false;
+                              pinController.clear();
+                            });
+                            print('Error fetching admin PIN: $e');
+                            showCustomSnackbar(
+                              'Error',
+                              'Failed to verify PIN. Please try again.',
+                              Colors.red,
+                            );
+                          }
+                        },
+                        onChanged: (value) {},
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    if (isLoading)
+                      CircularProgressIndicator(color: Palette.newColor)
+                    else
+                      NumberPadWidget(
+                        onNumberTap: (number) {
+                          if (pinController.text.length < 4) {
+                            setState(() {
+                              pinController.text += number;
+                            });
+                          }
+                        },
+                        onBackspaceTap: () {
+                          setState(() {
+                            if (pinController.text.isNotEmpty) {
+                              pinController.text = pinController.text.substring(
+                                0,
+                                pinController.text.length - 1,
+                              );
+                            }
+                          });
+                        },
+                        submitForm: () async {
+                          if (pinController.text.length == 4) {
+                            setState(() {
+                              isLoading = true;
+                            });
+                            
+                            try {
+                              final prefs = await SharedPreferences.getInstance();
+                              String? centerSlug = prefs.getString('centerSlug');
+                              
+                              final response = await Supabase.instance.client
+                                  .schema('${centerSlug}_prod_schema')
+                                  .from('store_details')
+                                  .select('admin_pin')
+                                  .single();
+                              
+                              final adminPin = response['admin_pin']?.toString() ?? '1234';
+                              
+                              if (pinController.text == adminPin) {
+                                Navigator.of(context).pop(true);
+                              } else {
+                                setState(() {
+                                  isLoading = false;
+                                  pinController.clear();
+                                });
+                                showCustomSnackbar(
+                                  'Invalid PIN',
+                                  'The admin PIN you entered is incorrect',
+                                  Colors.red,
+                                );
+                              }
+                            } catch (e) {
+                              setState(() {
+                                isLoading = false;
+                                pinController.clear();
+                              });
+                              print('Error fetching admin PIN: $e');
+                              showCustomSnackbar(
+                                'Error',
+                                'Failed to verify PIN. Please try again.',
+                                Colors.red,
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(false);
+                      },
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    return result ?? false;
+  }
+
   Future<bool?> _showCancelBookingDialog() async {
     String title = '';
     String description = '';
@@ -2612,34 +3035,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                // Clear all booking details
-                final defaultController = Get.find<DefaultController>();
-                defaultController.tabIndex.value = 0; // Reset to Dashboard
-                defaultController.dashboardTabController?.index = 0;
-                Get.offAllNamed('/');
-                // newBookingController.clearSelectedSlots();
-                // newBookingController.mobileNumberController.clear();
-                // newBookingController.nameController.clear();
-                // newBookingController.serviceController.clear();
-                // newBookingController.bookingdateController.clear();
-                // notesController.clear();
-                // promoCodeController.clear();
-                // paidAmountController.clear();
-                // balanceAmountController.clear();
-                // setState(() {
-                //   totalPaid = 0.0;
-                //   customAmountString = '';
-                //   selectedAmount = '';
-                //   selectedMethod = 'CASH';
-                //   discountAmount = 0.0;
-                //   isDiscountApplied = false;
-                //   receiptToggle = true;
-                // });
-                // // Ensure UI refresh before navigating away
-                // setState(() {});
-                // Navigator.of(context).pop(); // Close dialog
-                // Navigator.pop(context); // Return to booking screen
+              onPressed: () async {
+                // Clear cart when canceling
+                cartController.clearCart();
+                
+                // Clear booking details
+                newBookingController.clearSelectedSlots();
+                newBookingController.mobileNumberController.clear();
+                newBookingController.nameController.clear();
+                
+                // Close the dialog first
+                Navigator.of(context).pop(true);
+                
+                // Then navigate based on the type
+                if (widget.forpayment == 'new-booking-payment') {
+                  // For new bookings, go back to court view
+                  Navigator.of(context).pop();
+                } else {
+                  // For other types, go to dashboard
+                  final defaultController = Get.find<DefaultController>();
+                  defaultController.tabIndex.value = 0;
+                  if (defaultController.dashboardTabController != null) {
+                    defaultController.dashboardTabController!.index = 0;
+                  }
+                  // Navigate to root/dashboard
+                  Get.offAllNamed('/');
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red.shade400,

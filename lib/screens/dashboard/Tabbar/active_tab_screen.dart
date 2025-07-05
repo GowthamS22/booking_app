@@ -72,10 +72,11 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // final isTablet = constraints.maxWidth >= 600;
-        return Column(
+    return Container(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // final isTablet = constraints.maxWidth >= 600;
+          return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 20),
@@ -766,6 +767,7 @@ class _ActiveTabScreenState extends State<ActiveTabScreen> {
           ],
         );
       },
+    ),
     );
   }
 

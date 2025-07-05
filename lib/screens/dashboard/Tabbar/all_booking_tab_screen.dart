@@ -71,11 +71,12 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        //final isTablet = constraints.maxWidth >= 600;
+    return Container(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          //final isTablet = constraints.maxWidth >= 600;
 
-        return Column(
+          return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
@@ -597,6 +598,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
           ],
         );
       },
+    ),
     );
   }
 
