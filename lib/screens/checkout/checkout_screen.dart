@@ -493,7 +493,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               mainAxisAlignment: MainAxisAlignment.start,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                buildCartItems(),
+                                buildCartItems(controller),
                                 buildCheckout(newBookingController, controller),
                               ],
                             ),
@@ -613,7 +613,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
-  Widget buildCartItems() {
+  Widget buildCartItems(CheckoutController checkoutController,) {
     return Expanded(
       flex: 2,
       child: Container(
@@ -1971,6 +1971,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
                                                   printReceipt: widget.exorderId != null ? false : true,
+                                                  isMembershipApplied: widget.isMembershipApplied!,
+                                                  membershipId:widget.membershipID,
                                                 );
 
                                                 if(widget.exorderId!=null && widget.exorderId!='') {
@@ -2004,6 +2006,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 paid: totalPaid,
                                                 balance: double.parse(balanceAmountController.text,),
                                                 printReceipt: widget.exorderId != null ? false : true,
+                                                isMembershipApplied: widget.isMembershipApplied!,
+                                                membershipId:widget.membershipID,
                                               );
 
                                               if(widget.exorderId!=null && widget.exorderId!='') {

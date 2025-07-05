@@ -184,6 +184,26 @@ class CheckoutController extends GetxController {
               'createdby': authController.userId.toString(),
             });
 
+        final membershipData = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .insert({
+              'membershipplan_id': membershipId,
+              'customer_id': userData.value.id.toString(),
+              'name': planDetails['name'],
+              'price': planDetails['price'],
+              'billing_cycle': planDetails['billing_cycle'],
+              'description': planDetails['description'],
+              'peak_price': planDetails['peak_price'],
+              'non_peak_price': planDetails['non_peak_price'],
+              'swap_time': planDetails['swap_time'],
+              'highlights': planDetails['highlights'],
+              'validity': planDetails['validity'],
+              'status': false,
+            })
+            .select('*')
+            .single();
+
         final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
 
         await supabase
@@ -195,7 +215,8 @@ class CheckoutController extends GetxController {
                 'purchased_date': currentDate,
                 'plan_details': planDetails, // Include the plan details if needed
                 // Add any other membership data fields you want to include
-              }
+              },
+              'membership_data_id': membershipData['id'],
             })
             .eq('id', userId);
             
@@ -383,11 +404,65 @@ class CheckoutController extends GetxController {
     double? paid,
     double? balance,
     bool printReceipt = false,
+    bool isMembershipApplied = false,
+    String? membershipId,
   }) async {
     try {
 
       final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug = preferences.getString('centerSlug');
+
+      if (isMembershipApplied == true && membershipId != null && userId != null) {
+
+        final planDetails = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershipplan')
+            .select('*')
+            .eq('id', membershipId)
+            .single();
+
+        final membershipPayment = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershippayment')
+            .insert({
+              'membershipid': membershipId,
+              'customers_id': userId,
+              'paymenttype': paymentType,
+              'total': planDetails['price'].toDouble(),
+              'paidamount': paid,
+              'status': true,
+              'paymentresponse': '',
+              'notes': '',
+              'createdby': authController.userId.toString(),
+            });
+
+        final membershipData = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .update({
+              'status': false
+            })
+            .eq('customer_id', userId)
+            .eq('status', true)
+            .select('*')
+            .single();
+
+        final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
+
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('customers')
+            .update({
+              'membershipplan_id': membershipId,
+              'membership_data': {
+                'purchased_date': currentDate,
+                'plan_details': planDetails, // Include the plan details if needed
+                // Add any other membership data fields you want to include
+              },
+              'membership_data_id': membershipData['id']
+            })
+            .eq('id', userId);
+      }
 
       // Insert Payment
       final paymentResponse = await supabase
@@ -462,6 +537,7 @@ class CheckoutController extends GetxController {
               'payment_type': paymentType,
               'payment_status': 'Paid',
               'status': 'Booked',
+              'bcart_items': null,
             })
             .eq('id', bookingId!);
 
@@ -534,6 +610,26 @@ class CheckoutController extends GetxController {
                 'createdby': authController.userId.toString(),
               });
 
+          final membershipData = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membership_data')
+              .insert({
+                'membershipplan_id': membershipId,
+                'customer_id': userData.value.id.toString(),
+                'name': planDetails['name'],
+                'price': planDetails['price'],
+                'billing_cycle': planDetails['billing_cycle'],
+                'description': planDetails['description'],
+                'peak_price': planDetails['peak_price'],
+                'non_peak_price': planDetails['non_peak_price'],
+                'swap_time': planDetails['swap_time'],
+                'highlights': planDetails['highlights'],
+                'validity': planDetails['validity'],
+                'status': false,
+              })
+              .select('*')
+              .single();
+
           final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
 
           await supabase
@@ -544,7 +640,8 @@ class CheckoutController extends GetxController {
                   'membership_data': {
                     'purchased_date': currentDate,
                     'plan_details': planDetails, // Include the plan details if needed
-                  }
+                  },
+                  'membership_data_id': membershipData['id']
               })
               .eq('id', userId);
               
@@ -569,6 +666,32 @@ class CheckoutController extends GetxController {
       showCustomSnackbar('Failed', e.toString(), Palette.dangerTxt);
     }
   }
+
+  Future<bool> removeMembership({String? membershipId, String? customerId}) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    if (centerSlug == null || customerId == null) {
+      print('❌ centerSlug or customerId is null');
+      return false;
+    }
+
+    try {
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .delete()
+          .eq('customer_id', customerId)
+          .eq('status', true);
+
+      showCustomSnackbar('Success', 'Deleted membership payments', Colors.green);
+      return true;
+    } catch (e) {
+      print('❌ Error deleting membership payment: $e');
+      return false;
+    }
+  }
+
 
   double get membershipAmount {
     double val =
