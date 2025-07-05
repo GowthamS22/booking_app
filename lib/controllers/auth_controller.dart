@@ -73,11 +73,18 @@ class AuthController extends GetxController {
           .select('*, platform_status(*)')
           .eq('status', true);
 
+      final membershipPlansResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershipplan')
+          .select('*')
+          .eq('status', true);
+
       await preferences.setString('categories', jsonEncode(categoryResponse));
       await preferences.setString('products', jsonEncode(productsResponse));
       await preferences.setString('storeDetails', jsonEncode(storeResponse));
       await preferences.setString('paymentDevices', jsonEncode(paymentDeviceResponse));
       await preferences.setString('sportsWithPlatforms', jsonEncode(sportsWithPlatformResponse));
+      await preferences.setString('membershipPlans', jsonEncode(membershipPlansResponse));
 
       // Add this section to fetch and cache ALL active days data (not just today)
       final activeDaysResponse = await supabase

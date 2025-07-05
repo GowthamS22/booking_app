@@ -269,6 +269,104 @@ class NewBookingController extends GetxController {
           validity
         )
       ''')
+        .eq('status', true)
+        .or('first_name.ilike.%$query%,mobile.ilike.%$query%')
+        .limit(10);
+
+    return await Future.wait(response.map((user) async {
+      final plan = user['membershipplan'];
+      final membershipData = user['membership_data'] as Map<String, dynamic>?;
+
+      DateTime? startDate = membershipData != null
+          ? DateTime.tryParse(membershipData['purchased_date']?.toString() ?? '')
+          : null;
+
+      DateTime? endDate;
+      if (startDate != null && plan != null && plan['validity'] != null) {
+        final billingCycle = plan['billing_cycle']?.toString().toLowerCase();
+        final validity = int.tryParse(plan['validity'].toString()) ?? 0;
+
+        if (billingCycle == 'month') {
+          endDate = startDate.add(Duration(days: validity));
+        } else if (billingCycle == 'year') {
+          endDate = DateTime(
+            startDate.year,
+            startDate.month + validity,
+            startDate.day,
+          );
+        }
+      }
+
+      try {
+        // Check if membership exists in cart
+        final membershipDataRes = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .select('*')
+            .eq('customer_id', user['id'])
+            .eq('status', true)
+            .maybeSingle(); // Use maybeSingle instead of single to handle null case
+
+        return {
+          'id': user['id'] ?? '',
+          'name': user['first_name'] ?? '',
+          'mobile': user['mobile'] ?? '',
+          'membership_plan': plan?['name'] ?? '',
+          'price': plan?['price']?.toString() ?? '',
+          'billing_cycle': plan?['billing_cycle'] ?? '',
+          'peak_price': plan?['peak_price']?.toString() ?? '',
+          'non_peak_price': plan?['non_peak_price']?.toString() ?? '',
+          'validity_start': startDate?.toIso8601String() ?? '',
+          'validity_end': endDate?.toIso8601String() ?? '',
+          'membershipplan_id': user['membershipplan_id'] ?? '',
+          'already_in_cart': membershipDataRes != null, // True if found in membership_data table
+        };
+      } catch (e) {
+        // If no record found, return with already_in_cart as false
+        return {
+          'id': user['id'] ?? '',
+          'name': user['first_name'] ?? '',
+          'mobile': user['mobile'] ?? '',
+          'membership_plan': plan?['name'] ?? '',
+          'price': plan?['price']?.toString() ?? '',
+          'billing_cycle': plan?['billing_cycle'] ?? '',
+          'peak_price': plan?['peak_price']?.toString() ?? '',
+          'non_peak_price': plan?['non_peak_price']?.toString() ?? '',
+          'validity_start': startDate?.toIso8601String() ?? '',
+          'validity_end': endDate?.toIso8601String() ?? '',
+          'membershipplan_id': user['membershipplan_id'] ?? '',
+          'already_in_cart': false,
+        };
+      }
+    }));
+  }
+
+  Future<List<Map<String, dynamic>>> fetchUserSuggestionsOLD(String query) async {
+    if (query.isEmpty) return [];
+
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    final response = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('customers')
+        .select('''
+        id,
+        mobile,
+        first_name,
+        membershipplan_id,
+        membership_data,
+        created_at,
+        status,
+        membershipplan (
+          name,
+          price,
+          billing_cycle,
+          peak_price,
+          non_peak_price,
+          validity
+        )
+      ''')
         .eq('status',true)
         .or(
           'first_name.ilike.%$query%,mobile.ilike.%$query%',
@@ -2118,7 +2216,11 @@ class NewBookingController extends GetxController {
     String? paymentType,
     String? bookingId,
     List<BookingInfo>? bookings,
+    String? membershipID,
+    String? membershipName,
+    double? membershipPrice,
   }) async {
+
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     String? centerSlug = preferences.getString('centerSlug');
 
@@ -2136,6 +2238,34 @@ class NewBookingController extends GetxController {
         update();
         return;
       }
+
+      if(membershipID!=null) {
+        final planDetails = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershipplan')
+            .select('*')
+            .eq('id', membershipID)
+            .single();
+
+        final membershipData = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .insert({
+              'membershipplan_id': membershipID,
+              'customer_id': userData.value.id.toString(),
+              'name': planDetails['name'],
+              'price': planDetails['price'],
+              'billing_cycle': planDetails['billing_cycle'],
+              'description': planDetails['description'],
+              'peak_price': planDetails['peak_price'],
+              'non_peak_price': planDetails['non_peak_price'],
+              'swap_time': planDetails['swap_time'],
+              'highlights': planDetails['highlights'],
+              'validity': planDetails['validity'],
+              'status': true,
+            });
+      }
+
       // Step 2: Generate a unique booking ID
       final bookingNumber = await getNextBookingNumber();
 
@@ -2224,6 +2354,47 @@ class NewBookingController extends GetxController {
           redirect: false,
         );
       }
+
+      // if (membershipID != null && membershipName != null && membershipPrice != null) {
+      //
+      //   final planDetails = await supabase
+      //       .schema('${centerSlug}_prod_schema')
+      //       .from('membershipplan')
+      //       .select('*')
+      //       .eq('id', membershipID)
+      //       .single();
+      //
+      //   final membershipPayment = await supabase
+      //       .schema('${centerSlug}_prod_schema')
+      //       .from('membershippayment')
+      //       .insert({
+      //         'membershipid': membershipID,
+      //         'customers_id': userData.value.id.toString(),
+      //         'paymenttype': paymentType,
+      //         'total': planDetails['price'].toDouble(),
+      //         'paidamount': planDetails['price'].toDouble(),
+      //         'status': false,
+      //         'paymentresponse': '',
+      //         'notes': '',
+      //         'createdby': authController.userId.toString(),
+      //       });
+      //
+      //   final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
+      //
+      //   await supabase
+      //       .schema('${centerSlug}_prod_schema')
+      //       .from('customers')
+      //       .update({
+      //         'membershipplan_id': membershipID,
+      //         'membership_data': {
+      //           'purchased_date': currentDate,
+      //           'plan_details': planDetails, // Include the plan details if needed
+      //           // Add any other membership data fields you want to include
+      //         }
+      //       })
+      //       .eq('id', userData.value.id.toString());
+      //
+      // }
 
       // Now clear cart and navigate
       cartItems.clear();
