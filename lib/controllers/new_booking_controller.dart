@@ -2239,7 +2239,7 @@ class NewBookingController extends GetxController {
         return;
       }
 
-      if(membershipID!=null) {
+      if(membershipID!=null && membershipID!='') {
         final planDetails = await supabase
             .schema('${centerSlug}_prod_schema')
             .from('membershipplan')
