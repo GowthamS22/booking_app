@@ -33,6 +33,7 @@ class NewBookingController extends GetxController {
   RxBool paymentProcess = false.obs;
   RxBool onlinePayment = false.obs;
   RxBool hasShownSpecialHoursError = false.obs; // Add this flag
+  RxBool bookingJustCompleted = false.obs; // Track if booking was just completed
 
   RxBool courtChangeBtn = false.obs;
   RxBool cancelBookingbtn = false.obs;
@@ -161,7 +162,8 @@ class NewBookingController extends GetxController {
   void onInit() {
     fetchUserMobile();
     fetchServiceList();
-    fetchStartEndTime();
+    // Don't fetch start/end time in onInit as selectedServiceId is not set yet
+    // fetchStartEndTime() will be called after service is selected
     fetchMembershipPlans(); // Fetch membership plans on init
     super.onInit();
     mobileNumberController = TextEditingController();
@@ -869,10 +871,13 @@ class NewBookingController extends GetxController {
 
     try {
       if (selectedServiceId.value == null || selectedServiceId.value.isEmpty) {
+        print('fetchStartEndTime called with empty selectedServiceId, skipping...');
         isLoading.value = false;
         update();
         return;
       }
+      
+      print('fetchStartEndTime called with selectedServiceId: ${selectedServiceId.value}');
 
       // If we already have time slots, don't fetch again
       if (timeSlots.isNotEmpty) {
@@ -1091,6 +1096,7 @@ class NewBookingController extends GetxController {
         courtList.value = generatedCourts;
         await fetchSpecialHours();
         await fetchBookedSlots();
+        await fetchStartEndTime();
       } else {
         courtList.clear();
       }
@@ -1191,6 +1197,7 @@ class NewBookingController extends GetxController {
         courtList.value = generatedCourts;
         await fetchSpecialHours();
         await fetchBookedSlots();
+        await fetchStartEndTime();
       } else {
         // Fallback to API call if no cached data
         final response = await supabase
@@ -1347,17 +1354,34 @@ class NewBookingController extends GetxController {
     String? centerSlug = pref.getString('centerSlug');
 
     try {
-      // Step 1: Fetch current payment status of the booking
+      // Step 1: Fetch current payment status and customer info of the booking
       final bookingResponse = await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
-          .select('payment_status')
+          .select('payment_status, customer_id')
           .eq('id', bookingId)
           .single();
 
       final String? paymentStatus = bookingResponse['payment_status'];
+      final String? customerId = bookingResponse['customer_id'];
 
-      // Step 2: Conditionally build update map
+      // Step 2: Clean up pending membership if this is a Pay Later booking
+      if (paymentStatus != 'Paid' && customerId != null) {
+        try {
+          print('🧹 Cleaning up pending membership for cancelled Pay Later booking...');
+          
+          // Get checkout controller to use cleanup method
+          final checkoutController = Get.find<CheckoutController>();
+          await checkoutController.cleanupPendingMembership(customerId: customerId);
+          
+          print('✅ Pending membership cleaned up for cancelled booking');
+        } catch (e) {
+          print('❌ Error cleaning up pending membership: $e');
+          // Don't fail the cancellation for membership cleanup errors
+        }
+      }
+
+      // Step 3: Conditionally build update map
       final updateData = {
         'is_cancelled': true,
         'notes': notes,
@@ -1367,14 +1391,14 @@ class NewBookingController extends GetxController {
         updateData['payment_type'] = 'On Acc. / Void';
       }
 
-      // Step 3: Update bookings table
+      // Step 4: Update bookings table
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
           .update(updateData)
           .eq('id', bookingId);
 
-      // Step 4: Update booking_slots table
+      // Step 5: Update booking_slots table
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('booking_slots')
@@ -1398,6 +1422,33 @@ class NewBookingController extends GetxController {
     final SharedPreferences pref = await SharedPreferences.getInstance();
     String? centerSlug = pref.getString('centerSlug');
     try {
+      // Fetch payment status and customer info for membership cleanup
+      final bookingResponse = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('payment_status, customer_id')
+          .eq('id', bookingId)
+          .single();
+
+      final String? paymentStatus = bookingResponse['payment_status'];
+      final String? customerId = bookingResponse['customer_id'];
+
+      // Clean up pending membership if this is a Pay Later booking
+      if (paymentStatus != 'Paid' && customerId != null) {
+        try {
+          print('🧹 Cleaning up pending membership for No Show Pay Later booking...');
+          
+          // Get checkout controller to use cleanup method
+          final checkoutController = Get.find<CheckoutController>();
+          await checkoutController.cleanupPendingMembership(customerId: customerId);
+          
+          print('✅ Pending membership cleaned up for No Show booking');
+        } catch (e) {
+          print('❌ Error cleaning up pending membership: $e');
+          // Don't fail the No Show marking for membership cleanup errors
+        }
+      }
+
       await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
@@ -1428,7 +1479,8 @@ class NewBookingController extends GetxController {
     );
     final endOfDay = startOfDay.add(Duration(days: 1));
 
-    if (selectedServiceId.isNotEmpty) {
+    if (selectedServiceId.value != null && selectedServiceId.value.isNotEmpty) {
+      print('fetchBookedSlots: Using selectedServiceId = ${selectedServiceId.value}');
       final response = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('booking_slots')
@@ -1465,7 +1517,7 @@ class NewBookingController extends GetxController {
         )
       )
     ''')
-          .eq('service_id', selectedServiceId)
+          .eq('service_id', selectedServiceId.value)
           .eq('status', 'Booked')
           .eq('bookings.is_cancelled', false)
           .eq('bookings.is_showoff', false)
@@ -1547,6 +1599,8 @@ class NewBookingController extends GetxController {
         );
       }
       update();
+    } else {
+      print('fetchBookedSlots: Skipping - selectedServiceId is empty');
     }
   }
 
@@ -2400,6 +2454,7 @@ class NewBookingController extends GetxController {
       cartItems.clear();
       confirmBtn.value = false;
       userData.value = User();
+      bookingJustCompleted.value = true; // Set flag for court view refresh
       showBookingSuccessAlert();
       fetchBookedSlots();
       isLoading.value = false;

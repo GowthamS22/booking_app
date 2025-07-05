@@ -48,6 +48,16 @@ print(response);
           'isEditing': false.obs,
         };
       }).toList());
+      
+      // Also save printers to SharedPreferences for easy access in checkout
+      final List<Map<String, dynamic>> simplePrinters = (response['printer'] as List).map((printer) {
+        return {
+          'name': printer['name'],
+          'ip': printer['ip'],
+          'port': printer['port'],
+        };
+      }).toList();
+      await prefs.setString('paired_printers', jsonEncode(simplePrinters));
     }
     update();
   }
@@ -136,7 +146,22 @@ print(response);
         'port': printer['port']!,
         'isEditing': false.obs,
     },);
+    
+    // Save to SharedPreferences immediately when pairing
+    _savePrintersToPrefs();
     update();
+  }
+  
+  Future<void> _savePrintersToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<Map<String, dynamic>> simplePrinters = pairedPrinters.map((printer) {
+      return {
+        'name': printer['name'],
+        'ip': printer['ip'],
+        'port': printer['port'],
+      };
+    }).toList();
+    await prefs.setString('paired_printers', jsonEncode(simplePrinters));
   }
 
   void toggleEdit(int index) {
@@ -146,6 +171,8 @@ print(response);
 
   void deletePrinter(int index) {
     pairedPrinters.removeAt(index);
+    // Update SharedPreferences after deletion
+    _savePrintersToPrefs();
     update();
   }
 
@@ -153,6 +180,8 @@ print(response);
     pairedPrinters[index]['ip'] = ip;
     pairedPrinters[index]['port'] = port;
     pairedPrinters[index]['isEditing'].value = false;
+    // Update SharedPreferences after saving
+    _savePrintersToPrefs();
     //updateSupabasePrinters();
   }
 
@@ -181,6 +210,16 @@ print(response);
 
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString('storeDetails', jsonEncode(response));
+    
+    // Also save printers separately for easy access in checkout
+    final List<Map<String, dynamic>> simplePrinters = pairedPrinters.map((printer) {
+      return {
+        'name': printer['name'],
+        'ip': printer['ip'],
+        'port': printer['port'],
+      };
+    }).toList();
+    await preferences.setString('paired_printers', jsonEncode(simplePrinters));
 
     showCustomSnackbar('Success', 'Printers Updated Successfully', Colors.green);
     update(); // Add this to ensure UI updates after DB update

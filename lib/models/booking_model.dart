@@ -62,6 +62,7 @@ class BookingModel {
   final String? paymentStatus;
   final String? sportname;
   final String? platformId;
+  final String? courtId;
   final String? bookingStatus;
   final bool? isExtendedBooking;
   final String? startTimeFormattedRaw;
@@ -78,6 +79,7 @@ class BookingModel {
     this.paymentStatus,
     this.sportname,
     this.platformId,
+    this.courtId,
     this.bookingStatus,
     this.isExtendedBooking,
     this.startTimeFormattedRaw,
@@ -90,9 +92,15 @@ class BookingModel {
     final platformStatus = json['platform_status'] as Map<String, dynamic>?;
     final sports = platformStatus?['sports'] as Map<String, dynamic>?;
     final platformId = platformStatus?['platform_id']?.toString() ?? '';
+    
+    // Use individual_court_amount if available, otherwise fallback to grand_total
+    final individualAmount = (json['individual_court_amount'] as num?)?.toDouble();
+    final grandTotal = (booking?['grand_total'] as num?)?.toDouble();
+    final displayAmount = individualAmount ?? grandTotal;
+    
     return BookingModel(
       bookingNo: booking?['booking_no'] as String?,
-      grandTotal: (booking?['grand_total'] as num?)?.toDouble(),
+      grandTotal: displayAmount,
       customerName:
           customer != null
               ? '${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}'
@@ -109,6 +117,7 @@ class BookingModel {
       paymentStatus: booking?['payment_status'] as String?,
       sportname: sports?['sport_name'] as String?,
       platformId: platformId,
+      courtId: json['court_id'] as String?,
       bookingStatus: json['status'] as String?,
       isExtendedBooking: json['is_extended_booking'] as bool ?? false,
       startTimeFormattedRaw: json['start_time_formatted'],

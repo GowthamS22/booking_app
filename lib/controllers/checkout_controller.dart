@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:booking_app/app/getx_binding.dart';
+import 'package:booking_app/controllers/auth_controller.dart';
 import 'package:booking_app/controllers/cart_controller.dart';
 import 'package:booking_app/controllers/payment_controller.dart';
 import 'package:booking_app/models/booking_with_all.dart';
@@ -39,6 +40,7 @@ class CheckoutController extends GetxController {
   final CustomerController customerController = Get.put(CustomerController());
   final PaymentController paymentController   = Get.put(PaymentController());
   final CartController cartController   = Get.put(CartController());
+  final AuthController authController = Get.find<AuthController>();
 
   late TyroService tyroService;
 
@@ -59,6 +61,42 @@ class CheckoutController extends GetxController {
 
     final alignedText = '$leftText${' ' * spaceWidth}$rightText';
     printer.text(alignedText);
+  }
+  
+  Future<void> _migratePrintersIfNeeded(SharedPreferences prefs) async {
+    try {
+      // Check if paired_printers already exists
+      final pairedPrintersJson = prefs.getString('paired_printers');
+      if (pairedPrintersJson != null && pairedPrintersJson.isNotEmpty) {
+        return; // Already migrated
+      }
+      
+      // Try to get printers from storeDetails
+      final storeDetailsJson = prefs.getString('storeDetails');
+      if (storeDetailsJson == null || storeDetailsJson.isEmpty) {
+        return;
+      }
+      
+      final storeDetails = jsonDecode(storeDetailsJson);
+      if (storeDetails['printer'] != null && storeDetails['printer'] is List) {
+        final List<dynamic> printers = storeDetails['printer'];
+        if (printers.isNotEmpty) {
+          // Migrate printers to paired_printers
+          final List<Map<String, dynamic>> simplePrinters = printers.map((printer) {
+            return {
+              'name': printer['name'] ?? 'Unknown Printer',
+              'ip': printer['ip'] ?? '',
+              'port': printer['port'] ?? '9100',
+            };
+          }).toList();
+          
+          await prefs.setString('paired_printers', jsonEncode(simplePrinters));
+          print('Successfully migrated ${simplePrinters.length} printers from storeDetails to paired_printers');
+        }
+      }
+    } catch (e) {
+      print('Error migrating printers: $e');
+    }
   }
 
   void _printFormattedItemRow(NetworkPrinter printer, String name, String qty, String price, String total) {
@@ -96,18 +134,27 @@ class CheckoutController extends GetxController {
     isLoading.value = true;
 
     try {
+      final Map<String, dynamic> customerData = {
+        'first_name': firstName,
+        'mobile': mobile,
+        'status': true,
+      };
+      
+      // Only add membershipplan_id if membershipId is not null and not empty
+      if (membershipId != null && membershipId.isNotEmpty && membershipId != 'null') {
+        customerData['membershipplan_id'] = membershipId;
+      }
+      
       final response = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('customers')
-              .insert({
-                'first_name': firstName,
-                'mobile': mobile,
-                'status': true,
-              })
+              .insert(customerData)
               .select('*')
               .single();
+              
       if (response['id'] != null) {
         userData.value.id = response['id'];
+        print('✅ User registered successfully with ID: ${response['id']}');
         showCustomSnackbar(
           'Success',
           'User registered successfully',
@@ -115,7 +162,9 @@ class CheckoutController extends GetxController {
         );
       }
     } catch (e) {
+      print('❌ Error registering user: $e');
       showCustomSnackbar('Error', e.toString(), Colors.red);
+      rethrow; // Re-throw to allow calling code to handle the error
     } finally {
       isLoading.value = false;
     }
@@ -159,8 +208,10 @@ class CheckoutController extends GetxController {
         return;
       }
 
-      if (isMembershipApplied == true && membershipId != null && membershipId!.isNotEmpty && userId != null) {
-        print('Processing membership update for user: $userId with membership: $membershipId');
+      // Store membership details for processing after payment success
+      Map<String, dynamic>? membershipDetails;
+      if (isMembershipApplied == true && membershipId != null && membershipId!.isNotEmpty && membershipId != 'null' && userId != null) {
+        print('Preparing membership for user: $userId with membership: $membershipId');
         
         final planDetails = await supabase
             .schema('${centerSlug}_prod_schema')
@@ -169,58 +220,13 @@ class CheckoutController extends GetxController {
             .eq('id', membershipId)
             .single();
 
-        final membershipPayment = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membershippayment')
-            .insert({
-              'membershipid': membershipId,
-              'customers_id': userId,
-              'paymenttype': paymentType,
-              'total': planDetails['price'].toDouble(),
-              'paidamount': paid,
-              'status': true,
-              'paymentresponse': '',
-              'notes': '',
-              'createdby': authController.userId.toString(),
-            });
-
-        final membershipData = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membership_data')
-            .insert({
-              'membershipplan_id': membershipId,
-              'customer_id': userData.value.id.toString(),
-              'name': planDetails['name'],
-              'price': planDetails['price'],
-              'billing_cycle': planDetails['billing_cycle'],
-              'description': planDetails['description'],
-              'peak_price': planDetails['peak_price'],
-              'non_peak_price': planDetails['non_peak_price'],
-              'swap_time': planDetails['swap_time'],
-              'highlights': planDetails['highlights'],
-              'validity': planDetails['validity'],
-              'status': false,
-            })
-            .select('*')
-            .single();
-
-        final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
-
-        await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('customers')
-            .update({
-              'membershipplan_id': membershipId,
-              'membership_data': {
-                'purchased_date': currentDate,
-                'plan_details': planDetails, // Include the plan details if needed
-                // Add any other membership data fields you want to include
-              },
-              'membership_data_id': membershipData['id'],
-            })
-            .eq('id', userId);
-            
-        print('Successfully updated membership for customer: $userId');
+        membershipDetails = {
+          'membershipId': membershipId,
+          'userId': userId,
+          'paymentType': paymentType,
+          'paid': paid,
+          'planDetails': planDetails,
+        };
       }
 
       final bookingNumber = await getNextBookingNumber();
@@ -338,6 +344,28 @@ class CheckoutController extends GetxController {
         print('❌ Exception during insert: $e');
       }
 
+      // Process membership AFTER successful booking and payment creation
+      if (membershipDetails != null) {
+        try {
+          print('Processing membership after successful booking creation...');
+          
+          // Determine if this is a "Pay Later" booking
+          final isPayLaterBooking = (grandtotalPrice > paid!);
+          
+          await _processMembershipAfterBooking(
+            membershipDetails: membershipDetails,
+            isPayLaterBooking: isPayLaterBooking,
+            centerSlug: centerSlug,
+          );
+          
+          print('✅ Membership processed successfully');
+        } catch (e) {
+          print('❌ Error processing membership: $e');
+          // Don't fail the entire booking for membership errors
+          showCustomSnackbar('Warning', 'Booking created but membership processing failed', Colors.orange);
+        }
+      }
+
       if(printReceipt==true) {
         await printBookingReceipt(bookingId: bookingResponse['id']);
       }
@@ -409,14 +437,36 @@ class CheckoutController extends GetxController {
     bool printReceipt = false,
     bool isMembershipApplied = false,
     String? membershipId,
+    String? paymentMode, // Added to detect individual court payments
   }) async {
     try {
+      // Check if this is an individual court payment
+      if (paymentMode == 'individual-court-payment') {
+        print('Processing individual court payment');
+        await _processIndividualCourtPayment(
+          bookingId: bookingId,
+          orderId: orderId,
+          userId: userId,
+          notes: notes,
+          promoCode: promoCode,
+          paymentType: paymentType,
+          paid: paid,
+          balance: balance,
+          printReceipt: printReceipt,
+          isMembershipApplied: isMembershipApplied,
+          membershipId: membershipId,
+        );
+        return;
+      }
+      
+      // Continue with regular booking payment logic
 
       final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug = preferences.getString('centerSlug');
 
-      if (isMembershipApplied == true && membershipId != null && userId != null) {
-
+      // Store membership details for processing after successful payment
+      Map<String, dynamic>? membershipDetails;
+      if (isMembershipApplied == true && membershipId != null && membershipId.isNotEmpty && membershipId != 'null' && userId != null) {
         final planDetails = await supabase
             .schema('${centerSlug}_prod_schema')
             .from('membershipplan')
@@ -424,47 +474,13 @@ class CheckoutController extends GetxController {
             .eq('id', membershipId)
             .single();
 
-        final membershipPayment = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membershippayment')
-            .insert({
-              'membershipid': membershipId,
-              'customers_id': userId,
-              'paymenttype': paymentType,
-              'total': planDetails['price'].toDouble(),
-              'paidamount': paid,
-              'status': true,
-              'paymentresponse': '',
-              'notes': '',
-              'createdby': authController.userId.toString(),
-            });
-
-        final membershipData = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membership_data')
-            .update({
-              'status': false
-            })
-            .eq('customer_id', userId)
-            .eq('status', true)
-            .select('*')
-            .single();
-
-        final currentDate = DateTime.now().toIso8601String(); // Gets current date in ISO format
-
-        await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('customers')
-            .update({
-              'membershipplan_id': membershipId,
-              'membership_data': {
-                'purchased_date': currentDate,
-                'plan_details': planDetails, // Include the plan details if needed
-                // Add any other membership data fields you want to include
-              },
-              'membership_data_id': membershipData['id']
-            })
-            .eq('id', userId);
+        membershipDetails = {
+          'membershipId': membershipId,
+          'userId': userId,
+          'paymentType': paymentType,
+          'paid': paid,
+          'planDetails': planDetails,
+        };
       }
 
       // Insert Payment
@@ -548,12 +564,46 @@ class CheckoutController extends GetxController {
         print('❌ Main error: $e');
       }
 
+      // Process membership AFTER successful payment
+      if (membershipDetails != null) {
+        try {
+          print('Processing membership after successful payment...');
+          
+          // This is immediate payment (not Pay Later)
+          await _processMembershipAfterBooking(
+            membershipDetails: membershipDetails,
+            isPayLaterBooking: false, // Always immediate payment in makeBookingPayment
+            centerSlug: centerSlug,
+          );
+          
+          print('✅ Membership processed successfully after payment');
+        } catch (e) {
+          print('❌ Error processing membership after payment: $e');
+          // Don't fail the entire payment for membership errors
+          showCustomSnackbar('Warning', 'Payment successful but membership processing failed', Colors.orange);
+        }
+      } else {
+        // Check if there's a pending membership for this customer that needs to be activated
+        try {
+          await activatePendingMembership(customerId: userId!);
+        } catch (e) {
+          print('❌ Error activating pending membership: $e');
+          // Don't fail the payment for membership activation errors
+        }
+      }
+
       if(printReceipt==true) {
         await printBookingReceipt(bookingId: bookingId!);
       }
 
       newBookingController.cartItems.clear();
       newBookingController.clearSelectedSlots();
+      
+      // Set flag to indicate booking completed
+      newBookingController.bookingJustCompleted.value = true;
+      
+      // Refresh booked slots to show the new booking
+      await newBookingController.fetchBookedSlots();
 
       showBookingSuccessAlert();
 
@@ -588,7 +638,7 @@ class CheckoutController extends GetxController {
     String? centerSlug = preferences.getString('centerSlug');
 
     try {
-        if (isMembershipApplied == true && membershipId != null && membershipId!.isNotEmpty && userId != null) {
+        if (isMembershipApplied == true && membershipId != null && membershipId!.isNotEmpty && membershipId != 'null' && userId != null) {
           print('Processing membership payment for user: $userId with membership: $membershipId');
           
           final planDetails = await supabase
@@ -618,7 +668,7 @@ class CheckoutController extends GetxController {
               .from('membership_data')
               .insert({
                 'membershipplan_id': membershipId,
-                'customer_id': userData.value.id.toString(),
+                'customer_id': userId, // Use userId parameter instead of userData.value.id
                 'name': planDetails['name'],
                 'price': planDetails['price'],
                 'billing_cycle': planDetails['billing_cycle'],
@@ -670,6 +720,447 @@ class CheckoutController extends GetxController {
     } catch (e) {
       print("e : $e");
       showCustomSnackbar('Failed', e.toString(), Palette.dangerTxt);
+    }
+  }
+
+  /// Process membership creation after successful booking/payment
+  Future<void> _processMembershipAfterBooking({
+    required Map<String, dynamic> membershipDetails,
+    required bool isPayLaterBooking,
+    required String? centerSlug,
+  }) async {
+    final membershipId = membershipDetails['membershipId'];
+    final userId = membershipDetails['userId'];
+    final paymentType = membershipDetails['paymentType'];
+    final paid = membershipDetails['paid'];
+    final planDetails = membershipDetails['planDetails'];
+
+    print('Creating membership payment record...');
+    
+    // Create membership payment record
+    final membershipPayment = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('membershippayment')
+        .insert({
+          'membershipid': membershipId,
+          'customers_id': userId,
+          'paymenttype': paymentType,
+          'total': planDetails['price'].toDouble(),
+          'paidamount': paid,
+          'status': isPayLaterBooking ? false : true, // false for Pay Later, true for immediate payment
+          'paymentresponse': '',
+          'notes': '',
+          'createdby': authController.userId.toString(),
+        });
+
+    print('Creating membership data record...');
+    
+    // Create membership data record
+    final membershipData = await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('membership_data')
+        .insert({
+          'membershipplan_id': membershipId,
+          'customer_id': userId,
+          'name': planDetails['name'],
+          'price': planDetails['price'],
+          'billing_cycle': planDetails['billing_cycle'],
+          'description': planDetails['description'],
+          'peak_price': planDetails['peak_price'],
+          'non_peak_price': planDetails['non_peak_price'],
+          'swap_time': planDetails['swap_time'],
+          'highlights': planDetails['highlights'],
+          'validity': planDetails['validity'],
+          'status': isPayLaterBooking ? false : true, // false for Pay Later, true for immediate payment
+        })
+        .select('*')
+        .single();
+
+    print('Updating customer record with membership...');
+    
+    // Update customer record with membership
+    final currentDate = DateTime.now().toIso8601String();
+    await supabase
+        .schema('${centerSlug}_prod_schema')
+        .from('customers')
+        .update({
+          'membershipplan_id': membershipId,
+          'membership_data': {
+            'purchased_date': currentDate,
+            'plan_details': planDetails,
+            'status': isPayLaterBooking ? 'pending' : 'active',
+          },
+          'membership_data_id': membershipData['id'],
+        })
+        .eq('id', userId);
+
+    print('✅ Membership processed: ${isPayLaterBooking ? "PENDING (Pay Later)" : "ACTIVE (Paid)"}');
+  }
+
+  /// Activate pending membership after Pay Later booking is paid
+  Future<void> activatePendingMembership({required String customerId}) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    if (centerSlug == null) {
+      print('❌ centerSlug is null');
+      return;
+    }
+
+    try {
+      print('🔄 Activating pending membership for customer: $customerId');
+
+      // Update membership payment status to paid
+      // First try updating with status = false
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .update({'status': true})
+          .eq('customers_id', customerId)
+          .eq('status', false);
+      
+      // Then try updating with status = 'pending'
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .update({'status': true})
+          .eq('customers_id', customerId)
+          .eq('status', 'pending');
+
+      // Update membership data status to active
+      // First try updating with status = false
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .update({'status': true})
+          .eq('customer_id', customerId)
+          .eq('status', false);
+      
+      // Then try updating with status = 'pending'
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .update({'status': true})
+          .eq('customer_id', customerId)
+          .eq('status', 'pending');
+
+      // Update customer membership status to active
+      final customerData = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('membership_data')
+          .eq('id', customerId)
+          .maybeSingle();
+
+      if (customerData != null) {
+        final membershipData = customerData['membership_data'] as Map<String, dynamic>?;
+        if (membershipData != null && 
+            (membershipData['status'] == 'pending' || membershipData['status'] == false)) {
+          final updatedMembershipData = Map<String, dynamic>.from(membershipData);
+          updatedMembershipData['status'] = 'active';
+          
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .update({'membership_data': updatedMembershipData})
+              .eq('id', customerId);
+        }
+      }
+
+      print('✅ Pending membership activated successfully');
+    } catch (e) {
+      print('❌ Error activating pending membership: $e');
+      throw e;
+    }
+  }
+
+  /// Clean up pending membership records when user removes membership from checkout
+  Future<bool> cleanupPendingMembership({String? customerId}) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    if (centerSlug == null || customerId == null) {
+      print('❌ centerSlug or customerId is null');
+      return false;
+    }
+
+    try {
+      print('🧹 Cleaning up pending membership records for customer: $customerId');
+      
+      // Delete pending membership payments (check both boolean false and string 'pending')
+      // First try deleting with status = false
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .delete()
+          .eq('customers_id', customerId)
+          .eq('status', false);
+      
+      // Then try deleting with status = 'pending'
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .delete()
+          .eq('customers_id', customerId)
+          .eq('status', 'pending');
+
+      // Delete pending membership data (check both boolean false and string 'pending')
+      // First try deleting with status = false
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .delete()
+          .eq('customer_id', customerId)
+          .eq('status', false);
+      
+      // Then try deleting with status = 'pending'
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .delete()
+          .eq('customer_id', customerId)
+          .eq('status', 'pending');
+
+      // Clear membership from customer record if it's pending
+      final customerData = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('membership_data')
+          .eq('id', customerId)
+          .maybeSingle();
+
+      if (customerData != null) {
+        final membershipData = customerData['membership_data'] as Map<String, dynamic>?;
+        if (membershipData != null && 
+            (membershipData['status'] == 'pending' || membershipData['status'] == false)) {
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .update({
+                'membershipplan_id': null,
+                'membership_data': null,
+                'membership_data_id': null,
+              })
+              .eq('id', customerId);
+        }
+      }
+
+      print('✅ Pending membership records cleaned up');
+      return true;
+    } catch (e) {
+      print('❌ Error cleaning up pending membership: $e');
+      return false;
+    }
+  }
+
+  /// Clean up orphaned membership records from abandoned checkout sessions
+  /// This can be called periodically to clean up the database
+  Future<void> cleanupOrphanedMemberships() async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    if (centerSlug == null) {
+      print('❌ centerSlug is null');
+      return;
+    }
+
+    try {
+      print('🧹 Cleaning up orphaned membership records...');
+      
+      // Find membership records that are older than 24 hours and still pending
+      final twentyFourHoursAgo = DateTime.now().subtract(Duration(hours: 24)).toIso8601String();
+      
+      // Get orphaned membership payments with status = false
+      final orphanedPaymentsFalse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .select('id, customers_id')
+          .eq('status', false)
+          .lt('created_at', twentyFourHoursAgo);
+      
+      // Get orphaned membership payments with status = 'pending'
+      final orphanedPaymentsPending = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .select('id, customers_id')
+          .eq('status', 'pending')
+          .lt('created_at', twentyFourHoursAgo);
+      
+      // Combine both lists
+      final orphanedPayments = [...orphanedPaymentsFalse, ...orphanedPaymentsPending];
+
+      // Get orphaned membership data with status = false
+      final orphanedDataFalse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .select('id, customer_id')
+          .eq('status', false)
+          .lt('created_at', twentyFourHoursAgo);
+      
+      // Get orphaned membership data with status = 'pending'
+      final orphanedDataPending = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .select('id, customer_id')
+          .eq('status', 'pending')
+          .lt('created_at', twentyFourHoursAgo);
+      
+      // Combine both lists
+      final orphanedData = [...orphanedDataFalse, ...orphanedDataPending];
+
+      if (orphanedPayments.isNotEmpty) {
+        print('Found ${orphanedPayments.length} orphaned membership payments');
+        
+        // Delete orphaned payments with status = false
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershippayment')
+            .delete()
+            .eq('status', false)
+            .lt('created_at', twentyFourHoursAgo);
+        
+        // Delete orphaned payments with status = 'pending'
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershippayment')
+            .delete()
+            .eq('status', 'pending')
+            .lt('created_at', twentyFourHoursAgo);
+      }
+
+      if (orphanedData.isNotEmpty) {
+        print('Found ${orphanedData.length} orphaned membership data records');
+        
+        // Delete orphaned data with status = false
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .delete()
+            .eq('status', false)
+            .lt('created_at', twentyFourHoursAgo);
+        
+        // Delete orphaned data with status = 'pending'
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .delete()
+            .eq('status', 'pending')
+            .lt('created_at', twentyFourHoursAgo);
+      }
+
+      // Clean up customer records with pending membership status
+      final customersWithPendingMembership = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('id, membership_data')
+          .not('membership_data', 'is', null);
+
+      for (final customer in customersWithPendingMembership) {
+        final membershipData = customer['membership_data'] as Map<String, dynamic>?;
+        if (membershipData != null && 
+            (membershipData['status'] == 'pending' || membershipData['status'] == false)) {
+          // Check if the pending membership is old
+          final purchaseDate = DateTime.tryParse(membershipData['purchased_date'] ?? '');
+          if (purchaseDate != null && purchaseDate.isBefore(DateTime.now().subtract(Duration(hours: 24)))) {
+            await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('customers')
+                .update({
+                  'membershipplan_id': null,
+                  'membership_data': null,
+                  'membership_data_id': null,
+                })
+                .eq('id', customer['id']);
+          }
+        }
+      }
+
+      print('✅ Orphaned membership records cleaned up');
+    } catch (e) {
+      print('❌ Error cleaning up orphaned memberships: $e');
+    }
+  }
+
+  /// Manual cleanup for specific customer (for debugging orphaned records)
+  Future<bool> debugCleanupCustomerMembership({String? customerId}) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+
+    if (centerSlug == null || customerId == null) {
+      print('❌ centerSlug or customerId is null');
+      return false;
+    }
+
+    try {
+      print('🔍 Debug: Checking customer membership records for ID: $customerId');
+      
+      // Check current membership records
+      final membershipPayments = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .select('*')
+          .eq('customers_id', customerId);
+      
+      final membershipData = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .select('*')
+          .eq('customer_id', customerId);
+      
+      final customerData = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('membershipplan_id, membership_data, membership_data_id')
+          .eq('id', customerId)
+          .maybeSingle();
+
+      print('📊 Found ${membershipPayments.length} membership payments');
+      print('📊 Found ${membershipData.length} membership data records');
+      print('📊 Customer record: $customerData');
+      
+      // STEP 1: Clear customer membership fields FIRST (to remove foreign key references)
+      if (customerData != null && (customerData['membershipplan_id'] != null || customerData['membership_data'] != null)) {
+        print('🔗 Clearing customer foreign key references first...');
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('customers')
+            .update({
+              'membershipplan_id': null,
+              'membership_data': null,
+              'membership_data_id': null,
+            })
+            .eq('id', customerId);
+        print('✅ Cleared customer membership fields');
+      }
+      
+      // STEP 2: Delete membership_data records (now safe from foreign key constraints)
+      if (membershipData.isNotEmpty) {
+        print('🗑️ Deleting membership data records...');
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .delete()
+            .eq('customer_id', customerId);
+        print('✅ Deleted ${membershipData.length} membership data records');
+      }
+      
+      // STEP 3: Delete membership payment records
+      if (membershipPayments.isNotEmpty) {
+        print('🗑️ Deleting membership payment records...');
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershippayment')
+            .delete()
+            .eq('customers_id', customerId);
+        print('✅ Deleted ${membershipPayments.length} membership payments');
+      }
+
+      showCustomSnackbar('Success', 'Customer membership records cleaned up', Colors.green);
+      return true;
+    } catch (e) {
+      print('❌ Error cleaning up customer membership: $e');
+      showCustomSnackbar('Error', 'Failed to clean up customer membership: $e', Colors.red);
+      return false;
     }
   }
 
@@ -750,6 +1241,9 @@ class CheckoutController extends GetxController {
     String? storeDetails                  = prefs.getString('storeDetails');
     final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
     
+    // First, try to migrate printers from storeDetails if needed
+    await _migratePrintersIfNeeded(prefs);
+    
     // Get printer details from the new format used by settings
     final pairedPrintersJson = prefs.getString('paired_printers');
     if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
@@ -829,48 +1323,14 @@ class CheckoutController extends GetxController {
           );
         }
 
-        // Header for table
-        // printer.setStyles(PosStyles(align: PosAlign.left, bold: true));
-        // printer.text('Item                    Qty    Price   Total');
-        // printer.setStyles(PosStyles(align: PosAlign.left));
-        // printer.text('--------------------------------------------');
-        //
-        // // Print each item in table format
-        // for (var slot in booking.bookingSlots!) {
-        //   final itemName      = ('${slot.platformStatus?.sports?.sportName} - Court ${slot.platformStatus?.platformId!}').padRight(20);
-        //   final itemQuantity  = ('1').toString().padLeft(4);
-        //   final itemPrice     = ('\$${(slot.price ?? 0).toStringAsFixed(2)}').padLeft(7);
-        //   final itemTotal     = ('\$${(slot.price ?? 0).toStringAsFixed(2)}').padLeft(8);
-        //
-        //   printer.text('$itemName $itemQuantity $itemPrice $itemTotal');
-        //   _printAlignedText(printer, '${DateFormat('hh:mm a').format(slot.startTime!)} - ${DateFormat('hh:mm a').format(slot.endTime!)}', '');
-        //
-        //   // if (item['options'] != null) {
-        //   //   for (var option in item['options']) {
-        //   //     final optionText  = ' - ${option['name']}';
-        //   //     final optionPrice = option['price'].toStringAsFixed(2);
-        //   //     //printer.text('$optionText $optionPrice');
-        //   //     _printAlignedText(printer, optionText, '\$${optionPrice}');
-        //   //   }
-        //   // }
-        //   //
-        //   // if (item['discount'] != null && item['discount'] > 0) {
-        //   //   final itemDiscount = (item['price'] + (item['options']?.fold(0.0, (prev, opt) => prev + opt['price']) ?? 0.0) - item['appliedPrice']).toStringAsFixed(2);
-        //   //   //printer.text(' - Discount ${item['discount']}% $itemDiscount');
-        //   //   _printAlignedText(printer, ' - Discount ${item['discount']}%', '\$${itemDiscount}');
-        //   // }
-        // }
-
         printer.text('--------------------------------------------');
 
-        // if ((order.billDetails?.discount ?? 0) > 0) {
-        //   _printAlignedText(printer, 'Discount:', '\$${(order.billDetails?.discount ?? 0).toStringAsFixed(2)}');
-        // }
-        _printAlignedText(printer, 'Sub-Total:', '\$${(booking.total ?? 0).toStringAsFixed(2)}');
-        _printAlignedText(printer, 'GST Incl.:', '\$${(booking.gst ?? 0).toStringAsFixed(2)}');
-        // if ((order.billDetails?.surcharge ?? 0) > 0) {
-        //   _printAlignedText(printer, 'Surcharge:', '\$${(order.billDetails?.surcharge ?? 0).toStringAsFixed(2)}');
-        // }
+        // Calculate GST correctly for receipt (GST inclusive pricing)
+        final correctGST = (booking.grandTotal ?? 0) / 11;
+        final subTotal = (booking.grandTotal ?? 0) - correctGST;
+        
+        _printAlignedText(printer, 'Sub-Total:', '\$${subTotal.toStringAsFixed(2)}');
+        _printAlignedText(printer, 'GST Incl.:', '\$${correctGST.toStringAsFixed(2)}');
         _printAlignedText(printer, 'Payment Method:', '${booking.paymentType}');
         _printAlignedText(printer, 'Total Amount:', '\$${(booking.grandTotal ?? 0).toStringAsFixed(2)}');
         _printAlignedText(printer, 'Paid Amount:', '\$${(booking.grandTotal ?? 0).toStringAsFixed(2)}');
@@ -902,6 +1362,9 @@ class CheckoutController extends GetxController {
     String? centerSlug                    = prefs.getString('centerSlug');
     String? storeDetails                  = prefs.getString('storeDetails');
     final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
+    
+    // First, try to migrate printers from storeDetails if needed
+    await _migratePrintersIfNeeded(prefs);
     
     // Get printer details from the new format used by settings
     final pairedPrintersJson = prefs.getString('paired_printers');
@@ -996,19 +1459,25 @@ class CheckoutController extends GetxController {
         printer.text('--------------------------------------------');
 
         double? discount   = order.billDetails?.discount;
-        double? subtotal   = (booking.total ?? 0) + (order.billDetails?.price ?? 0);
-        double? gst        = (booking.gst ?? 0) + (order.billDetails?.taxes ?? 0);
-        double? surcharge  = (booking.surcharge ?? 0) + (order.billDetails?.surcharge ?? 0);
         double? grandtotal = (booking.grandTotal ?? 0) + (order.billDetails?.billAmount ?? 0);
         double? paidamount = (order.billDetails?.paidAmount ?? 0);
         double? balance    = 0 + (order.billDetails?.balanceAmount ?? 0);
-
+        double? surcharge  = (booking.surcharge ?? 0) + (order.billDetails?.surcharge ?? 0);
+        
+        // Calculate GST correctly for combined receipt (GST inclusive pricing)
+        final bookingGST = (booking.grandTotal ?? 0) / 11;
+        final orderGST = (order.billDetails?.billAmount ?? 0) / 11;
+        final totalGST = bookingGST + orderGST;
+        
+        final bookingSubTotal = (booking.grandTotal ?? 0) - bookingGST;
+        final orderSubTotal = (order.billDetails?.billAmount ?? 0) - orderGST;
+        final totalSubTotal = bookingSubTotal + orderSubTotal;
 
         if ((order.billDetails?.discount ?? 0) > 0) {
           _printAlignedText(printer, 'Discount:', '\$${(discount ?? 0).toStringAsFixed(2)}');
         }
-        _printAlignedText(printer, 'Sub-Total:', '\$${(subtotal ?? 0).toStringAsFixed(2)}');
-        _printAlignedText(printer, 'GST Incl.:', '\$${(gst ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Sub-Total:', '\$${totalSubTotal.toStringAsFixed(2)}');
+        _printAlignedText(printer, 'GST Incl.:', '\$${totalGST.toStringAsFixed(2)}');
         if ((order.billDetails?.surcharge ?? 0) > 0) {
           _printAlignedText(printer, 'Surcharge:', '\$${(surcharge ?? 0).toStringAsFixed(2)}');
         }
@@ -1134,6 +1603,9 @@ class CheckoutController extends GetxController {
     String? storeDetails                  = prefs.getString('storeDetails');
     final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
     
+    // First, try to migrate printers from storeDetails if needed
+    await _migratePrintersIfNeeded(prefs);
+    
     // Get printer details from the new format used by settings
     final pairedPrintersJson = prefs.getString('paired_printers');
     if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
@@ -1208,11 +1680,15 @@ class CheckoutController extends GetxController {
 
         printer.text('--------------------------------------------');
 
+        // Calculate GST correctly for products receipt (GST inclusive pricing)
+        final productGST = (order.billDetails?.billAmount ?? 0) / 11;
+        final productSubTotal = (order.billDetails?.billAmount ?? 0) - productGST;
+        
         if ((order.billDetails?.discount ?? 0) > 0) {
           _printAlignedText(printer, 'Discount:', '\$${(order.billDetails?.discount ?? 0).toStringAsFixed(2)}');
         }
-        _printAlignedText(printer, 'Sub-Total:', '\$${(order.billDetails?.price ?? 0).toStringAsFixed(2)}');
-        _printAlignedText(printer, 'GST Incl.:', '\$${(order.billDetails?.taxes ?? 0).toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Sub-Total:', '\$${productSubTotal.toStringAsFixed(2)}');
+        _printAlignedText(printer, 'GST Incl.:', '\$${productGST.toStringAsFixed(2)}');
         if ((order.billDetails?.surcharge ?? 0) > 0) {
           _printAlignedText(printer, 'Surcharge:', '\$${(order.billDetails?.surcharge ?? 0).toStringAsFixed(2)}');
         }
@@ -1460,342 +1936,384 @@ class CheckoutController extends GetxController {
     );
   }
 
-  /*void printBookingReceipt({List<BookingSlot>? bookingSlotItems}) async {
-
-    List<BookingSlot> listItems = [];
-    for(var item in bookingSlotItems!) {
-      listItems.add(BookingSlot(
-          id: item.id,
-          userId: item.userId,
-          name: item.name,
-          mobile: item.mobile,
-          bookingId: item.bookingId,
-          subBookingId: item.subBookingId,
-          date: item.date,
-          price: item.price,
-          service: item.service,
-          serviceId: item.serviceId,
-          court: item.court,
-          courtId: item.courtId,
-          startTime: item.startTime,
-          endTime: item.endTime,
-          slotType: item.slotType,
-          repeatDays: item.repeatDays,
-          repeatEnd: item.repeatEnd,
-          repeatId: item.repeatId,
-          repeatGroupId: item.repeatGroupId,
-          paymentStatus: item.paymentStatus,
-          status: item.status,
-          createdAt: item.createdAt,
-          updatedAt: item.updatedAt,
-          createdBy: item.createdBy,
-          updatedBy: item.updatedBy
-      ));
-    }
-
-    List<BookingSlot> mergedSlots = mergeBookingSlots(listItems);
-    mergedSlots.removeWhere((bookingSlot) => (bookingSlot.slotType=='Repeat-Item'));
-
-    double bookingTotal = bookingSlotItems.fold(0, (double sum, BookingSlot bookingSlot) {
-      return sum + (bookingSlot.price ?? 0);
-    });
-
-    final profile     = await CapabilityProfile.load();
-    final printer     = NetworkPrinter(PaperSize.mm80, profile);
-    var storeName     = 'My Store';
-    var storeAddress  = '123 Main Street, City';
-    var storeMobile   = 'Phone: 123-456-7890';
-    var imageUrl      = '';
-    var abn           = '';
-    var email         = '@email.com';
-
-    var dateAndTime     = DateFormat('yMd').format(DateTime.now());
-    dynamic currentTime = DateFormat('hh:mm:ss').format(DateTime.now());
-
-    DocumentReference docRef = FirebaseFirestore.instance
-        .collection(authController.centerSlug.toString())
-        .doc('admins');
-    await docRef.get().then((value) {
-      storeName     = value.get('name');
-      storeAddress  = value.get('address');
-      storeMobile   = 'Phone : ${value.get('phone')}';
-      imageUrl      = value.get('imageUrl');
-      email         = value.get('email');
-      abn           = 'ABN : ${value.get('abn')}';
-    });
-
-    for(var printerIPs in settingController.printerList){
-      final printerIp          = '${printerIPs.printerIP}';
-      final PosPrintResult res = await printer.connect(printerIp, port: printerIPs.printerPort!);
-      if (res != PosPrintResult.success) {
-        showCustomSnackbar('Printer Error', 'Failed to connect to the printer.', Colors.red);
-        return;
+  Future<void> _processIndividualCourtPayment({
+    String? bookingId,
+    String? orderId,
+    String? userId,
+    String? notes,
+    String? promoCode,
+    String? paymentType,
+    double? paid,
+    double? balance,
+    bool printReceipt = false,
+    bool isMembershipApplied = false,
+    String? membershipId,
+  }) async {
+    try {
+      print('💳 Starting individual court payment processing...');
+      print('📋 Parameters: bookingId=$bookingId, userId=$userId, paymentType=$paymentType, paid=$paid');
+      
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+      
+      if (centerSlug == null || bookingId == null || userId == null) {
+        throw Exception('Missing required parameters for individual court payment');
       }
 
+      print('🔍 Getting individual court data for booking: $bookingId');
+      // Get the court information that was set up during checkout navigation
+      final individualCourtData = await _getIndividualCourtDataFromCheckout(bookingId, centerSlug);
+      
+      if (individualCourtData == null) {
+        throw Exception('Could not find individual court data for payment');
+      }
+      
+      print('✅ Successfully retrieved individual court data');
+      print('🏟️ Court slots count: ${(individualCourtData['court_slots'] as List).length}');
 
-      //current date
-      printer.row([
-        PosColumn(
-          text: '${dateAndTime}',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false,
-          ),
-        ),
-        PosColumn(
-          text: '${currentTime}',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-      printer.feed(1);
+      final courtSlots = individualCourtData['court_slots'] as List<dynamic>;
+      final bookingData = individualCourtData['booking'];
+      
+      // Create payment record
+      final paymentResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_payments')
+          .insert({
+            'booking_id': bookingId,
+            'customer_id': userId,
+            'total': paid ?? 0,
+            'paid_amount': paid ?? 0,
+            'payment_type': paymentType ?? 'Cash',
+            'payment_via': 'APP',
+            'payment_response': '',
+            'status': true,
+            'notes': notes ?? 'Individual court payment',
+            'created_by': authController.userId.toString(),
+            'updated_by': authController.userId.toString(),
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .select()
+          .single();
 
-      // Print header with store information
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$storeName',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false,
-            height: PosTextSize.size2,
-            width: PosTextSize.size2,
-          ),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-      printer.feed(1);
+      print('Payment record created: ${paymentResponse['id']}');
 
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$storeAddress',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$abn',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '$storeMobile',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      printer.feed(1);
-      printer.hr();
-
-
-      if(mergedSlots.length> 0){
-        // Print products text
-        printer.text('Bookings#', styles: PosStyles(align: PosAlign.right),linesAfter: 1);
+      // Create payment records for individual court slots
+      for (final slot in courtSlots) {
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('booking_slots_payments')
+            .insert({
+              'booking_payments_id': paymentResponse['id'],
+              'booking_slots_id': slot['id'],
+              'booking_id': bookingId,
+              'customer_id': userId,
+              'payment_type': paymentType ?? 'Cash',
+              'payment_via': 'APP',
+              'payment_response': '',
+              'total': slot['price'],
+              'paid_amount': slot['price'],
+              'status': 'paid',
+              'created_by': authController.userId.toString(),
+              'updated_by': authController.userId.toString(),
+              'created_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
       }
 
-      // Print order items
-      for (var item in mergedSlots) {
+      // Check if all slots for this booking are now paid
+      final allBookingSlots = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots')
+          .select('*')
+          .eq('booking_id', bookingId);
 
-        printer.row([
-          PosColumn(
-            text: '${item.court}',
-            width: 6,
-            styles: PosStyles(align: PosAlign.center, underline: false,),
-          ),
-          PosColumn(
-            text: '${DateFormat('hh:mm ').format(item.startTime!)} ${DateFormat('hh:mm a').format(item.endTime!)}',
-            width: 3,
-            styles: PosStyles(align: PosAlign.center, underline: false),
-          ),
-          PosColumn(
-            text: '${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(item.price)}',
-            width: 3,
-            styles: PosStyles(align: PosAlign.center, underline: false),
-          ),
-        ]);
-        printer.emptyLines(1);
+      final paidSlots = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots_payments')
+          .select('booking_slots_id')
+          .eq('booking_id', bookingId)
+          .eq('status', 'paid');
 
-      }
+      final paidSlotIds = paidSlots.map((slot) => slot['booking_slots_id']).toSet();
+      final allSlotIds = allBookingSlots.map((slot) => slot['id']).toSet();
+      
+      final allPaid = allSlotIds.every((id) => paidSlotIds.contains(id));
+      final anyPaid = paidSlotIds.isNotEmpty;
 
-      printer.feed(1);
-      printer.hr();
-
-
-      // Print total
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: 'Total : ',
-          width: 6,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: '${NumberFormat.currency(locale: 'en_US', symbol: '\$').format(bookingTotal)}',
-          width: 3,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      printer.feed(1);
-      printer.hr();
-
-      // static text
-      printer.row([
-        PosColumn(
-          text: '',
-          width: 1,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-        PosColumn(
-          text: 'Thank You For Your Business!!',
-          width: 10,
-          styles: PosStyles(align: PosAlign.center, underline: false,
-            height: PosTextSize.size2,
-            width: PosTextSize.size1,
-          ),
-        ),
-        PosColumn(
-          text: '',
-          width: 1,
-          styles: PosStyles(align: PosAlign.center, underline: false),
-        ),
-      ]);
-
-      printer.cut();
-      printer.disconnect();
-      printer.drawer();
-
-      showCustomSnackbar('Print Successful', 'The receipt has been printed successfully.', Colors.green);
-
-    }
-
-  }*/
-
-  List<BookingSlot> mergeBookingSlots(List<BookingSlot> cartItemsMrg) {
-    if (cartItemsMrg.isEmpty) return [];
-
-    // Sort the cartItemsMrg based on court, date, startTime, and endTime
-    cartItemsMrg.sort((a, b) {
-      int courtComparison = a.court!.compareTo(b.court!);
-      if (courtComparison != 0) {
-        return courtComparison;
-      }
-
-      int dateComparison = a.date!.compareTo(b.date!);
-      if (dateComparison != 0) {
-        return dateComparison;
-      }
-
-      int startTimeComparison = a.startTime!.compareTo(b.startTime!);
-      if (startTimeComparison != 0) {
-        return startTimeComparison;
-      }
-
-      return a.endTime!.compareTo(b.endTime!);
-    });
-
-    List<BookingSlot> mergedSlots = [];
-    BookingSlot currentSlot = cartItemsMrg[0];
-
-    for (int i = 1; i < cartItemsMrg.length; i++) {
-      BookingSlot nextSlot = cartItemsMrg[i];
-
-      // Check if the next slot can be merged with the current slot
-      if (nextSlot.courtId == currentSlot.courtId &&
-          nextSlot.date == currentSlot.date &&
-          nextSlot.startTime!.difference(currentSlot.endTime!) ==
-              Duration(minutes: 0) &&
-          nextSlot.serviceId == currentSlot.serviceId &&
-          nextSlot.subBookingId == currentSlot.subBookingId &&
-          nextSlot.repeatGroupId == currentSlot.repeatGroupId) {
-        // Extend the current slot's endTime and add price
-        currentSlot.endTime = nextSlot.endTime;
-        currentSlot.price = (currentSlot.price ?? 0) + (nextSlot.price ?? 0);
+      // Update booking payment status
+      String bookingPaymentStatus;
+      if (allPaid) {
+        bookingPaymentStatus = 'Paid';
+      } else if (anyPaid) {
+        bookingPaymentStatus = 'Partially Paid';
       } else {
-        // Cannot merge, add the current slot to the mergedSlots list
-        mergedSlots.add(currentSlot);
-        currentSlot = nextSlot; // Update the current slot to the next slot
+        bookingPaymentStatus = 'Pending';
       }
+
+      await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .update({
+            'payment_status': bookingPaymentStatus,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', bookingId);
+
+      print('Individual court payment processed successfully');
+
+      // Print receipt if required
+      if (printReceipt) {
+        await _printIndividualCourtReceipt(
+          bookingData: bookingData,
+          courtSlots: courtSlots,
+          paymentData: paymentResponse,
+          centerSlug: centerSlug,
+        );
+      }
+
+      // Show success message
+      Get.snackbar(
+        'Success',
+        'Individual court payment processed successfully!',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+      // Navigate back to dashboard
+      Get.offAllNamed('/');
+      
+    } catch (e) {
+      print('Error processing individual court payment: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to process payment: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      throw e;
     }
+  }
 
-    // Add the last slot to the mergedSlots list
-    mergedSlots.add(currentSlot);
+  Future<Map<String, dynamic>?> _getIndividualCourtDataFromCheckout(String bookingId, String centerSlug) async {
+    try {
+      print('🔍 _getIndividualCourtDataFromCheckout: bookingId=$bookingId, centerSlug=$centerSlug');
+      
+      // Get booking data
+      print('📋 Fetching booking data...');
+      final bookingResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('*, customers(*)')
+          .eq('id', bookingId)
+          .single();
+      
+      print('✅ Booking data retrieved successfully');
 
-    return mergedSlots;
+      // Get all booking slots for this booking (individual court payment will target specific slots)
+      print('🏟️ Fetching booking slots...');
+      final bookingSlots = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots')
+          .select('*')
+          .eq('booking_id', bookingId);
+
+      print('📊 Found ${bookingSlots.length} booking slots');
+      
+      if (bookingSlots.isEmpty) {
+        print('⚠️ No booking slots found for booking $bookingId');
+        return null;
+      }
+
+      return {
+        'booking': bookingResponse,
+        'customer': bookingResponse['customers'],
+        'court_slots': bookingSlots,
+      };
+      
+    } catch (e) {
+      print('❌ Error getting individual court data: $e');
+      print('🔧 Error type: ${e.runtimeType}');
+      if (e.toString().contains('404')) {
+        print('🚨 404 Error - Resource not found. Check booking ID: $bookingId');
+      }
+      return null;
+    }
+  }
+
+  Future<void> _printIndividualCourtReceipt({
+    required Map<String, dynamic> bookingData,
+    required List<dynamic> courtSlots,
+    required Map<String, dynamic> paymentData,
+    required String centerSlug,
+  }) async {
+    try {
+      // Calculate totals
+      double subtotal = 0;
+      for (final slot in courtSlots) {
+        subtotal += (slot['price'] as num).toDouble();
+      }
+      
+      double correctGST = subtotal / 11;
+      double totalAmount = subtotal;
+
+      // Get store details
+      final storeResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('store_details')
+          .select()
+          .limit(1)
+          .single();
+
+      // Format receipt content
+      String receiptContent = '''
+===========================================
+${storeResponse['name'] ?? 'Store Name'}
+${storeResponse['address'] ?? 'Store Address'}
+${storeResponse['phone'] ?? 'Store Phone'}
+===========================================
+
+INDIVIDUAL COURT PAYMENT RECEIPT
+
+Booking No: ${bookingData['booking_no'] ?? 'N/A'}
+Customer: ${bookingData['customers']['first_name'] ?? 'N/A'}
+Mobile: ${bookingData['customers']['mobile'] ?? 'N/A'}
+Date: ${DateTime.now().toString().split(' ')[0]}
+Time: ${DateTime.now().toString().split(' ')[1].substring(0, 5)}
+
+-------------------------------------------
+COURT DETAILS:
+''';
+
+      // Add court slot details
+      for (final slot in courtSlots) {
+        final startTime = DateTime.parse(slot['start_time']);
+        final endTime = DateTime.parse(slot['end_time']);
+        
+        receiptContent += '''
+Court: ${slot['court_name'] ?? 'Court ${slot['court_id']}'}
+Time: ${startTime.toString().split(' ')[1].substring(0, 5)} - ${endTime.toString().split(' ')[1].substring(0, 5)}
+Price: \$${(slot['price'] as num).toStringAsFixed(2)}
+''';
+      }
+
+      receiptContent += '''
+-------------------------------------------
+PAYMENT SUMMARY:
+Subtotal: \$${subtotal.toStringAsFixed(2)}
+GST: \$${correctGST.toStringAsFixed(2)}
+Total: \$${totalAmount.toStringAsFixed(2)}
+
+Payment Method: ${paymentData['payment_type'] ?? 'Cash'}
+Amount Paid: \$${(paymentData['amount'] as num).toStringAsFixed(2)}
+${paymentData['notes'] != null ? 'Notes: ${paymentData['notes']}' : ''}
+
+-------------------------------------------
+Thank you for your payment!
+===========================================
+''';
+
+      // Print receipt using existing print infrastructure
+      await _printUsingPrinter(receiptContent);
+      
+    } catch (e) {
+      print('Error printing individual court receipt: $e');
+    }
   }
 
   Future<bool> bulkValidateSlots({List<BookingSlot>? selectedBSlots}) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
-    String? centerSlug                  = preferences.getString('centerSlug');
-    final futures =
-        selectedBSlots!.map((item) {
-          return supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('booking_slots')
-              .select('id')
-              .eq('service_id', item.serviceId!)
-              .eq('court_id', item.courtId!)
-              .eq('start_time', item.startTime!.toIso8601String())
-              .eq('status', 'Booked');
-        }).toList();
+    String? centerSlug = preferences.getString('centerSlug');
+    
+    if (centerSlug == null || selectedBSlots == null || selectedBSlots.isEmpty) {
+      return false;
+    }
+    
+    try {
+      final futures = selectedBSlots.map((item) {
+        return supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('booking_slots')
+            .select('id')
+            .eq('service_id', item.serviceId!)
+            .eq('court_id', item.courtId!)
+            .eq('start_time', item.startTime!.toIso8601String())
+            .eq('status', 'Booked');
+      }).toList();
 
-    final responses = await Future.wait(futures);
+      final responses = await Future.wait(futures);
 
-    final matchingRowCount = responses.fold<int>(
-      0,
-      (count, response) => count + (response.isNotEmpty ? response.length : 0),
-    );
+      final matchingRowCount = responses.fold<int>(
+        0,
+        (count, response) => count + (response.isNotEmpty ? response.length : 0),
+      );
 
-    return matchingRowCount == 0 ? true : false;
+      return matchingRowCount == 0;
+    } catch (e) {
+      print('Error validating slots: $e');
+      return false;
+    }
+  }
+
+  Future<void> _printUsingPrinter(String receiptContent) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // First, try to migrate printers from storeDetails if needed
+      await _migratePrintersIfNeeded(prefs);
+      
+      // Get printer details from the new format used by settings
+      final pairedPrintersJson = prefs.getString('paired_printers');
+      if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
+        print('No paired printers found');
+        showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+        return;
+      }
+      
+      final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
+      if (pairedPrinters.isEmpty) {
+        print('No paired printers found in list');
+        showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+        return;
+      }
+      
+      // Use the first printer in the list
+      final printerConfig = pairedPrinters[0];
+      final String printerIp = printerConfig['ip'];
+      final int printerPort = int.parse(printerConfig['port']);
+
+      final profile = await CapabilityProfile.load();
+      final printer = NetworkPrinter(PaperSize.mm80, profile);
+      final PosPrintResult res = await printer.connect(printerIp, port: printerPort);
+      
+      if (res == PosPrintResult.success) {
+        // Split content by lines and print each line
+        final lines = receiptContent.split('\n');
+        for (final line in lines) {
+          if (line.trim().isEmpty) {
+            printer.feed(1);
+          } else if (line.contains('=')) {
+            printer.text(line, styles: PosStyles(align: PosAlign.center));
+          } else if (line.contains('INDIVIDUAL COURT PAYMENT RECEIPT') || 
+                     line.contains('PAYMENT SUMMARY:') || 
+                     line.contains('COURT DETAILS:')) {
+            printer.text(line, styles: PosStyles(align: PosAlign.center, bold: true));
+          } else {
+            printer.text(line, styles: PosStyles(align: PosAlign.left));
+          }
+        }
+        
+        printer.cut();
+        printer.disconnect();
+        
+        print('Individual court receipt printed successfully');
+      } else {
+        print('Failed to connect to the printer');
+        showCustomSnackbar('Printer Error', 'Failed to connect to printer', Colors.red);
+      }
+    } catch (e) {
+      print('Error during printing: $e');
+      showCustomSnackbar('Printer Error', 'Error printing receipt: $e', Colors.red);
+    }
   }
 }
