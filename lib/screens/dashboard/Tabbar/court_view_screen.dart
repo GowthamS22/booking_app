@@ -16,6 +16,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../config/constants.dart';
 import '../../../config/palette.dart';
 import '../../../controllers/new_booking_controller.dart';
+import '../../../controllers/checkout_controller.dart';
+import '../../../controllers/cart_controller.dart';
 import '../../../models/booking_model.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -34,6 +36,8 @@ class CourtViewScreen extends StatefulWidget {
 
 class _CourtViewScreenState extends State<CourtViewScreen> {
   final NewBookingController controller = Get.put(NewBookingController());
+  final CheckoutController checkoutController = Get.put(CheckoutController());
+  final CartController cartController = Get.put(CartController());
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _advanceformKey = GlobalKey<FormState>();
   late TextEditingController nameController;
@@ -79,6 +83,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     // Safely clear controller data
     try {
       controller.clearSelectedSlots();
+      controller.selectedCourtSlots.clear();
       controller.userData.value = AppUser.User();
     } catch (e) {
       print('Error clearing controller data: $e');
@@ -90,6 +95,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     } catch (e) {
       print('Error clearing cart: $e');
     }
+    
     
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
@@ -109,6 +115,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only refresh if a booking was just completed
+    if (mounted && controller.bookingJustCompleted.value) {
+      controller.bookingJustCompleted.value = false; // Reset the flag
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (mounted) {
+          _refreshCourtView();
+        }
+      });
+    }
   }
 
   @override
@@ -141,6 +161,63 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       print('Error clearing controller on dispose: $e');
     }
     super.dispose();
+  }
+  
+  void _refreshCourtView() {
+    // Clear all selections
+    selectedSlots.clear();
+    controller.clearSelectedSlots();
+    controller.selectedCourtSlots.clear();
+    
+    // Refresh data
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        try {
+          print('🔄 Refreshing court view...');
+          
+          // Ensure we have a selected service
+          if (controller.selectedServiceId.value == null || 
+              controller.selectedServiceId.value.isEmpty) {
+            print('📋 No service selected, fetching service list...');
+            await controller.fetchServiceList();
+            if (controller.serviceList.isNotEmpty) {
+              controller.selectedServiceId.value = controller.serviceList[0]['id'];
+              print('✅ Service ID set: ${controller.selectedServiceId.value}');
+            }
+          }
+          
+          // Ensure we have court list
+          if (controller.courtList.isEmpty) {
+            print('🏟️ No courts loaded, fetching court list...');
+            await controller.fetchCourtList();
+            print('✅ Courts loaded: ${controller.courtList.length}');
+          }
+          
+          // Fetch fresh booking data
+          print('📅 Fetching booked slots...');
+          await controller.fetchBookedSlots();
+          
+          // Fetch slot info
+          print('🎯 Fetching slot info...');
+          await fetchSlotInfo();
+          
+          // Update UI
+          if (mounted) {
+            setState(() {});
+            print('✅ Court view refreshed successfully');
+          }
+        } catch (error) {
+          print('❌ Error refreshing court view: $error');
+          if (mounted) {
+            showCustomSnackbar(
+              'Error',
+              'Failed to refresh court data. Please try again.',
+              Colors.red,
+            );
+          }
+        }
+      }
+    });
   }
 
   Future<void> _loadInitialData() async {
@@ -264,10 +341,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
-  final CartController cartController = Get.find<CartController>();
-
   @override
   Widget build(BuildContext context) {
+    // Don't auto-refresh here - it interferes with slot selection
+    
     return Container(
       child: Column(
         children: [
@@ -370,6 +447,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   ),
                 ),
               ),
+            const SizedBox(width: 15),
+            // DEBUG: Temporary button to clean up orphaned membership records
+            GestureDetector(
+              onTap: () => _showDebugCleanupDialog(),
+              child: Container(
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Icon(Icons.cleaning_services, size: 35, color: Colors.orange),
+              ),
+            ),
             const SizedBox(width: 15),
             GestureDetector(
               onTap: () {
@@ -526,7 +617,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     membershipPlan,
                     memberPrice,
                     membershipApplied,
-                    selectedMembershipId ?? '',
+                    (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                     bookings,
                     onCancel: () {
                       setState(
@@ -1422,7 +1513,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     String membershipPlan,
     double memberPrice,
     bool isMembershipApplied,
-    String membershipId,
+    String? membershipId,
     List<BookingInfo> bookings, {
     VoidCallback? onCancel,
   }) async {
@@ -3309,67 +3400,87 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () {
-                              if (controller.userData.value.id != null) {
-                                // User exists, create booking with pending payment
-                                populateCartWithSubSlots(bookings);
-                                controller.processCheckout(
-                                  name: controller.nameController.text,
-                                  email: controller.userData.value.email,
-                                  mobile: controller.userData.value.mobile,
-                                  bookingId: controller.bookingId,
-                                  paymentType: 'Pending', // Set payment type as Pending
-                                  promoCode: '',
-                                  notes: 'Payment pending - Pay Later option selected',
-                                  bookings: updatedBookings,
-                                  membershipID: selectedMembershipId!,
-                                  membershipName: selectedMembershipPlan,
-                                  membershipPrice: memberPrice,
+                            onPressed: () async {
+                              // Close dialog first to prevent TypeAhead widget disposal issues
+                              Navigator.pop(context);
+                              
+                              // Add a small delay to ensure dialog is fully closed
+                              await Future.delayed(Duration(milliseconds: 100));
+                              
+                              try {
+                                if (controller.userData.value.id != null) {
+                                  // User exists, create booking with pending payment
+                                  populateCartWithSubSlots(bookings);
+                                  await controller.processCheckout(
+                                    name: controller.nameController.text,
+                                    email: controller.userData.value.email,
+                                    mobile: controller.userData.value.mobile,
+                                    bookingId: controller.bookingId,
+                                    paymentType: 'Pending', // Set payment type as Pending
+                                    promoCode: '',
+                                    notes: 'Payment pending - Pay Later option selected',
+                                    bookings: updatedBookings,
+                                    membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                                    membershipName: selectedMembershipPlan,
+                                    membershipPrice: memberPrice,
+                                  );
+                                } else {
+                                  // Create new user and then create booking with pending payment
+                                  await controller.registerUser(
+                                    mobile: mobile,
+                                    firstName: customerName.toString(),
+                                  );
+                                  
+                                  // Create booking with pending payment
+                                  populateCartWithSubSlots(bookings);
+                                  await controller.processCheckout(
+                                    name: controller.nameController.text,
+                                    email: controller.userData.value.email,
+                                    mobile: controller.userData.value.mobile,
+                                    paymentType: 'Pending', // Set payment type as Pending
+                                    promoCode: '',
+                                    notes: 'Payment pending - Pay Later option selected',
+                                    bookingId: controller.bookingId,
+                                    bookings: updatedBookings,
+                                    membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                                    membershipName: selectedMembershipPlan,
+                                    membershipPrice: memberPrice,
+                                  );
+                                }
+                                
+                                // After booking, clear slots and reset form
+                                controller.clearSelectedSlots();
+                                nameController.clear();
+                                mobileController.clear();
+                                hasMembership = false;
+                                isMembershipApplied = false;
+                                membershipPrice = 0.0;
+                                selectedMembershipId = null;
+                                selectedSlots.clear();
+                                cartController.clearCart();
+                                
+                                // Refresh court view to show the new booking
+                                if (mounted) {
+                                  _refreshCourtView();
+                                }
+                                
+                                // Show success message
+                                Get.snackbar(
+                                  'Success',
+                                  'Booking created successfully with pending payment',
+                                  backgroundColor: Colors.green,
+                                  colorText: Colors.white,
+                                  snackPosition: SnackPosition.BOTTOM,
                                 );
-                                // After booking, clear slots and reset form
-                                controller.clearSelectedSlots();
-                                nameController.clear();
-                                mobileController.clear();
-                                hasMembership = false;
-                                isMembershipApplied = false;
-                                membershipPrice = 0.0;
-                                selectedMembershipId = null;
-                                selectedSlots.clear();
-                                cartController.clearCart();
-                                Navigator.pop(context);
-                              } else {
-                                // Create new user and then create booking with pending payment
-                                    controller.registerUser(
-                                      mobile: mobile,
-                                      firstName: customerName.toString(),
-                                    ).then((value) {
-                                      // Create booking with pending payment
-                                      populateCartWithSubSlots(bookings);
-                                      controller.processCheckout(
-                                        name: controller.nameController.text,
-                                        email: controller.userData.value.email,
-                                        mobile: controller.userData.value.mobile,
-                                        paymentType: 'Pending', // Set payment type as Pending
-                                        promoCode: '',
-                                        notes: 'Payment pending - Pay Later option selected',
-                                        bookingId: controller.bookingId,
-                                        bookings: updatedBookings,
-                                        membershipID: selectedMembershipId!,
-                                        membershipName: selectedMembershipPlan,
-                                        membershipPrice: memberPrice,
-                                      );
-                                    });
-                                // After booking, clear slots and reset form
-                                controller.clearSelectedSlots();
-                                nameController.clear();
-                                mobileController.clear();
-                                hasMembership = false;
-                                isMembershipApplied = false;
-                                membershipPrice = 0.0;
-                                selectedMembershipId = null;
-                                selectedSlots.clear();
-                                cartController.clearCart();
-                                Navigator.pop(context);
+                              } catch (e) {
+                                print('Error in pay later: $e');
+                                Get.snackbar(
+                                  'Error',
+                                  'Failed to create booking: ${e.toString()}',
+                                  backgroundColor: Colors.red,
+                                  colorText: Colors.white,
+                                  snackPosition: SnackPosition.BOTTOM,
+                                );
                               }
                             },
                             style: OutlinedButton.styleFrom(
@@ -3409,13 +3520,35 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   selectedDateTime: selectedDateTime,
                                   billAmount: billAmount + cartController.total,
                                   bookings: updatedBookings,
-                                  membershipID: selectedMembershipId ?? '',
+                                  membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                   membershipName: selectedMembershipPlan,
                                   isMembershipApplied: isMembershipApplied,
                                   membershipPrice: memberPrice,
                                   forpayment: 'new-booking-payment',
                                 ),
-                              );
+                              )?.then((_) {
+                                // Always refresh when returning from checkout
+                                if (mounted) {
+                                  print('🔙 Returned from checkout, refreshing court view...');
+                                  
+                                  // Force clear cart items and selected slots
+                                  controller.cartItems.clear();
+                                  cartController.clearCart();
+                                  
+                                  // Reset local state immediately
+                                  setState(() {
+                                    selectedSlots.clear();
+                                  });
+                                  
+                                  // Add a small delay to ensure checkout state is fully cleared
+                                  Future.delayed(Duration(milliseconds: 500), () {
+                                    if (mounted) {
+                                      print('🔄 Starting delayed refresh...');
+                                      _refreshCourtView();
+                                    }
+                                  });
+                                }
+                              });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
@@ -3511,7 +3644,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           repeatId: null,
           repeatGroupId: null,
           status: 'Selected',
-          bookingId: '',
+          bookingId: null, // Will be assigned after booking creation
           paymentStatus: 'CASH',
           name: nameController.text,
           mobile: mobileController.text,
@@ -3745,7 +3878,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       '',
                                       0.0,
                                       false,
-                                      '',
+                                      null, // No membership selected
                                       bookings,
                                       onCancel:
                                           null, // No setState or UI logic here
@@ -3804,7 +3937,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           planName,
                                           price,
                                           isApplied,
-                                          selectedMembershipId!,
+                                          selectedMembershipId,
                                           bookings,
                                           onCancel:
                                               null, // No setState or UI logic here
@@ -3911,6 +4044,93 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     } catch (e) {
       print('Error checking pending membership payment: $e');
       return false;
+    }
+  }
+
+  // DEBUG: Show cleanup dialog for orphaned membership records
+  void _showDebugCleanupDialog() {
+    final TextEditingController customerIdController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('🧹 Debug: Cleanup Orphaned Membership',
+          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Enter customer ID to clean up orphaned membership records:',
+              style: GoogleFonts.inter(fontSize: 14)),
+            SizedBox(height: 16),
+            TextField(
+              controller: customerIdController,
+              decoration: InputDecoration(
+                labelText: 'Customer ID',
+                hintText: 'e.g., 12345',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 16),
+            Text('⚠️ This will remove ALL membership records for this customer.',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final customerId = customerIdController.text.trim();
+              if (customerId.isNotEmpty) {
+                Navigator.pop(context);
+                await _debugCleanupMembership(customerId);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: Text('Clean Up'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // DEBUG: Clean up orphaned membership records for specific customer
+  Future<void> _debugCleanupMembership(String customerId) async {
+    try {
+      print('🧹 Starting debug cleanup for customer: $customerId');
+      
+      // Add delay to ensure UI is stable
+      await Future.delayed(Duration(milliseconds: 300));
+      
+      // Perform cleanup without showing additional loading dialog 
+      // (the flutter_typeahead widget conflicts with dialogs)
+      showCustomSnackbar('Info', 'Cleaning up membership records...', Colors.blue);
+      
+      final success = await checkoutController.debugCleanupCustomerMembership(
+        customerId: customerId,
+      );
+      
+      // Add delay before showing results
+      await Future.delayed(Duration(milliseconds: 300));
+      
+      if (mounted) {  // Check if widget is still mounted
+        if (success) {
+          showCustomSnackbar('Success', 'Membership records cleaned up! Try booking again.', Colors.green);
+        } else {
+          showCustomSnackbar('Error', 'Failed to clean up membership records', Colors.red);
+        }
+      }
+      
+    } catch (e) {
+      print('❌ Debug cleanup error: $e');
+      
+      if (mounted) {  // Check if widget is still mounted
+        showCustomSnackbar('Error', 'Cleanup failed: $e', Colors.red);
+      }
     }
   }
 }
