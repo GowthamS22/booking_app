@@ -13,6 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:esc_pos_utils/esc_pos_utils.dart';
+import 'package:esc_pos_printer/esc_pos_printer.dart';
 
 import '../../app/getx_binding.dart';
 import '../../config/constants.dart';
@@ -33,7 +35,7 @@ class CheckoutScreen extends StatefulWidget {
   final DateTime selectedDateTime;
   final double billAmount;
   final List<BookingInfo> bookings;
-  final String membershipID;
+  final String? membershipID;
   final String? membershipName;
   final bool? isMembershipApplied;
   final double? membershipPrice;
@@ -49,7 +51,7 @@ class CheckoutScreen extends StatefulWidget {
     required this.selectedDateTime,
     required this.billAmount,
     required this.bookings,
-    required this.membershipID,
+    this.membershipID,
     required this.membershipName,
     required this.isMembershipApplied,
     required this.membershipPrice,
@@ -72,6 +74,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final PaymentController paymentController = Get.put(PaymentController());
   final cart.CartController cartController = Get.put(cart.CartController());
   final MembershipController membershipController = Get.put(MembershipController());
+  final supabase = Supabase.instance.client;
 
   TextEditingController notesController = TextEditingController();
   TextEditingController promoCodeController = TextEditingController();
@@ -149,15 +152,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   
   // Slide panel state
   bool _isMembershipPanelOpen = false;
+  
+  // Track if user has existing membership
+  bool userHasExistingMembership = false;
+  String? existingMembershipName;
+  String? existingMembershipId;
 
   double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
   
   // Calculate the actual total including bookings, cart items, and membership
   double get actualTotal {
     double total = widget.billAmount + cartItemsTotal;
+    
+    // Add membership fee if applied
     if (isMembershipApplied && selectedMembershipPrice != null) {
       total += selectedMembershipPrice!;
     }
+    
+    // Apply membership discount to reduce the booking cost (not the membership fee)
+    if (isMembershipDiscountApplied) {
+      total -= membershipDiscountAmount;
+    }
+    
     return total;
   }
 
@@ -172,7 +188,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         widget.membershipPrice != null && 
         widget.membershipPrice! > 0) {
       isMembershipApplied = widget.isMembershipApplied ?? false;
-      selectedMembershipId = widget.membershipID;
+      // Only set membership ID if it's not null and not empty
+      selectedMembershipId = (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null;
       selectedMembershipName = widget.membershipName;
       selectedMembershipPrice = widget.membershipPrice;
     } else {
@@ -190,6 +207,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     isManualDiscountApplied = false;
     
     _loadCartItems();
+    
+    // Fetch user data to check for existing membership
+    _fetchUserData();
     
     for (var booking in widget.bookings) {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
@@ -215,9 +235,181 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('shopping_cart');
   }
+  
+  void _clearAllStateAfterSuccessfulPayment() {
+    // Clear cart items
+    cartController.clearCart();
+    cartItems.clear();
+    
+    // Clear booking selections
+    newBookingController.clearSelectedSlots();
+    newBookingController.cartItems.clear();
+    
+    // Clear text controllers
+    newBookingController.mobileNumberController.clear();
+    newBookingController.nameController.clear();
+    
+    // Reset checkout state
+    setState(() {
+      totalPaid = 0.0;
+      customAmountString = '';
+      selectedAmount = '';
+    });
+    
+    print('All state cleared after successful payment');
+  }
+  
+  Future<void> _fetchUserData() async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+      
+      // Get user data by mobile number directly
+      final userResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('*, membershipplan:membershipplan_id(*)')
+          .eq('mobile', widget.mobileno)
+          .limit(1)
+          .maybeSingle();
+      
+      if (userResponse != null) {
+        // Check if user has existing membership
+        final membershipPlanId = userResponse['membershipplan_id'];
+        if (membershipPlanId != null && membershipPlanId.toString().isNotEmpty) {
+          setState(() {
+            userHasExistingMembership = true;
+            existingMembershipId = membershipPlanId.toString();
+            // Get membership name from the joined data
+            if (userResponse['membershipplan'] != null) {
+              existingMembershipName = userResponse['membershipplan']['name'];
+            }
+          });
+        }
+      }
+    } catch (e) {
+      print('Error fetching user data: $e');
+    }
+  }
 
   void showCancelBookingConfirmationDialog() {
     _showCancelBookingDialog();
+  }
+  
+  Future<String> _getPrinterInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // First, try to migrate printers from storeDetails if needed
+      await _migratePrintersIfNeeded(prefs);
+      
+      final pairedPrintersJson = prefs.getString('paired_printers');
+      
+      if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
+        return '';
+      }
+      
+      final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
+      if (pairedPrinters.isEmpty) {
+        return '';
+      }
+      
+      // Show all configured printers
+      final printerInfo = pairedPrinters.map((printer) {
+        return '${printer['name']} (${printer['ip']}:${printer['port']})';
+      }).join(', ');
+      
+      return printerInfo;
+    } catch (e) {
+      print('Error getting printer info: $e');
+      return 'Error loading printer info';
+    }
+  }
+  
+  Future<void> _migratePrintersIfNeeded(SharedPreferences prefs) async {
+    try {
+      // Check if paired_printers already exists
+      final pairedPrintersJson = prefs.getString('paired_printers');
+      if (pairedPrintersJson != null && pairedPrintersJson.isNotEmpty) {
+        return; // Already migrated
+      }
+      
+      // Try to get printers from storeDetails
+      final storeDetailsJson = prefs.getString('storeDetails');
+      if (storeDetailsJson == null || storeDetailsJson.isEmpty) {
+        return;
+      }
+      
+      final storeDetails = jsonDecode(storeDetailsJson);
+      if (storeDetails['printer'] != null && storeDetails['printer'] is List) {
+        final List<dynamic> printers = storeDetails['printer'];
+        if (printers.isNotEmpty) {
+          // Migrate printers to paired_printers
+          final List<Map<String, dynamic>> simplePrinters = printers.map((printer) {
+            return {
+              'name': printer['name'] ?? 'Unknown Printer',
+              'ip': printer['ip'] ?? '',
+              'port': printer['port'] ?? '9100',
+            };
+          }).toList();
+          
+          await prefs.setString('paired_printers', jsonEncode(simplePrinters));
+          print('Successfully migrated ${simplePrinters.length} printers from storeDetails to paired_printers');
+        }
+      }
+    } catch (e) {
+      print('Error migrating printers: $e');
+    }
+  }
+  
+  Future<void> _testPrint() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // First, try to migrate printers from storeDetails if needed
+      await _migratePrintersIfNeeded(prefs);
+      
+      final pairedPrintersJson = prefs.getString('paired_printers');
+      
+      if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
+        showCustomSnackbar('Error', 'No printers configured', Colors.red);
+        return;
+      }
+      
+      final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
+      if (pairedPrinters.isEmpty) {
+        showCustomSnackbar('Error', 'No printers configured', Colors.red);
+        return;
+      }
+      
+      // Test print on first printer
+      final printer = pairedPrinters[0];
+      final printerIp = printer['ip'];
+      final printerPort = int.parse(printer['port']);
+      
+      final profile = await CapabilityProfile.load();
+      final networkPrinter = NetworkPrinter(PaperSize.mm80, profile);
+      final PosPrintResult res = await networkPrinter.connect(printerIp, port: printerPort);
+      
+      if (res == PosPrintResult.success) {
+        // Print test receipt
+        networkPrinter.text('=== TEST PRINT ===', styles: PosStyles(align: PosAlign.center, bold: true));
+        networkPrinter.text('Printer: ${printer['name']}', styles: PosStyles(align: PosAlign.center));
+        networkPrinter.text('IP: $printerIp:$printerPort', styles: PosStyles(align: PosAlign.center));
+        networkPrinter.text('Time: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}', styles: PosStyles(align: PosAlign.center));
+        networkPrinter.text('Status: Connected Successfully', styles: PosStyles(align: PosAlign.center));
+        networkPrinter.feed(2);
+        networkPrinter.cut();
+        networkPrinter.disconnect();
+        
+        showCustomSnackbar('Success', 'Test print sent to ${printer['name']}', Colors.green);
+      } else {
+        showCustomSnackbar('Error', 'Failed to connect to printer: ${res.msg}', Colors.red);
+      }
+    } catch (e) {
+      print('Test print error: $e');
+      showCustomSnackbar('Error', 'Test print failed: $e', Colors.red);
+    }
   }
   
   void showCancelBookingConfirmationDialog_old() {
@@ -325,8 +517,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
   
   void _updateMembershipColors() {
-    // Use selected membership name if available, otherwise use widget membership name
-    final membershipName = selectedMembershipName ?? widget.membershipName ?? '';
+    // Use selected membership name if available, otherwise use existing membership, then widget membership name
+    final membershipName = selectedMembershipName ?? existingMembershipName ?? widget.membershipName ?? '';
     
     if (membershipName.toString().toLowerCase().contains('gold')) {
       borderColor = Colors.amber.shade500;
@@ -358,9 +550,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       init: CheckoutController(),
       builder: (controller) {
         return WillPopScope(
-          onWillPop: () async {
-            // Clear cart when going back
+                                      onWillPop: () async {
+            // Clear cart and selected slots when going back
             cartController.clearCart();
+            newBookingController.clearSelectedSlots();
             return true;
           },
           child: Scaffold(
@@ -649,14 +842,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              widget.customerName,
-                              style: GoogleFonts.inter(
-                                fontSize: 23,
-                                fontWeight: FontWeight.w700,
-                              ),
+                            Row(
+                              children: [
+                                Text(
+                                  widget.customerName,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 23,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                // Show crown icon if user has membership
+                                if (userHasExistingMembership || isMembershipApplied) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: backgroundColor ?? Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: borderColor ?? Colors.blue.shade500,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.workspace_premium,
+                                      size: 20,
+                                      color: textColor ?? Colors.blue.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
-                            const SizedBox(width: 6),
                             const SizedBox(height: 4),
                             Text(
                               widget.mobileno,
@@ -878,26 +1094,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ),
                                       ElevatedButton(
                                         onPressed: () {
-                                          // Remove membership
-                                          setState(() {
-                                            isMembershipApplied = false;
-                                            selectedMembershipId = null;
-                                            selectedMembershipName = null;
-                                            selectedMembershipPrice = null;
-                                            selectedMembershipPeakPrice = null;
-                                            selectedMembershipNonPeakPrice = null;
-                                            
-                                            // Reset colors
-                                            _updateMembershipColors();
-                                            
-                                            // Remove membership discount only
-                                            isMembershipDiscountApplied = false;
-                                            membershipDiscountAmount = 0.0;
-                                            
-                                            // Recalculate totals
-                                            totalPaid = actualTotal - discountAmount;
-                                            paidAmountController.text = totalPaid.toStringAsFixed(2);
-                                          });
+                                          // Remove membership using comprehensive clearing method
+                                          _clearAllMembershipState();
                                           
                                           Navigator.pop(context);
                                           
@@ -927,10 +1125,86 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ],
                         ),
                       ),
+                      // Add a more prominent Remove Membership button below
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // Show confirmation dialog
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text(
+                                  'Remove Membership',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                content: Text(
+                                  'Are you sure you want to remove the ${selectedMembershipName} membership?',
+                                  style: GoogleFonts.inter(fontSize: 20),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text(
+                                      'Cancel',
+                                      style: GoogleFonts.inter(fontSize: 20),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      // Remove membership using comprehensive clearing method
+                                      _clearAllMembershipState();
+                                      
+                                      Navigator.pop(context);
+                                      
+                                      // Show success message
+                                      showCustomSnackbar(
+                                        'Membership Removed',
+                                        'Membership has been removed from the booking',
+                                        Colors.green,
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade600,
+                                    ),
+                                    child: Text(
+                                      'Remove',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 20,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.remove_circle, size: 24),
+                          label: Text(
+                            'Remove Membership',
+                            style: GoogleFonts.inter(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                     
-                    // Add Membership button when no membership is applied
-                    if (!isMembershipApplied) ...[
+                    // Add Membership button when no membership is applied AND user doesn't have existing membership
+                    if (!isMembershipApplied && !userHasExistingMembership) ...[
                       const SizedBox(height: 8),
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
@@ -1220,7 +1494,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(actualTotal - actualTotal / 11).toStringAsFixed(2)}',
+                      '\$${((actualTotal - manualDiscountAmount) - (actualTotal - manualDiscountAmount) / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -1240,7 +1514,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(actualTotal).toStringAsFixed(2)}',
+                      '\$${(actualTotal - manualDiscountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w600,
@@ -1303,7 +1577,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${((actualTotal - discountAmount) / 11).toStringAsFixed(2)}',
+                      '\$${((actualTotal - manualDiscountAmount) / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -1323,7 +1597,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(actualTotal - discountAmount).toStringAsFixed(2)}',
+                      '\$${(actualTotal - manualDiscountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w700,
@@ -1434,25 +1708,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         return Expanded(
                           child: GestureDetector(
                             onTap: () async {
-                              if (method['label'] == 'EFTPOS') {
-                                totalPaid = actualTotal - discountAmount;
-                                customAmountString =
-                                    (actualTotal - discountAmount)
-                                        .toString();
+                                                                            if (method['label'] == 'EFTPOS') {
+                                // For EFTPOS, calculate the amount to be paid (includes membership)
+                                double amountToPay = actualTotal - manualDiscountAmount;
+                                totalPaid = amountToPay;
+                                customAmountString = amountToPay.toString();
+                                paidAmountController.text = amountToPay.toStringAsFixed(2);
                                 setState(() {
                                   selectedMethod = method['label'];
                                 });
                               } else if (method['label'] == 'Cash') {
                                 totalPaid = 0.0;
                                 customAmountString = '';
+                                paidAmountController.text = '0.00';
                                 setState(() {
                                   selectedMethod = method['label'];
                                 });
                               } else {
-                                totalPaid = actualTotal - discountAmount;
+                                totalPaid = actualTotal - manualDiscountAmount;
                                 customAmountString =
-                                    (actualTotal - discountAmount)
+                                    (actualTotal - manualDiscountAmount)
                                         .toString();
+                                paidAmountController.text = (actualTotal - manualDiscountAmount).toStringAsFixed(2);
                                 setState(() {
                                   selectedMethod = method['label'];
                                 });
@@ -1684,9 +1961,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           // Receipt Toggle
                           Expanded(
                             child: Container(
-                              height: MediaQuery.of(context).size.height * .06,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
+                                vertical: 8,
                               ),
                               decoration: BoxDecoration(
                                 border: Border.all(
@@ -1695,27 +1972,76 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    'Receipt',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 25,
-                                      color: Colors.grey.shade500,
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Receipt',
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 25,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                      Switch(
+                                        value: receiptToggle,
+                                        activeColor: const Color(0xFF6366F1),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            receiptToggle = value;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  // Debug: Show printer info and test button
+                                  if (receiptToggle) ...[
+                                    FutureBuilder<String>(
+                                      future: _getPrinterInfo(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                          return Column(
+                                            children: [
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                snapshot.data!,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              TextButton.icon(
+                                                onPressed: _testPrint,
+                                                icon: Icon(Icons.print, size: 18),
+                                                label: Text('Test Print'),
+                                                style: TextButton.styleFrom(
+                                                  foregroundColor: Colors.blue,
+                                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        } else if (snapshot.hasData && snapshot.data!.isEmpty) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(top: 4.0),
+                                            child: Text(
+                                              'No printers configured',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 14,
+                                                color: Colors.red,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return const SizedBox.shrink();
+                                      },
                                     ),
-                                  ),
-                                  Switch(
-                                    value: receiptToggle,
-                                    activeColor: const Color(0xFF6366F1),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        receiptToggle = value;
-                                      });
-                                    },
-                                  ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -1768,42 +2094,82 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-
-                            if (controller.userData.value.id != null) {
-                              populateCartWithSubSlots(widget.bookings);
-                              controller.processCheckout(
-                                name: controller.nameController.text,
-                                email: controller.userData.value.email,
-                                mobile: controller.userData.value.mobile,
-                                bookingId: controller.bookingId,
-                                paymentType: 'Pending', // Set payment type as Pending
-                                promoCode: '',
-                                notes: 'Payment pending - Pay Later option selected',
-                                bookings: widget.bookings,
-                              );
-                              Navigator.pop(context);
-                            } else {
-                              // Create new user and then create booking with pending payment
-                              controller.registerUser(
-                                mobile: widget.mobileno,
-                                firstName: widget.customerName,
-                              ).then((value) {
-                                // Create booking with pending payment
+                            try {
+                              if (controller.userData.value.id != null) {
+                                // User exists, create booking with Pay Later
                                 populateCartWithSubSlots(widget.bookings);
-                                controller.processCheckout(
+                                double payLaterAmount = actualTotal - manualDiscountAmount;
+                                await checkoutController.processFinalCheckout(
+                                  userId: controller.userData.value.id,
                                   name: controller.nameController.text,
                                   email: controller.userData.value.email,
                                   mobile: controller.userData.value.mobile,
-                                  paymentType: 'Pending', // Set payment type as Pending
+                                  paymentType: 'Pending',
                                   promoCode: '',
                                   notes: 'Payment pending - Pay Later option selected',
+                                  paid: 0.0, // No payment made yet
+                                  balance: payLaterAmount, // Full amount is balance including membership
                                   bookingId: controller.bookingId,
-                                  bookings: widget.bookings,
+                                  isMembershipApplied: isMembershipApplied,
+                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty && selectedMembershipId != 'null') ? selectedMembershipId : null,
+                                  printReceipt: false, // No receipt for Pay Later
+                                  orderId: null,
                                 );
-                              });
-                              Navigator.pop(context);
+                              } else {
+                                // Create new user and then create booking
+                                await checkoutController.registerUser(
+                                  mobile: widget.mobileno,
+                                  firstName: widget.customerName,
+                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty && selectedMembershipId != 'null') ? selectedMembershipId : null,
+                                );
+                                
+                                // Ensure user data is properly set before proceeding
+                                if (checkoutController.userData.value.id == null) {
+                                  throw Exception('Failed to create user - no user ID returned');
+                                }
+                                
+                                // Create booking with pending payment
+                                populateCartWithSubSlots(widget.bookings);
+                                double payLaterAmount = actualTotal - manualDiscountAmount;
+                                await checkoutController.processFinalCheckout(
+                                  userId: checkoutController.userData.value.id,
+                                  name: widget.customerName, // Use widget.customerName instead of controller.nameController.text
+                                  email: checkoutController.userData.value.email,
+                                  mobile: widget.mobileno, // Use widget.mobileno instead of controller.userData.value.mobile
+                                  paymentType: 'Pending',
+                                  promoCode: '',
+                                  notes: 'Payment pending - Pay Later option selected',
+                                  paid: 0.0, // No payment made yet
+                                  balance: payLaterAmount, // Full amount is balance including membership
+                                  bookingId: null, // Let the method generate the booking ID
+                                  isMembershipApplied: isMembershipApplied,
+                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty && selectedMembershipId != 'null') ? selectedMembershipId : null,
+                                  printReceipt: false, // No receipt for Pay Later
+                                  orderId: null,
+                                );
+                              }
+                              
+                              // Clear state after successful booking creation
+                              _clearAllStateAfterSuccessfulPayment();
+                              
+                              // Show success message
+                              showCustomSnackbar(
+                                'Booking Successful',
+                                'Booking created successfully. Payment is pending.',
+                                Colors.green,
+                              );
+                              
+                              // Navigate back to dashboard
+                              Get.offAllNamed('/');
+                              
+                            } catch (e) {
+                              print('Error creating Pay Later booking: $e');
+                              showCustomSnackbar(
+                                'Error',
+                                'Failed to create booking: $e',
+                                Colors.red,
+                              );
                             }
-
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
@@ -1837,7 +2203,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     if (totalPaid > 0) {
                                       print(widget.billAmount);
                                       print(discountAmount);
-                                      if (double.parse(balanceAmountController.text,) <= 0 && totalPaid >= (actualTotal - discountAmount)) {
+                                      // Calculate the total amount due (includes membership)
+                                      double totalAmountDue = actualTotal - manualDiscountAmount;
+                                      
+                                      if (double.parse(balanceAmountController.text,) <= 0 && totalPaid >= totalAmountDue) {
                                         setState(() {
                                           checkoutController.checkoutPayBtn.value = true;
                                         });
@@ -1899,23 +2268,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
                                                   isMembershipApplied: isMembershipApplied || (selectedMembershipId != null && selectedMembershipId!.isNotEmpty),
-                                                  membershipId: selectedMembershipId ?? '',
+                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                 );
 
                                               });
 
                                             }  else {
 
-                                              await checkoutController.processMembershipPayment(
-                                                userId: widget.exuserId,
-                                                paymentType: selectedMethod,
-                                                notes: notesController.text,
-                                                total: total.toDouble(),
-                                                paid: totalPaid,
-                                                balance: double.parse(balanceAmountController.text,),
-                                                isMembershipApplied: widget.isMembershipApplied,
-                                                membershipId: selectedMembershipId ?? '',
-                                              );
+                                                                                              await checkoutController.processMembershipPayment(
+                                                  userId: widget.exuserId,
+                                                  paymentType: selectedMethod,
+                                                  notes: notesController.text,
+                                                  total: total.toDouble(),
+                                                  paid: totalPaid,
+                                                  balance: double.parse(balanceAmountController.text,),
+                                                  isMembershipApplied: widget.isMembershipApplied,
+                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                                                );
 
                                             }
 
@@ -1971,15 +2340,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
                                                   printReceipt: widget.exorderId != null ? false : true,
-                                                  isMembershipApplied: widget.isMembershipApplied!,
-                                                  membershipId:widget.membershipID,
+                                                  isMembershipApplied: widget.isMembershipApplied ?? false,
+                                                  membershipId: (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null,
+                                                  paymentMode: widget.forpayment,
                                                 );
 
                                                 if(widget.exorderId!=null && widget.exorderId!='') {
                                                   checkoutController.productsPayment(
                                                     order_id: widget.exorderId,
                                                     price: itemSubTotal,
-                                                    taxes: (itemTotal ?? 0) * 0.1,
+                                                    taxes: (itemTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                     surcharge: 0,
                                                     discount: discountAmount,
                                                     billAmount: itemTotal,
@@ -2006,15 +2376,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 paid: totalPaid,
                                                 balance: double.parse(balanceAmountController.text,),
                                                 printReceipt: widget.exorderId != null ? false : true,
-                                                isMembershipApplied: widget.isMembershipApplied!,
-                                                membershipId:widget.membershipID,
+                                                isMembershipApplied: widget.isMembershipApplied ?? false,
+                                                membershipId: (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null,
+                                                paymentMode: widget.forpayment,
                                               );
 
                                               if(widget.exorderId!=null && widget.exorderId!='') {
                                                 checkoutController.productsPayment(
                                                   order_id: widget.exorderId,
                                                   price: itemSubTotal,
-                                                  taxes: (itemTotal) * 0.1,
+                                                  taxes: (itemTotal) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                   surcharge: 0,
                                                   discount: discountAmount,
                                                   billAmount: itemTotal,
@@ -2063,7 +2434,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                                             //Create order if the cart items are exist
                                             if(cartItems.length > 0) {
-                                              await checkoutController.createTempOrder(total:(itemTotal)!,).then((value) {
+                                              await checkoutController.createTempOrder(total:(itemTotal ?? 0.0),).then((value) {
                                                 orderId = value['id'];
                                                 //total = value['total'];
                                               },);
@@ -2100,7 +2471,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                         balance: double.parse(balanceAmountController.text,),
                                                         bookingId: controller.bookingId,
                                                         isMembershipApplied: widget.isMembershipApplied,
-                                                        membershipId: selectedMembershipId ?? '',
+                                                        membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                         printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                         orderId: orderId,
                                                       );
@@ -2110,7 +2481,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                       await checkoutController.registerUser(
                                                         mobile: widget.mobileno,
                                                         firstName: widget.customerName,
-                                                        membershipId: selectedMembershipId ?? '',
+                                                        membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                       ).then((value) {
                                                         populateCartWithSubSlots(widget.bookings,);
                                                         checkoutController.processFinalCheckout(
@@ -2125,7 +2496,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                           balance: double.parse(balanceAmountController.text,),
                                                           bookingId: controller.bookingId,
                                                           isMembershipApplied: widget.isMembershipApplied,
-                                                          membershipId: selectedMembershipId ?? '',
+                                                          membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                           printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                           orderId: orderId,
                                                         );
@@ -2136,7 +2507,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                       checkoutController.productsPayment(
                                                         order_id: orderId,
                                                         price: itemSubTotal,
-                                                        taxes: (itemTotal ?? 0) * 0.1,
+                                                        taxes: (itemTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                         surcharge: 0,
                                                         discount: discountAmount,
                                                         billAmount: itemTotal,
@@ -2175,7 +2546,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   balance: double.parse(balanceAmountController.text,),
                                                   bookingId: controller.bookingId,
                                                   isMembershipApplied: isMembershipApplied || (selectedMembershipId != null && selectedMembershipId!.isNotEmpty),
-                                                  membershipId: selectedMembershipId ?? '',
+                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                   printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                   orderId: orderId,
                                                 );
@@ -2183,7 +2554,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 await checkoutController.registerUser(
                                                   mobile: widget.mobileno,
                                                   firstName: widget.customerName,
-                                                  membershipId: selectedMembershipId ?? '',
+                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                 ).then((value) {
                                                   populateCartWithSubSlots(widget.bookings,);
                                                   checkoutController.processFinalCheckout(
@@ -2198,7 +2569,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     balance: double.parse(balanceAmountController.text,),
                                                     bookingId: controller.bookingId,
                                                     isMembershipApplied: widget.isMembershipApplied,
-                                                    membershipId: selectedMembershipId ?? '',
+                                                    membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                                     printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                     orderId: orderId,
                                                   );
@@ -2209,7 +2580,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 checkoutController.productsPayment(
                                                   order_id: orderId,
                                                   price: itemSubTotal,
-                                                  taxes: (itemTotal) * 0.1,
+                                                  taxes: (itemTotal) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                   surcharge: 0,
                                                   discount: discountAmount,
                                                   billAmount: itemTotal,
@@ -2231,7 +2602,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             String? paymentDevices = prefs.getString('paymentDevices');
                                             final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
 
-                                            checkoutController.createTempOrder(total:(widget.billAmount - discountAmount)!,).then((value) async {
+                                            checkoutController.createTempOrder(total:(widget.billAmount - discountAmount),).then((value) async {
                                                   final orderId = value['id'];
                                                   final total = value['total'];
                                                   if (selectedMethod == 'EFTPOS') {
@@ -2257,7 +2628,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                               checkoutController.productsPayment(
                                                                 order_id: orderId,
                                                                 price: widget.billAmount - discountAmount,
-                                                                taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                                taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                                 surcharge: 0,
                                                                 discount: discountAmount,
                                                                 billAmount: widget.billAmount,
@@ -2279,7 +2650,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                                 checkoutController.productsPayment(
                                                                   order_id: orderId,
                                                                   price: widget.billAmount - discountAmount,
-                                                                  taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                                  taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                                   surcharge: 0,
                                                                   discount: discountAmount,
                                                                   billAmount: widget.billAmount,
@@ -2314,7 +2685,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                       checkoutController.productsPayment(
                                                         order_id: orderId,
                                                         price: widget.billAmount - discountAmount,
-                                                        taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                        taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                         surcharge: 0,
                                                         discount: discountAmount,
                                                         billAmount: widget.billAmount - discountAmount,
@@ -2334,7 +2705,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                         checkoutController.productsPayment(
                                                           order_id: orderId,
                                                           price: widget.billAmount - discountAmount,
-                                                          taxes: (widget.billAmount - discountAmount) * 0.1,
+                                                          taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
                                                           surcharge: 0,
                                                           discount: discountAmount,
                                                           billAmount: widget.billAmount - discountAmount,
@@ -2685,27 +3056,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildAmountSummary(CheckoutController checkoutController) {
-    // Calculate total from cart items
-
-    final double cartTotal = cartItems.fold(
-      0,
-      (sum, item) =>
-          sum + (double.tryParse(item.product.price) ?? 0) * item.quantity,
-    );
-
-    // Calculate bill amount based on discount type
-    final double billAmount;
-    if (isManualBookingOnlyDiscount || isMembershipDiscountApplied) {
-      // For booking-only discount, the total bill is unchanged for products
-      // but reduced for the booking portion
-      billAmount = widget.billAmount - discountAmount;
-    } else {
-      // For regular discount, it's applied to the full amount
-      billAmount = widget.billAmount - discountAmount;
-    }
+    // Calculate bill amount - this is the amount due (courts + products + membership - discounts)
+    double totalAmountDue = actualTotal - manualDiscountAmount;
     
     final double totalPaid = this.totalPaid;
-    final double balance = billAmount - totalPaid;
+    final double balance = totalAmountDue - totalPaid;
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
@@ -2713,7 +3068,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _amountColumn('Bill Amount', billAmount),
+          _amountColumn('Bill Amount', totalAmountDue), // Show total amount due including membership
           _divider(),
           _amountColumn('Total Paid', totalPaid),
           _divider(),
@@ -2825,9 +3180,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             setState(() {}); // Rebuild to reflect updated totalPaid
           } else if (amount == 'Exact') {
             setState(() {
-              totalPaid = actualTotal - discountAmount;
+              totalPaid = actualTotal - manualDiscountAmount;
               customAmountString =
-                  (actualTotal - discountAmount).toString();
+                  (actualTotal - manualDiscountAmount).toString();
             });
           }
         },
@@ -3625,9 +3980,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         membershipDiscountAmount = nonPeakPrice > 0 ? nonPeakPrice : peakPrice;
                       }
                       
-                      // Update totals
-                      totalPaid = actualTotal - discountAmount;
-                      paidAmountController.text = totalPaid.toStringAsFixed(2);
+                      // Keep totalPaid at 0.00 initially - only populate when payment method is selected
+                      totalPaid = 0.0;
+                      paidAmountController.text = '0.00';
                       
                       // Close panel
                       _isMembershipPanelOpen = false;
@@ -3884,9 +4239,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   selectedMembershipName = planName;
                                   selectedMembershipPrice = planPrice;
                                   
-                                  // Update totals
-                                  totalPaid = actualTotal - discountAmount;
-                                  paidAmountController.text = totalPaid.toStringAsFixed(2);
+                                  // Keep totalPaid at 0.00 initially - only populate when payment method is selected
+                                  totalPaid = 0.0;
+                                  paidAmountController.text = '0.00';
                                 });
                                 
                                 Navigator.pop(context);
@@ -3927,5 +4282,65 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       },
     );
+  }
+
+  // Method to clear all membership state across controllers
+  void _clearAllMembershipState() {
+    setState(() {
+      // Clear local membership state
+      isMembershipApplied = false;
+      selectedMembershipId = null;
+      selectedMembershipName = null;
+      selectedMembershipPrice = null;
+      selectedMembershipPeakPrice = null;
+      selectedMembershipNonPeakPrice = null;
+      
+      // Clear membership discount
+      isMembershipDiscountApplied = false;
+      membershipDiscountAmount = 0.0;
+      
+      // Reset colors
+      _updateMembershipColors();
+      
+      // Keep totalPaid at 0.00 initially
+      totalPaid = 0.0;
+      paidAmountController.text = '0.00';
+      balanceAmountController.text = (actualTotal - manualDiscountAmount).toStringAsFixed(2);
+    });
+    
+    // Clean up any pending membership records from database
+    if (widget.exuserId != null) {
+      try {
+        final checkoutController = Get.find<CheckoutController>();
+        checkoutController.cleanupPendingMembership(customerId: widget.exuserId);
+      } catch (e) {
+        print('Error cleaning up pending membership: $e');
+      }
+    }
+    
+    // Clear membership state in other controllers
+    try {
+      final newBookingController = Get.find<NewBookingController>();
+      newBookingController.currentPlan.clear();
+      newBookingController.update();
+    } catch (e) {
+      print('NewBookingController not found or error clearing: $e');
+    }
+    
+    try {
+      final customerController = Get.find<CustomerController>();
+      customerController.selectedPlan.clear();
+      customerController.currentPlan.clear();
+      customerController.update();
+    } catch (e) {
+      print('CustomerController not found or error clearing: $e');
+    }
+    
+    try {
+      final checkoutController = Get.find<CheckoutController>();
+      checkoutController.update();
+    } catch (e) {
+      print('CheckoutController not found or error clearing: $e');
+    }
   }
 }

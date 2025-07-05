@@ -46,6 +46,7 @@ class OrderController extends GetxController {
           service_id,
           is_extended_booking,
           status,
+          price,
           bookings (
             booking_no,
             grand_total,
@@ -104,12 +105,16 @@ class OrderController extends GetxController {
             .eq('bookings.closed', false)
             .inFilter('status', ['Booked', 'Cancelled', 'No Show']);
       } else if (filterType == 'unpaid') {
-        // Filter by payment_status in the bookings table
+        // Filter by payment_status in the bookings table - only show today's unpaid bookings
+        final todayStart = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
         query = query
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
-            .neq('bookings.payment_status', 'Paid');
+            .neq('bookings.payment_status', 'Paid')
+            .gte('start_time', todayStart.toIso8601String())
+            .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'paid') {
         // Add a new filter for paid bookings if needed
         query = query
@@ -236,10 +241,12 @@ class OrderController extends GetxController {
         return DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time']));
       });
 
-      // STEP 2: Merge consecutive time slots
+      // STEP 2: Merge consecutive time slots and calculate individual court amounts
       final List<Map<String, dynamic>> merged = [];
       for (final item in processedData) {
         if (merged.isEmpty) {
+          // For the first item, set the individual court price
+          item['individual_court_amount'] = (item['price'] as num?)?.toDouble() ?? 0.0;
           merged.add(item);
           continue;
         }
@@ -257,9 +264,14 @@ class OrderController extends GetxController {
         final currStart = DateTime.parse(item['start_time']);
 
         if (isSameBooking && lastEnd == currStart) {
-          // Extend time
+          // Extend time and add to the individual court amount
           last['end_time'] = item['end_time'];
+          final lastAmount = (last['individual_court_amount'] as num?)?.toDouble() ?? 0.0;
+          final currentAmount = (item['price'] as num?)?.toDouble() ?? 0.0;
+          last['individual_court_amount'] = lastAmount + currentAmount;
         } else {
+          // New booking slot, set individual court price
+          item['individual_court_amount'] = (item['price'] as num?)?.toDouble() ?? 0.0;
           merged.add(item);
         }
       }
@@ -320,6 +332,7 @@ class OrderController extends GetxController {
           service_id,
           is_extended_booking,
           status,
+          price,
           bookings (
             booking_no,
             grand_total,
@@ -378,12 +391,16 @@ class OrderController extends GetxController {
             .eq('bookings.closed', false)
             .inFilter('status', ['Booked', 'Cancelled', 'No Show']);
       } else if (filterType == 'unpaid') {
-        // Filter by payment_status in the bookings table
+        // Filter by payment_status in the bookings table - only show today's unpaid bookings
+        final todayStart = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
         query = query
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
-            .neq('bookings.payment_status', 'Paid');
+            .neq('bookings.payment_status', 'Paid')
+            .gte('start_time', todayStart.toIso8601String())
+            .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'paid') {
         // Add a new filter for paid bookings if needed
         query = query
@@ -508,10 +525,12 @@ class OrderController extends GetxController {
         return DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time']));
       });
 
-      // STEP 2: Merge consecutive time slots
+      // STEP 2: Merge consecutive time slots and calculate individual court amounts
       final List<Map<String, dynamic>> merged = [];
       for (final item in processedData) {
         if (merged.isEmpty) {
+          // For the first item, set the individual court price
+          item['individual_court_amount'] = (item['price'] as num?)?.toDouble() ?? 0.0;
           merged.add(item);
           continue;
         }
@@ -529,9 +548,14 @@ class OrderController extends GetxController {
         final currStart = DateTime.parse(item['start_time']);
 
         if (isSameBooking && lastEnd == currStart) {
-          // Extend time
+          // Extend time and add to the individual court amount
           last['end_time'] = item['end_time'];
+          final lastAmount = (last['individual_court_amount'] as num?)?.toDouble() ?? 0.0;
+          final currentAmount = (item['price'] as num?)?.toDouble() ?? 0.0;
+          last['individual_court_amount'] = lastAmount + currentAmount;
         } else {
+          // New booking slot, set individual court price
+          item['individual_court_amount'] = (item['price'] as num?)?.toDouble() ?? 0.0;
           merged.add(item);
         }
       }
@@ -650,6 +674,111 @@ class OrderController extends GetxController {
 
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getIndividualCourtInfo({
+    String? bookingNo,
+    String? courtId,
+    DateTime? startTime,
+    DateTime? endTime,
+  }) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
+
+      if (centerSlug == null || bookingNo == null) {
+        throw Exception("Missing centerSlug or bookingNo");
+      }
+
+      // Fetch booking details
+      final bookingResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('*, booking_slots(*), booking_payments(*)')
+          .eq('booking_no', bookingNo)
+          .maybeSingle();
+
+      if (bookingResponse == null) {
+        throw Exception("Booking not found");
+      }
+
+      final bookingId = bookingResponse['id'];
+      final customerId = bookingResponse['customer_id'];
+
+      // Get customer info
+      final userResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('*, membershipplan(*)')
+          .eq('id', customerId)
+          .maybeSingle();
+
+      // Get specific court slots for this court and time range
+      var query = supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots')
+          .select('*')
+          .eq('booking_id', bookingId);
+      
+      if (courtId != null) {
+        query = query.eq('court_id', courtId);
+      }
+      
+      print('🔍 Querying booking slots: bookingId=$bookingId, courtId=$courtId, startTime=${startTime!.toIso8601String()}, endTime=${endTime!.toIso8601String()}');
+      
+      final courtSlots = await query
+          .gte('start_time', startTime.toIso8601String())
+          .lt('end_time', endTime.toIso8601String())
+          .order('start_time');
+          
+      print('📊 Found ${courtSlots.length} court slots');
+
+      // Calculate total amount for this specific court
+      double courtTotal = 0.0;
+      for (final slot in courtSlots) {
+        courtTotal += (slot['price'] as num).toDouble();
+      }
+
+      // Check if any payments have been made for these specific slots
+      final paidSlots = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots_payments')
+          .select('*, booking_slots(*)')
+          .eq('booking_id', bookingId)
+          .inFilter('booking_slots_id', courtSlots.map((s) => s['id']).toList());
+
+      double paidAmount = 0.0;
+      for (final payment in paidSlots) {
+        paidAmount += (payment['paid_amount'] as num).toDouble();
+      }
+
+      final remainingAmount = courtTotal - paidAmount;
+
+      // Get membership data if applicable
+      final membershipDataResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .select('*')
+          .eq('customer_id', customerId)
+          .eq('status', true)
+          .maybeSingle();
+
+      return {
+        'booking': bookingResponse,
+        'customer': userResponse,
+        'court_slots': courtSlots,
+        'court_total': courtTotal,
+        'paid_amount': paidAmount,
+        'remaining_amount': remainingAmount,
+        'membership_data': membershipDataResponse,
+      };
+
+    } catch (e) {
+      print('❌ getIndividualCourtInfo error: $e');
+      print('Parameters: bookingNo=$bookingNo, courtId=$courtId, startTime=$startTime, endTime=$endTime');
+      showCustomSnackbar('Failed', 'Error getting court info: ${e.toString()}', Palette.dangerTxt);
       return null;
     }
   }

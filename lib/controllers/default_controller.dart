@@ -295,17 +295,26 @@ class DefaultController extends GetxController
 
   Future<void> fetchPendingPaymentsCount() async {
     try {
+      // Filter by today's date to match the unpaid tab display logic
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day, 0, 0, 0);
+      final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+      
       final res = await supabase
           .schema('${centerSlug}_prod_schema')
-          .from('bookings')
-          .select('id')
-          .eq('closed', false)
-          .eq('is_cancelled', false)
-          .eq('is_showoff', false)
-          .neq('payment_status', 'Paid');
+          .from('booking_slots')
+          .select('booking_id, bookings!inner(*)')
+          .eq('bookings.closed', false)
+          .eq('bookings.is_cancelled', false)
+          .eq('bookings.is_showoff', false)
+          .neq('bookings.payment_status', 'Paid')
+          .gte('start_time', todayStart.toIso8601String())
+          .lte('end_time', todayEnd.toIso8601String());
 
-      pendingPaymentCount.value = res.length ?? 0;
-      print('Pending payments count updated to: ${pendingPaymentCount.value}');
+      // Count unique booking IDs to match the display logic
+      final uniqueBookingIds = res.map((slot) => slot['booking_id']).toSet();
+      pendingPaymentCount.value = uniqueBookingIds.length;
+      print('Pending payments count updated to: ${pendingPaymentCount.value} (today only)');
     } catch (e) {
       pendingPaymentCount.value = 0;
       print('Error fetching pending payments: $e');
