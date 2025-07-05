@@ -386,6 +386,9 @@ class CheckoutController extends GetxController {
         final defaultController = Get.find<DefaultController>();
         defaultController.tabIndex.value = 0;
         defaultController.dashboardTabController?.animateTo(0);
+        
+        // Refresh the court view data
+        newBookingController.fetchBookedSlots();
       });
 
     } catch (e) {
@@ -659,6 +662,9 @@ class CheckoutController extends GetxController {
         final defaultController = Get.find<DefaultController>();
         defaultController.tabIndex.value = 0;
         defaultController.dashboardTabController?.animateTo(0);
+        
+        // Refresh the court view data
+        newBookingController.fetchBookedSlots();
       });
 
     } catch (e) {
@@ -743,8 +749,26 @@ class CheckoutController extends GetxController {
     String? centerSlug                    = prefs.getString('centerSlug');
     String? storeDetails                  = prefs.getString('storeDetails');
     final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
-    String printerIp                      = storeData['printer'][0]['ip'];
-    int printerPort                       = int.parse(storeData['printer'][0]['port']);
+    
+    // Get printer details from the new format used by settings
+    final pairedPrintersJson = prefs.getString('paired_printers');
+    if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
+      print('No paired printers found');
+      showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+      return;
+    }
+    
+    final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
+    if (pairedPrinters.isEmpty) {
+      print('No paired printers found in list');
+      showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+      return;
+    }
+    
+    // Use the first printer in the list
+    final printerConfig = pairedPrinters[0];
+    final String printerIp = printerConfig['ip'];
+    final int printerPort = int.parse(printerConfig['port']);
 
     final response = await supabase
         .schema('${centerSlug}_prod_schema')
@@ -878,8 +902,26 @@ class CheckoutController extends GetxController {
     String? centerSlug                    = prefs.getString('centerSlug');
     String? storeDetails                  = prefs.getString('storeDetails');
     final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
-    String printerIp                      = storeData['printer'][0]['ip'];
-    int printerPort                       = int.parse(storeData['printer'][0]['port']);
+    
+    // Get printer details from the new format used by settings
+    final pairedPrintersJson = prefs.getString('paired_printers');
+    if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
+      print('No paired printers found');
+      showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+      return;
+    }
+    
+    final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
+    if (pairedPrinters.isEmpty) {
+      print('No paired printers found in list');
+      showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+      return;
+    }
+    
+    // Use the first printer in the list
+    final printerConfig = pairedPrinters[0];
+    final String printerIp = printerConfig['ip'];
+    final int printerPort = int.parse(printerConfig['port']);
 
     final response = await supabase
         .schema('${centerSlug}_prod_schema')
@@ -1091,8 +1133,26 @@ class CheckoutController extends GetxController {
     SharedPreferences prefs               = await SharedPreferences.getInstance();
     String? storeDetails                  = prefs.getString('storeDetails');
     final Map<String, dynamic> storeData  = jsonDecode(storeDetails!);
-    String printerIp                      = storeData['printer'][0]['ip'];
-    int printerPort                       = int.parse(storeData['printer'][0]['port']);
+    
+    // Get printer details from the new format used by settings
+    final pairedPrintersJson = prefs.getString('paired_printers');
+    if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
+      print('No paired printers found');
+      showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+      return;
+    }
+    
+    final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
+    if (pairedPrinters.isEmpty) {
+      print('No paired printers found in list');
+      showCustomSnackbar('Printer Error', 'No printers configured. Please check settings.', Colors.red);
+      return;
+    }
+    
+    // Use the first printer in the list
+    final printerConfig = pairedPrinters[0];
+    final String printerIp = printerConfig['ip'];
+    final int printerPort = int.parse(printerConfig['port']);
 
     try {
       final profile = await CapabilityProfile.load();

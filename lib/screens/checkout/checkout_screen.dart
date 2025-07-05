@@ -927,6 +927,100 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ],
                         ),
                       ),
+                      // Add a more prominent Remove Membership button below
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // Show confirmation dialog
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text(
+                                  'Remove Membership',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                content: Text(
+                                  'Are you sure you want to remove the ${selectedMembershipName} membership?',
+                                  style: GoogleFonts.inter(fontSize: 20),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text(
+                                      'Cancel',
+                                      style: GoogleFonts.inter(fontSize: 20),
+                                    ),
+                                  ),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      // Remove membership
+                                      setState(() {
+                                        isMembershipApplied = false;
+                                        selectedMembershipId = null;
+                                        selectedMembershipName = null;
+                                        selectedMembershipPrice = null;
+                                        selectedMembershipPeakPrice = null;
+                                        selectedMembershipNonPeakPrice = null;
+                                        
+                                        // Reset colors
+                                        _updateMembershipColors();
+                                        
+                                        // Remove membership discount only
+                                        isMembershipDiscountApplied = false;
+                                        membershipDiscountAmount = 0.0;
+                                        
+                                        // Recalculate totals
+                                        totalPaid = actualTotal - discountAmount;
+                                        paidAmountController.text = totalPaid.toStringAsFixed(2);
+                                      });
+                                      
+                                      Navigator.pop(context);
+                                      
+                                      // Show success message
+                                      showCustomSnackbar(
+                                        'Membership Removed',
+                                        'Membership has been removed from the booking',
+                                        Colors.green,
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red.shade600,
+                                    ),
+                                    child: Text(
+                                      'Remove',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 20,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: Icon(Icons.remove_circle, size: 24),
+                          label: Text(
+                            'Remove Membership',
+                            style: GoogleFonts.inter(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                     
                     // Add Membership button when no membership is applied

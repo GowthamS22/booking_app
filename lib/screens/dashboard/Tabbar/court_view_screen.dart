@@ -91,6 +91,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       print('Error clearing cart: $e');
     }
     
+    
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
     
@@ -268,6 +269,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Clear selectedSlots if cart is empty (e.g., after successful booking)
+    if (controller.cartItems.isEmpty && selectedSlots.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          selectedSlots.clear();
+        });
+      });
+    }
+    
     return Container(
       child: Column(
         children: [
