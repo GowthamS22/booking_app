@@ -36,9 +36,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   final NewBookingController controller = Get.put(NewBookingController());
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final GlobalKey<FormState> _advanceformKey = GlobalKey<FormState>();
-  TextEditingController nameController = TextEditingController();
-  TextEditingController mobileController = TextEditingController();
-  TextEditingController repeatUntilController = TextEditingController();
+  late TextEditingController nameController;
+  late TextEditingController mobileController;
+  late TextEditingController repeatUntilController;
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
   final ScrollController _headerHorizontalController = ScrollController();
@@ -67,19 +67,45 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Initialize text controllers
+    nameController = TextEditingController();
+    mobileController = TextEditingController();
+    repeatUntilController = TextEditingController();
+    
     selectedSlots.clear();
     showTodayButton = false;
-    controller.clearSelectedSlots();
-    controller.userData.value = AppUser.User();
-    cartController.clearCart();
+    
+    // Safely clear controller data
+    try {
+      controller.clearSelectedSlots();
+      controller.userData.value = AppUser.User();
+    } catch (e) {
+      print('Error clearing controller data: $e');
+    }
+    
+    // Safely clear cart
+    try {
+      cartController.clearCart();
+    } catch (e) {
+      print('Error clearing cart: $e');
+    }
+    
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
+    
+    // Add listeners
     _vertical.addListener(() {
-      _leftVerticalController.jumpTo(_vertical.offset);
+      if (_leftVerticalController.hasClients) {
+        _leftVerticalController.jumpTo(_vertical.offset);
+      }
     });
     _horizontal.addListener(() {
-      _headerHorizontalController.jumpTo(_horizontal.offset);
+      if (_headerHorizontalController.hasClients) {
+        _headerHorizontalController.jumpTo(_horizontal.offset);
+      }
     });
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
@@ -87,24 +113,44 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   void dispose() {
-    // Clear controllers and cart when screen is disposed
-    nameController.dispose();
-    mobileController.dispose();
-    repeatUntilController.dispose();
+    // Remove listeners before disposing
+    _vertical.removeListener(() {});
+    _horizontal.removeListener(() {});
+    
+    // Dispose scroll controllers
     _vertical.dispose();
     _horizontal.dispose();
     _headerHorizontalController.dispose();
     _leftVerticalController.dispose();
+    
+    // Dispose text controllers
+    nameController.dispose();
+    mobileController.dispose();
+    repeatUntilController.dispose();
 
     // Clear cart items when screen is disposed
-    cartController.clearCart();
-    controller.clearSelectedSlots();
-    controller.userData.value = AppUser.User();
+    try {
+      cartController.clearCart();
+    } catch (e) {
+      print('Error clearing cart on dispose: $e');
+    }
+    try {
+      controller.clearSelectedSlots();
+      controller.userData.value = AppUser.User();
+    } catch (e) {
+      print('Error clearing controller on dispose: $e');
+    }
     super.dispose();
   }
 
   Future<void> _loadInitialData() async {
     try {
+      // Check if widget is still mounted
+      if (!mounted) {
+        print('Widget not mounted, skipping initial data load');
+        return;
+      }
+      
       controller.isLoading.value = true;
 
       // First fetch service list
@@ -113,6 +159,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       if (controller.serviceList.isNotEmpty) {
         // Set initial service ID
         controller.selectedServiceId.value = controller.serviceList[0]['id'];
+        
+        // Fetch court list and booked slots
         await Future.wait([
           controller.fetchCourtList(),
           controller.fetchBookedSlots(),
@@ -135,10 +183,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               0;
         }
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       print('Error loading initial data: $error');
+      print('Stack trace: $stackTrace');
+      
+      // Show user-friendly error message
+      if (mounted) {
+        showCustomSnackbar(
+          'Error',
+          'Failed to load booking data. Please try again.',
+          Colors.red,
+        );
+      }
     } finally {
-      controller.isLoading.value = false;
+      if (mounted) {
+        controller.isLoading.value = false;
+      }
     }
   }
 
@@ -2570,7 +2630,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           context,
                                           nameController.text,
                                           mobileController.text,
-                                          '${selectedName} ${controller.selectedCourt.toString()}',
+                                          selectedName,
                                           TotalAmount,
                                           selectedDateTime ?? DateTime.now(),
                                           bookings,
@@ -2759,7 +2819,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     context,
                                     nameController.text,
                                     mobileController.text,
-                                    '${selectedName} ${controller.selectedCourt.toString()}',
+                                    selectedName,
                                     totalPrice,
                                     selectedDateTime ?? DateTime.now(),
                                     bookings,
@@ -3345,7 +3405,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   selectedDateTime: selectedDateTime,
                                   billAmount: billAmount + cartController.total,
                                   bookings: updatedBookings,
-                                  membershipID: selectedMembershipId!,
+                                  membershipID: selectedMembershipId ?? '',
                                   membershipName: selectedMembershipPlan,
                                   isMembershipApplied: isMembershipApplied,
                                   membershipPrice: memberPrice,
@@ -3451,7 +3511,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           paymentStatus: 'CASH',
           name: nameController.text,
           mobile: mobileController.text,
-          service: controller.selectedCourt.value,
+          service: controller.selectedService.value,
           updatedAt: DateTime.now(),
           updatedBy: authController.userId.toString(),
           userId: authController.userId.toString(),

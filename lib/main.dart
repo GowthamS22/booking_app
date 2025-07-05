@@ -47,6 +47,19 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    // Clear cart on app restart to avoid ghost items
+    _clearCartOnAppStart();
+  }
+  
+  Future<void> _clearCartOnAppStart() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Remove cart data from SharedPreferences on app start
+      await prefs.remove('shopping_cart');
+      print('Cart cleared on app start');
+    } catch (e) {
+      print('Error clearing cart on app start: $e');
+    }
   }
 
   @override

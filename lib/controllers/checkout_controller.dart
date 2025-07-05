@@ -159,8 +159,9 @@ class CheckoutController extends GetxController {
         return;
       }
 
-      if (isMembershipApplied == true && membershipId != null && userId != null) {
-
+      if (isMembershipApplied == true && membershipId != null && membershipId!.isNotEmpty && userId != null) {
+        print('Processing membership update for user: $userId with membership: $membershipId');
+        
         final planDetails = await supabase
             .schema('${centerSlug}_prod_schema')
             .from('membershipplan')
@@ -197,6 +198,8 @@ class CheckoutController extends GetxController {
               }
             })
             .eq('id', userId);
+            
+        print('Successfully updated membership for customer: $userId');
       }
 
       final bookingNumber = await getNextBookingNumber();
@@ -329,13 +332,40 @@ class CheckoutController extends GetxController {
 
       newBookingController.cartItems.clear();
       newBookingController.clearSelectedSlots();
+      
+      // Reset all booking controller states - but don't clear text controllers
+      // as they might be disposed
+      newBookingController.selectedService.value = '';
+      newBookingController.selectedServiceId.value = '';
+      newBookingController.isLoading.value = false;
+      newBookingController.checkout.value = false;
+      newBookingController.confirmBtn.value = false;
+      newBookingController.courtChangeBtn.value = false;
+      newBookingController.cancelBookingbtn.value = false;
+      newBookingController.selectedCourtSlots.clear();
+      newBookingController.selectedCourt.value = null;
+      newBookingController.update();
 
       showBookingSuccessAlert();
 
       isLoading.value = false;
+      checkoutPayBtn.value = false;
       update();
+      
+      // Reset dashboard tab to Court View (index 0) before navigation
+      final defaultController = Get.find<DefaultController>();
+      defaultController.tabIndex.value = 0;
+      defaultController.dashboardTabController?.index = 0;
 
-      Future.delayed(Duration(seconds: 1), () => Get.offAllNamed('/'));
+      Future.delayed(Duration(seconds: 1), () {
+        // Close all screens and go to dashboard
+        Get.until((route) => route.isFirst);
+        
+        // Ensure we're on the dashboard with Court View tab
+        final defaultController = Get.find<DefaultController>();
+        defaultController.tabIndex.value = 0;
+        defaultController.dashboardTabController?.animateTo(0);
+      });
 
     } catch (e) {
       print("e : $e");
@@ -479,8 +509,9 @@ class CheckoutController extends GetxController {
     String? centerSlug = preferences.getString('centerSlug');
 
     try {
-        if (isMembershipApplied == true && membershipId != null && userId != null) {
-
+        if (isMembershipApplied == true && membershipId != null && membershipId!.isNotEmpty && userId != null) {
+          print('Processing membership payment for user: $userId with membership: $membershipId');
+          
           final planDetails = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('membershipplan')
@@ -516,12 +547,22 @@ class CheckoutController extends GetxController {
                   }
               })
               .eq('id', userId);
+              
+          print('Successfully updated membership in processMembershipPayment for customer: $userId');
         }
 
         isLoading.value = false;
         update();
         showCustomSnackbar('Success', 'Membership Added Successfully', Colors.green);
-        Future.delayed(Duration(seconds: 1), () => Get.offAllNamed('/'));
+        Future.delayed(Duration(seconds: 1), () {
+        // Close all screens and go to dashboard
+        Get.until((route) => route.isFirst);
+        
+        // Ensure we're on the dashboard with Court View tab
+        final defaultController = Get.find<DefaultController>();
+        defaultController.tabIndex.value = 0;
+        defaultController.dashboardTabController?.animateTo(0);
+      });
 
     } catch (e) {
       print("e : $e");
