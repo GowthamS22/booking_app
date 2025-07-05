@@ -293,6 +293,7 @@ class BookingInfo {
   bool sameLikeAbove;
   String bookingId;
   final List<BookingSubSlotInfo> subSlots;
+  String? membershipPlanId;
 
   BookingInfo({
     required this.courtName,
@@ -302,6 +303,7 @@ class BookingInfo {
     this.sameLikeAbove = false,
     required this.bookingId,
     required this.subSlots,
+    this.membershipPlanId,
   });
 
   factory BookingInfo.fromJson(Map<String, dynamic> json) {
@@ -315,6 +317,7 @@ class BookingInfo {
       subSlots: (json['subSlots'] as List)
           .map((slotJson) => BookingSubSlotInfo.fromJson(slotJson))
           .toList(),
+      membershipPlanId: json['membershipPlanId'] != null ? json['membershipPlanId'] : null,
     );
   }
 
@@ -326,6 +329,7 @@ class BookingInfo {
     'sameLikeAbove': sameLikeAbove,
     'bookingId': bookingId,
     'subSlots': subSlots.map((s) => s.toJson()).toList(),
+    'membershipPlanId': membershipPlanId,
   };
 }
 

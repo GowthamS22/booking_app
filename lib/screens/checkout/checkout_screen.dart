@@ -345,7 +345,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            buildCartItems(),
+                            buildCartItems(controller),
                             buildCheckout(newBookingController, controller),
                           ],
                         ),
@@ -424,7 +424,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
-  Widget buildCartItems() {
+  Widget buildCartItems(CheckoutController checkoutController,) {
     return Expanded(
       flex: 2,
       child: Container(
@@ -617,17 +617,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            Text(
+                              '\$${widget.membershipPrice}' ?? '',
+                              style: GoogleFonts.inter(
+                                fontSize: 23,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                checkoutController.removeMembership(membershipId: widget.membershipID, customerId: widget.exuserId).then((value) {
+                                  if(value==true) {
 
-                            // Text(
-                            //   membershipValidityDate != null
-                            //       ? '$membershipPlan :(${membershipValidityDate!.difference(DateTime.now()).inDays > 0 ? 'Valid for ${membershipValidityDate!.difference(DateTime.now()).inDays} days' : 'Expired'})'
-                            //       : '$membershipPlan : (No Validity Info)',
-                            //   style: GoogleFonts.inter(
-                            //     fontSize: 14,
-                            //     fontWeight: FontWeight.w700,
-                            //     color: textColor,
-                            //   ),
-                            // ),
+                                  }
+                                },);
+                              },
+                              icon: Icon(Icons.delete, size: 30,),
+                            ),
                           ],
                         ),
                       ),
@@ -1475,6 +1482,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
                                                   printReceipt: widget.exorderId != null ? false : true,
+                                                  isMembershipApplied: widget.isMembershipApplied!,
+                                                  membershipId:widget.membershipID,
                                                 );
 
                                                 if(widget.exorderId!=null && widget.exorderId!='') {
@@ -1508,6 +1517,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 paid: totalPaid,
                                                 balance: double.parse(balanceAmountController.text,),
                                                 printReceipt: widget.exorderId != null ? false : true,
+                                                isMembershipApplied: widget.isMembershipApplied!,
+                                                membershipId:widget.membershipID,
                                               );
 
                                               if(widget.exorderId!=null && widget.exorderId!='') {

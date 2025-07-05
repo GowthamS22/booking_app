@@ -1379,6 +1379,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     }
 
+    bool membershipInCart = false;
+
     void _clearMembershipData() {
       setState(() {
         hasMembership = false;
@@ -1389,6 +1391,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         isMembershipApplied = false;
         membershipPrice = 0.0;
         updateCourtPrice();
+        membershipInCart = false;
       });
     }
 
@@ -1411,6 +1414,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           membershipValidityDate = null;
           isMembershipApplied = false;
           membershipPrice = 0.0;
+        }
+        if(userData['already_in_cart']==true) {
+          membershipInCart = true;
         }
         updateCourtPrice();
       });
@@ -1712,6 +1718,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           onSelected: (suggestion) {
                                             mobileController.text = suggestion['mobile'];
                                             nameController.text = suggestion['name'];
+                                            if(suggestion['already_in_cart']==true) {
+                                              membershipInCart = true;
+                                            }
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
@@ -2677,12 +2686,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 //   ),
                                 // ]
                                 //else ...[
-                                if (!hasMembership ||
-                                    (membershipValidityDate != null &&
-                                        membershipValidityDate!
-                                                .difference(DateTime.now())
-                                                .inDays <=
-                                            0)) ...[
+                                if (!membershipInCart && !hasMembership || (membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays <= 0)) ...[
                                   Expanded(
                                     child: ElevatedButton(
                                       onPressed:
@@ -2834,6 +2838,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   );
                 }).toList(),
             bookingId: booking.bookingId,
+            membershipPlanId: selectedMembershipId,
           );
         }).toList();
 
@@ -3228,12 +3233,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   email: controller.userData.value.email,
                                   mobile: controller.userData.value.mobile,
                                   bookingId: controller.bookingId,
-                                  paymentType:
-                                      'Pending', // Set payment type as Pending
+                                  paymentType: 'Pending', // Set payment type as Pending
                                   promoCode: '',
-                                  notes:
-                                      'Payment pending - Pay Later option selected',
+                                  notes: 'Payment pending - Pay Later option selected',
                                   bookings: updatedBookings,
+                                  membershipID: selectedMembershipId!,
+                                  membershipName: selectedMembershipPlan,
+                                  membershipPrice: memberPrice,
                                 );
                                 // // After booking, clear slots and reset form
                                 // controller.clearSelectedSlots();
@@ -3249,26 +3255,24 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Navigator.pop(context);
                               } else {
                                 // Create new user and then create booking with pending payment
-                                controller
-                                    .registerUser(
+                                    controller.registerUser(
                                       mobile: mobile,
                                       firstName: customerName.toString(),
-                                    )
-                                    .then((value) {
+                                    ).then((value) {
                                       // Create booking with pending payment
                                       populateCartWithSubSlots(bookings);
                                       controller.processCheckout(
                                         name: controller.nameController.text,
                                         email: controller.userData.value.email,
-                                        mobile:
-                                            controller.userData.value.mobile,
-                                        paymentType:
-                                            'Pending', // Set payment type as Pending
+                                        mobile: controller.userData.value.mobile,
+                                        paymentType: 'Pending', // Set payment type as Pending
                                         promoCode: '',
-                                        notes:
-                                            'Payment pending - Pay Later option selected',
+                                        notes: 'Payment pending - Pay Later option selected',
                                         bookingId: controller.bookingId,
                                         bookings: updatedBookings,
+                                        membershipID: selectedMembershipId!,
+                                        membershipName: selectedMembershipPlan,
+                                        membershipPrice: memberPrice,
                                       );
                                     });
                                 // // After booking, clear slots and reset form

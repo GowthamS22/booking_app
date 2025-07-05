@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -23,7 +25,7 @@ class OrderController extends GetxController {
     return formatter.format(DateTime.parse(isoTime));
   }
 
-  Future<void> fetchBookings(String filterType) async {
+  Future<void> fetchBookingsOld(String filterType) async {
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     String? centerSlug                  = preferences.getString('centerSlug');
     try {
@@ -59,7 +61,8 @@ class OrderController extends GetxController {
             ),
             closed,
             is_cancelled,
-            is_showoff
+            is_showoff,
+            bcart_items
           ),
           platform_status!court_id (
             platform_id,
@@ -196,6 +199,19 @@ class OrderController extends GetxController {
             finalGrandTotal = bookingGrandTotal - paymentsTotal;
           }
           if(filterType == 'unpaid') {
+
+            // final membershipCarData = await supabase
+            //     .schema('${centerSlug}_prod_schema')
+            //     .from('membership_data')
+            //     .select('customer_id, price, status')
+            //     .eq('customer_id', newItem['bookings']['customer_id'])
+            //     .eq('status', true)
+            //     .maybeSingle();
+            //
+            // if(membershipCarData!=null) {
+            //   finalGrandTotal += double.parse(membershipCarData['price'].toString());
+            // }
+
             newItem['bookings']['grand_total'] = finalGrandTotal + ordersTotal;
           } else {
             newItem['bookings']['grand_total'] = bookingGrandTotal + ordersTotal1;
@@ -283,6 +299,279 @@ class OrderController extends GetxController {
     }
   }
 
+  Future<void> fetchBookings(String filterType) async {
+    final SharedPreferences preferences = await SharedPreferences.getInstance();
+    String? centerSlug = preferences.getString('centerSlug');
+    try {
+      isLoading.value = true;
+      error.value = '';
+
+      final now = DateTime.now();
+      final nowStr = _formatDateTime(now);
+
+      var query = supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots')
+          .select('''
+          start_time,
+          end_time,
+          booking_id,
+          court_id,
+          service_id,
+          is_extended_booking,
+          status,
+          bookings (
+            booking_no,
+            grand_total,
+            customer_id,
+            payment_status,
+            customers (
+              first_name,
+              last_name,
+              mobile
+            ),
+            booking_payments (
+              total
+            ),
+            closed,
+            is_cancelled,
+            is_showoff,
+            bcart_items
+          ),
+          platform_status!court_id (
+            platform_id,
+            sport_id,
+            sports (
+              platform_name,
+              sport_name
+            )
+          )
+        ''');
+
+      if (filterType == 'Active') {
+        // Fetch all slots for today
+        final todayStart = DateTime(now.year, now.month, now.day, 0, 0, 0);
+        final todayEnd = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        query = query
+            .eq('status', 'Booked')
+            .eq('bookings.closed', false)
+            .eq('bookings.is_cancelled', false)
+            .eq('bookings.is_showoff', false)
+            .gte('start_time', todayStart.toIso8601String())
+            .lte('end_time', todayEnd.toIso8601String());
+      } else if (filterType == 'upcoming') {
+        query = query
+            .eq('bookings.is_cancelled', false)
+            .eq('bookings.is_showoff', false)
+            .eq('bookings.closed', false)
+            .eq('status', 'Booked')
+            .gt('start_time', nowStr);
+      } else if (filterType == 'scheduled') {
+        final future = _formatDateTime(now.add(Duration(days: 90)));
+        query = query
+            .eq('bookings.closed', false)
+            .eq('status', 'Booked')
+            .gt('start_time', nowStr)
+            .lte('start_time', future);
+      } else if (filterType == 'all') {
+        query = query
+            .eq('bookings.closed', false)
+            .inFilter('status', ['Booked', 'Cancelled', 'No Show']);
+      } else if (filterType == 'unpaid') {
+        // Filter by payment_status in the bookings table
+        query = query
+            .eq('bookings.is_cancelled', false)
+            .eq('bookings.is_showoff', false)
+            .eq('bookings.closed', false)
+            .neq('bookings.payment_status', 'Paid');
+      } else if (filterType == 'paid') {
+        // Add a new filter for paid bookings if needed
+        query = query
+            .eq('bookings.closed', false)
+            .eq('bookings.payment_status', 'Paid')
+            .eq('status', 'Booked');
+      }
+
+      final response = await query;
+      final data = response as List<dynamic>;
+
+      print('✅ Filter returned ${data.length} slots');
+
+      if (data.isEmpty) {
+        showCustomSnackbar('$filterType Booking', 'No data found', Colors.red);
+        bookings.value = [];
+        return;
+      }
+
+      // Get all unique booking_ids to fetch their orders
+      final bookingIds = data
+          .map((item) => item['booking_id']?.toString())
+          .where((id) => id != null)
+          .toSet()
+          .toList();
+
+      // Fetch all orders for these bookings
+      final ordersResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('booking_id, total, order_status')
+          .eq('order_status', 'Pending')
+          .inFilter('booking_id', bookingIds);
+
+      final ordersData = ordersResponse as List<dynamic>;
+
+      // Create a map of booking_id to sum of order totals
+      final ordersMap = <String, double>{};
+      for (final order in ordersData) {
+        final bookingId = order['booking_id']?.toString();
+        if (bookingId != null) {
+          final total = (order['total'] as num?)?.toDouble() ?? 0.0;
+          ordersMap.update(bookingId, (value) => value + total, ifAbsent: () => total);
+        }
+      }
+
+      final ordersResponse1 = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('booking_id, total, order_status')
+          .inFilter('booking_id', bookingIds);
+
+      final ordersData1 = ordersResponse1 as List<dynamic>;
+
+      // Create a map of booking_id to sum of order totals
+      final ordersMap1 = <String, double>{};
+      for (final order1 in ordersData1) {
+        final bookingId = order1['booking_id']?.toString();
+        if (bookingId != null) {
+          final total = (order1['total'] as num?)?.toDouble() ?? 0.0;
+          ordersMap1.update(bookingId, (value) => value + total, ifAbsent: () => total);
+        }
+      }
+
+      // Process each booking slot to include orders total
+      final processedData = await Future.wait(data.map((item) async {
+        final bookingId = item['booking_id']?.toString();
+        final ordersTotal = bookingId != null ? ordersMap[bookingId] ?? 0.0 : 0.0;
+        final ordersTotal1 = bookingId != null ? ordersMap1[bookingId] ?? 0.0 : 0.0;
+
+        // Create a deep copy of the item
+        final newItem = Map<String, dynamic>.from(item);
+        if (newItem['bookings'] != null) {
+          newItem['bookings'] = Map<String, dynamic>.from(newItem['bookings']);
+          final bookingGrandTotal = (newItem['bookings']['grand_total'] as num?)?.toDouble() ?? 0.0;
+
+          // Calculate grand total from booking_payments if they exist
+          final List<dynamic> bookingPayments = newItem['bookings']['booking_payments'] ?? [];
+          double finalGrandTotal = bookingGrandTotal;
+
+          if (bookingPayments.isNotEmpty) {
+            final double paymentsTotal = bookingPayments.fold(0.0, (sum, payment) {
+              return sum + (payment['total'] as num).toDouble();
+            });
+            finalGrandTotal = bookingGrandTotal - paymentsTotal;
+          }
+
+          if (filterType == 'unpaid') {
+            final membershipCarData = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('membership_data')
+                .select('customer_id, price, status')
+                .eq('customer_id', newItem['bookings']['customer_id'])
+                .eq('status', true)
+                .maybeSingle();
+
+            if (membershipCarData != null) {
+              finalGrandTotal += double.parse(membershipCarData['price'].toString());
+            }
+
+            newItem['bookings']['grand_total'] = finalGrandTotal + ordersTotal;
+          } else {
+            newItem['bookings']['grand_total'] = bookingGrandTotal + ordersTotal1;
+          }
+        }
+
+        return newItem;
+      }));
+
+      // STEP 1: Sort by all relevant fields
+      processedData.sort((a, b) {
+        int cmp = (a['bookings']?['customer_id'] ?? '').toString().compareTo((b['bookings']?['customer_id'] ?? '').toString());
+        if (cmp != 0) return cmp;
+        cmp = (a['booking_id'] ?? '').toString().compareTo((b['booking_id'] ?? '').toString());
+        if (cmp != 0) return cmp;
+        cmp = (a['court_id'] ?? '').toString().compareTo((b['court_id'] ?? '').toString());
+        if (cmp != 0) return cmp;
+        cmp = (a['service_id'] ?? '').toString().compareTo((b['service_id'] ?? '').toString());
+        if (cmp != 0) return cmp;
+        cmp = (a['status'] ?? '').toString().compareTo((b['status'] ?? '').toString());
+        if (cmp != 0) return cmp;
+        return DateTime.parse(a['start_time']).compareTo(DateTime.parse(b['start_time']));
+      });
+
+      // STEP 2: Merge consecutive time slots
+      final List<Map<String, dynamic>> merged = [];
+      for (final item in processedData) {
+        if (merged.isEmpty) {
+          merged.add(item);
+          continue;
+        }
+
+        final last = merged.last;
+
+        final isSameBooking =
+            last['booking_id'] == item['booking_id'] &&
+                last['court_id'] == item['court_id'] &&
+                last['service_id'] == item['service_id'] &&
+                last['status'] == item['status'] &&
+                (last['bookings']?['customer_id'] == item['bookings']?['customer_id']);
+
+        final lastEnd = DateTime.parse(last['end_time']);
+        final currStart = DateTime.parse(item['start_time']);
+
+        if (isSameBooking && lastEnd == currStart) {
+          // Extend time
+          last['end_time'] = item['end_time'];
+        } else {
+          merged.add(item);
+        }
+      }
+
+      // For 'Active', only show merged blocks that are currently active
+      List<Map<String, dynamic>> filteredMerged = merged;
+      if (filterType == 'Active') {
+        final now = DateTime.now();
+        filteredMerged = merged.where((item) {
+          final start = DateTime.parse(item['start_time']);
+          final end = DateTime.parse(item['end_time']);
+          return start.isBefore(now) && end.isAfter(now);
+        }).toList();
+      }
+
+      // ✅ STEP 3: Sort by booking_no ascending
+      filteredMerged.sort((a, b) {
+        final aNo = (a['bookings']?['booking_no'] ?? '').toString();
+        final bNo = (b['bookings']?['booking_no'] ?? '').toString();
+        return aNo.compareTo(bNo);
+      });
+
+      // ✅ STEP 4: Format & map to model
+      final result = filteredMerged
+          .map((e) {
+        e['start_time_formatted'] = format12Hour(e['start_time']);
+        e['end_time_formatted'] = format12Hour(e['end_time']);
+        return BookingModel.fromJson(e);
+      })
+          .toList();
+
+      bookings.value = result;
+    } catch (e) {
+      print('❌ Error: $e');
+      error.value = 'Failed to fetch bookings: $e';
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<Map<String, dynamic>?> getBookingInfo({
     String? bookingNo,
   }) async {
@@ -343,11 +632,20 @@ class OrderController extends GetxController {
           .eq('booking_id', bookingId)
           .maybeSingle();
 
+      final membershipDataResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membership_data')
+          .select('*')
+          .eq('customer_id', userResponse!['id'])
+          .eq('status', true)
+          .maybeSingle();
+
       // Return a combined object
       return {
         'booking': updatedBookingResponse,
         'order': orderResponse,
         'customer': userResponse,
+        'membership_data': membershipDataResponse
       };
 
     } catch (e) {
@@ -356,6 +654,37 @@ class OrderController extends GetxController {
     }
   }
 
+  Future<Map<String, dynamic>?> getMembershipDetails({
+    String? membershipId,
+  }) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
 
+      if (centerSlug == null || membershipId == null) {
+        throw Exception("Missing centerSlug or bookingNo");
+      }
+
+      // Fetch membership details
+      final membershipResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('membershipplan')
+          .select('*')
+          .eq('id', membershipId)
+          .maybeSingle(); // use maybeSingle to avoid throwing if no match
+
+      if (membershipResponse == null) {
+        throw Exception("Booking not found");
+      }
+
+      return {
+        'membership': membershipResponse,
+      };
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+      return null;
+    }
+  }
 
 }

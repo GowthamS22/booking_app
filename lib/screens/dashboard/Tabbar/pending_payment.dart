@@ -541,12 +541,13 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                 onPressed: () async {
                                                   final prefs = await SharedPreferences.getInstance();
                                                   await prefs.remove('shopping_cart');
+                                                  double totalAmount = 0;
                                                   await bookingController.getBookingInfo(bookingNo: booking.bookingNo).then((value) async {
                                                     if (value != null) {
                                                       final bookingData = BookingWithAll.fromJson(value['booking']);
                                                       final orderData   = value['order'] != null ? Orders.fromJson(value['order']) : value['order'];
                                                       final userData    = value['customer'];
-                                                      double totalAmount = (bookingData.grandTotal ?? 0) + (orderData!=null ? double.parse(value['order']['total'].toString()) ?? 0 : 0);
+                                                      totalAmount = (bookingData.grandTotal ?? 0) + (orderData!=null ? double.parse(value['order']['total'].toString()) ?? 0 : 0);
 
                                                       if(orderData!=null) {
                                                         await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
@@ -555,6 +556,25 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                       List<dynamic> jsonList = jsonDecode(value['booking']['bcart_items']);
                                                       List<BookingInfo> bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
 
+                                                      String membershipID       = '';
+                                                      String membershipName     = '';
+                                                      bool isMembershipApplied  = false;
+                                                      double membershipPrice    = 0;
+
+                                                      if(value['membership_data']!=null) {
+                                                        await bookingController.getMembershipDetails(membershipId: value['membership_data']['membershipplan_id']).then((membershipInfo) {
+                                                          if(membershipInfo!=null) {
+                                                            totalAmount += double.parse(membershipInfo['membership']['price'].toString());
+
+                                                            membershipID         = membershipInfo['membership']['id'];
+                                                            membershipName       = membershipInfo['membership']['name'];
+                                                            isMembershipApplied  = true;
+                                                            membershipPrice      = double.parse(membershipInfo['membership']['price'].toString());
+
+                                                          }
+                                                        },);
+                                                      }
+
                                                       Get.to(CheckoutScreen(
                                                         type: 'ExistingBooking',
                                                         customerName: booking.customerName!,
@@ -562,10 +582,10 @@ class _PendingPaymentState extends State<PendingPayment> {
                                                         selectedDateTime: DateTime.now(),
                                                         billAmount: totalAmount,
                                                         bookings: bookings,
-                                                        membershipID: '',
-                                                        membershipName: '',
-                                                        isMembershipApplied: false,
-                                                        membershipPrice: 0,
+                                                        membershipID: membershipID,
+                                                        membershipName: membershipName,
+                                                        isMembershipApplied: isMembershipApplied,
+                                                        membershipPrice: membershipPrice,
                                                         exbookingId: bookingData.id,
                                                         exorderId: orderData!=null ? orderData.id: null,
                                                         exuserId: userData['id'],
