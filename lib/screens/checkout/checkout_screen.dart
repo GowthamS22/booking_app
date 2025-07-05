@@ -22,6 +22,7 @@ import '../../controllers/customer_controller.dart';
 import '../../controllers/new_booking_controller.dart';
 import '../../controllers/default_controller.dart';
 import '../../controllers/cart_controller.dart' as cart;
+import '../../controllers/membership_controller.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/number_pad_widget.dart';
 
@@ -70,6 +71,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final CustomerController customerController = Get.put(CustomerController());
   final PaymentController paymentController = Get.put(PaymentController());
   final cart.CartController cartController = Get.put(cart.CartController());
+  final MembershipController membershipController = Get.put(MembershipController());
 
   TextEditingController notesController = TextEditingController();
   TextEditingController promoCodeController = TextEditingController();
@@ -121,23 +123,77 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   List<CartItem> cartItems = []; // Add this line
 
-  double discountAmount = 0.0;
-  bool isDiscountApplied = false;
+  // Manual discount state
+  double manualDiscountAmount = 0.0;
+  bool isManualDiscountApplied = false;
   TextEditingController discountController = TextEditingController();
-  String discountType = 'flat'; // 'flat' or 'percentage'
-  double discountValue = 0.0; // The raw value entered (e.g., 10 for 10% or $10)
-  bool isBookingOnlyDiscount = false; // Whether discount applies only to booking
+  String manualDiscountType = 'flat'; // 'flat' or 'percentage'
+  double manualDiscountValue = 0.0; // The raw value entered (e.g., 10 for 10% or $10)
+  bool isManualBookingOnlyDiscount = false; // Whether manual discount applies only to booking
+  
+  // Membership discount state
+  double membershipDiscountAmount = 0.0;
+  bool isMembershipDiscountApplied = false;
+  
+  // Combined discount for display
+  double get discountAmount => manualDiscountAmount + membershipDiscountAmount;
+  bool get isDiscountApplied => isManualDiscountApplied || isMembershipDiscountApplied;
+
+  // Local membership state
+  late bool isMembershipApplied;
+  String? selectedMembershipId;
+  String? selectedMembershipName;
+  double? selectedMembershipPrice;
+  double? selectedMembershipPeakPrice;
+  double? selectedMembershipNonPeakPrice;
+  
+  // Slide panel state
+  bool _isMembershipPanelOpen = false;
 
   double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
+  
+  // Calculate the actual total including bookings, cart items, and membership
+  double get actualTotal {
+    double total = widget.billAmount + cartItemsTotal;
+    if (isMembershipApplied && selectedMembershipPrice != null) {
+      total += selectedMembershipPrice!;
+    }
+    return total;
+  }
 
   @override
   void initState() {
-    _loadCartItems(); // Add this line
-    // TODO: implement initState
+    super.initState();
+    
+    // Initialize membership state from widget
+    // Only apply membership if it has a valid name and price
+    if (widget.membershipName != null && 
+        widget.membershipName!.isNotEmpty && 
+        widget.membershipPrice != null && 
+        widget.membershipPrice! > 0) {
+      isMembershipApplied = widget.isMembershipApplied ?? false;
+      selectedMembershipId = widget.membershipID;
+      selectedMembershipName = widget.membershipName;
+      selectedMembershipPrice = widget.membershipPrice;
+    } else {
+      // No valid membership data, ensure it's cleared
+      isMembershipApplied = false;
+      selectedMembershipId = null;
+      selectedMembershipName = null;
+      selectedMembershipPrice = null;
+    }
+    
+    // Reset discount states on init
+    membershipDiscountAmount = 0.0;
+    isMembershipDiscountApplied = false;
+    manualDiscountAmount = 0.0;
+    isManualDiscountApplied = false;
+    
+    _loadCartItems();
+    
     for (var booking in widget.bookings) {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
     }
-    super.initState();
   }
 
   Future<void> _loadCartItems() async {
@@ -194,10 +250,47 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               ElevatedButton(
                 onPressed: () {
+                  // Clear all booking and cart state
+                  newBookingController.clearSelectedSlots();
+                  cartController.clearCart();
+                  
+                  // Reset any other state that might be stuck
+                  newBookingController.mobileNumberController.clear();
+                  newBookingController.nameController.clear();
+                  newBookingController.selectedService.value = '';
+                  newBookingController.selectedServiceId.value = '';
+                  newBookingController.isLoading.value = false;  // Reset loading state
+                  newBookingController.checkout.value = false;  // Reset checkout state
+                  newBookingController.confirmBtn.value = false;  // Reset confirm button state
+                  newBookingController.courtChangeBtn.value = false;  // Reset court change button
+                  newBookingController.cancelBookingbtn.value = false;  // Reset cancel button
+                  newBookingController.selectedCourtSlots.clear();  // Clear slots again
+                  newBookingController.selectedCourt.value = null;  // Clear court
+                  newBookingController.update();
+                  
+                  // Reset checkout controller state
+                  final checkoutController = Get.find<CheckoutController>();
+                  checkoutController.checkoutPayBtn.value = false;
+                  checkoutController.isLoading.value = false;
+                  checkoutController.update();
+                  
+                  // Reset customer controller state if exists
+                  try {
+                    final customerController = Get.find<CustomerController>();
+                    customerController.isLoading.value = false;
+                    customerController.update();
+                  } catch (e) {
+                    // CustomerController might not be initialized
+                  }
+                  
                   final defaultController = Get.find<DefaultController>();
                   defaultController.tabIndex.value = 0;
                   defaultController.dashboardTabController?.index = 0;
-                  Get.offAllNamed('/');
+                  
+                  // Force clean navigation with a small delay to ensure state is cleared
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    Get.offAllNamed('/');
+                  });
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.redAccent,
@@ -219,19 +312,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Color? borderColor;
   Color? backgroundColor;
   Color? textColor;
-  @override
-  Widget build(BuildContext context) {
-    if (widget.membershipName.toString().toLowerCase().contains('gold')) {
+  
+  String _getDiscountDisplayText() {
+    if (isMembershipDiscountApplied && isManualDiscountApplied) {
+      return 'Membership + Manual Discount';
+    } else if (isMembershipDiscountApplied) {
+      return 'Membership Discount Applied';
+    } else if (isManualDiscountApplied) {
+      return 'Discount Applied';
+    }
+    return '';
+  }
+  
+  void _updateMembershipColors() {
+    // Use selected membership name if available, otherwise use widget membership name
+    final membershipName = selectedMembershipName ?? widget.membershipName ?? '';
+    
+    if (membershipName.toString().toLowerCase().contains('gold')) {
       borderColor = Colors.amber.shade500;
       backgroundColor = Colors.amber.shade50;
       textColor = Colors.amber.shade800;
-    } else if (widget.membershipName.toString().toLowerCase().contains(
-      'platinum',
-    )) {
+    } else if (membershipName.toString().toLowerCase().contains('silver')) {
+      borderColor = Colors.grey.shade500;
+      backgroundColor = Colors.grey.shade100;
+      textColor = Colors.grey.shade800;
+    } else if (membershipName.toString().toLowerCase().contains('bronze')) {
+      borderColor = Colors.orange.shade500;
+      backgroundColor = Colors.orange.shade50;
+      textColor = Colors.orange.shade800;
+    } else if (membershipName.toString().toLowerCase().contains('platinum')) {
       borderColor = Colors.indigo.shade500;
       backgroundColor = Colors.indigo.shade50;
       textColor = Colors.indigo.shade700;
+    } else {
+      borderColor = Colors.blue.shade500;
+      backgroundColor = Colors.blue.shade50;
+      textColor = Colors.blue.shade800;
     }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    _updateMembershipColors();
     return GetBuilder(
       init: CheckoutController(),
       builder: (controller) {
@@ -348,36 +470,78 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           //backgroundColor: Palette.white,
-          body: SingleChildScrollView(
-            child: Column(
-              children: [
-                //Divider(color: Colors.grey.shade300, thickness: 1),
-                Container(
-                  decoration: BoxDecoration(
-                    //color: Colors.white,
-                    //border: Border.all(color: Colors.grey.shade300),
-                    //borderRadius: BorderRadius.circular(10)
-                  ),
-                  //margin: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-                  //padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        Row(
-                          spacing: 20,
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          crossAxisAlignment: CrossAxisAlignment.start,
+          body: Stack(
+            children: [
+              // Main content
+              SingleChildScrollView(
+                child: Column(
+                  children: [
+                    //Divider(color: Colors.grey.shade300, thickness: 1),
+                    Container(
+                      decoration: BoxDecoration(
+                        //color: Colors.white,
+                        //border: Border.all(color: Colors.grey.shade300),
+                        //borderRadius: BorderRadius.circular(10)
+                      ),
+                      //margin: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                      //padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                      child: SingleChildScrollView(
+                        child: Column(
                           children: [
-                            buildCartItems(controller),
-                            buildCheckout(newBookingController, controller),
+                            Row(
+                              spacing: 20,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                buildCartItems(controller),
+                                buildCheckout(newBookingController, controller),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Overlay when panel is open (must come before panel in stack)
+              if (_isMembershipPanelOpen)
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _isMembershipPanelOpen = false;
+                      });
+                    },
+                    child: Container(
+                      color: Colors.black.withOpacity(0.3),
                     ),
                   ),
                 ),
-              ],
-            ),
+              
+              // Slide-in membership panel (must come after overlay in stack)
+              AnimatedPositioned(
+                duration: Duration(milliseconds: 300),
+                right: _isMembershipPanelOpen ? 0 : -500,
+                top: 0,
+                bottom: 0,
+                width: 500,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 10,
+                        offset: Offset(-5, 0),
+                      ),
+                    ],
+                  ),
+                  child: _buildMembershipPanel(),
+                ),
+              ),
+            ],
           ),
         ),  // End of Scaffold
         );  // End of WillPopScope
@@ -395,7 +559,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           newBookingController.courtList.firstWhere(
             (court) => court['name'] == bookingInfo.courtName,
             orElse: () => {},
-          )['id']; // Find the court ID based on the name
+          )?['id']; // Find the court ID based on the name
 
       if (courtId == null) {
         print('Warning: Could not find court ID for ${bookingInfo.courtName}');
@@ -618,7 +782,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             );
                           }).toList(),
                     ),
-                    if (widget.isMembershipApplied == true) ...[
+                    if (isMembershipApplied == true && selectedMembershipName != null) ...[
                       const SizedBox(height: 8),
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
@@ -646,7 +810,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${widget.membershipName} Membership',
+                                    '${selectedMembershipName} Membership',
                                     style: GoogleFonts.inter(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w500,
@@ -672,7 +836,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             Container(
                               width: 110,
                               child: Text(
-                                '\$${(widget.membershipPrice ?? 0.0).toStringAsFixed(2)}',
+                                '\$${(selectedMembershipPrice ?? 0.0).toStringAsFixed(2)}',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w600,
@@ -680,10 +844,126 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 textAlign: TextAlign.right,
                               ),
                             ),
+                            
+                            // Delete membership button
+                            IconButton(
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: Colors.red.shade600,
+                                size: 24,
+                              ),
+                              onPressed: () {
+                                // Show confirmation dialog
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: Text(
+                                      'Remove Membership',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: Text(
+                                      'Are you sure you want to remove the ${selectedMembershipName} membership?',
+                                      style: GoogleFonts.inter(fontSize: 20),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: Text(
+                                          'Cancel',
+                                          style: GoogleFonts.inter(fontSize: 20),
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () {
+                                          // Remove membership
+                                          setState(() {
+                                            isMembershipApplied = false;
+                                            selectedMembershipId = null;
+                                            selectedMembershipName = null;
+                                            selectedMembershipPrice = null;
+                                            selectedMembershipPeakPrice = null;
+                                            selectedMembershipNonPeakPrice = null;
+                                            
+                                            // Reset colors
+                                            _updateMembershipColors();
+                                            
+                                            // Remove membership discount only
+                                            isMembershipDiscountApplied = false;
+                                            membershipDiscountAmount = 0.0;
+                                            
+                                            // Recalculate totals
+                                            totalPaid = actualTotal - discountAmount;
+                                            paidAmountController.text = totalPaid.toStringAsFixed(2);
+                                          });
+                                          
+                                          Navigator.pop(context);
+                                          
+                                          // Show success message
+                                          showCustomSnackbar(
+                                            'Membership Removed',
+                                            'Membership has been removed from the booking',
+                                            Colors.green,
+                                          );
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red.shade600,
+                                        ),
+                                        child: Text(
+                                          'Remove',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 20,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
                     ],
+                    
+                    // Add Membership button when no membership is applied
+                    if (!isMembershipApplied) ...[
+                      const SizedBox(height: 8),
+                      Divider(thickness: 1, color: Colors.grey.shade300),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            print('Opening membership panel...');
+                            setState(() {
+                              _isMembershipPanelOpen = true;
+                            });
+                            membershipController.fetchMembershipPlanDetails();
+                          },
+                          icon: Icon(Icons.card_membership, size: 24),
+                          label: Text(
+                            'Add Membership',
+                            style: GoogleFonts.inter(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    
                     SizedBox(height: 8),
                     Container(
                       width: MediaQuery.of(context).size.width / 2.5,
@@ -743,6 +1023,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   textAlign: TextAlign.right,
                                 ),
                               ),
+                              
+                              // Space for delete button
+                              SizedBox(width: 48),
                             ],
                           ),
 
@@ -811,6 +1094,99 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         textAlign: TextAlign.right,
                                       ),
                                     ),
+                                    
+                                    // Delete button
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red.shade600,
+                                        size: 24,
+                                      ),
+                                      onPressed: () {
+                                        // Show confirmation dialog
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: Text(
+                                              'Remove Item',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 24,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            content: Text(
+                                              'Are you sure you want to remove ${item.product.name} from cart?',
+                                              style: GoogleFonts.inter(fontSize: 20),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: Text(
+                                                  'Cancel',
+                                                  style: GoogleFonts.inter(fontSize: 20),
+                                                ),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  // Update cart in controller first
+                                                  // Find the matching item in the controller's cart
+                                                  final controllerItem = cartController.cartItems.firstWhere(
+                                                    (controllerCartItem) => controllerCartItem.product.id == item.product.id,
+                                                  );
+                                                  cartController.removeItem(controllerItem);
+                                                  
+                                                  // Remove item from cart and recalculate totals
+                                                  setState(() {
+                                                    cartItems.removeWhere((cartItem) => 
+                                                      cartItem.product.id == item.product.id
+                                                    );
+                                                    
+                                                    // Recalculate manual discount if it's not booking-only
+                                                    if (!isManualBookingOnlyDiscount && manualDiscountValue > 0) {
+                                                      if (manualDiscountType == 'percentage') {
+                                                        // Recalculate percentage discount based on new cart total
+                                                        manualDiscountAmount = cartItemsTotal * (manualDiscountValue / 100);
+                                                      }
+                                                      // For flat discount, the amount stays the same
+                                                    }
+                                                    
+                                                    // Update payment controllers
+                                                    totalPaid = (actualTotal - discountAmount);
+                                                    paidAmountController.text = totalPaid.toStringAsFixed(2);
+                                                    balanceAmountController.text = '0.00';
+                                                  });
+                                                  
+                                                  // Close dialog
+                                                  Navigator.pop(context);
+                                                  
+                                                  // Show success message
+                                                  showCustomSnackbar(
+                                                    'Item Removed',
+                                                    '${item.product.name} has been removed from cart',
+                                                    Colors.green,
+                                                  );
+                                                  
+                                                  // If cart is now empty and no bookings, go back
+                                                  if (cartItems.isEmpty && widget.bookings.isEmpty) {
+                                                    Navigator.pop(context);
+                                                  }
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.red.shade600,
+                                                ),
+                                                child: Text(
+                                                  'Remove',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 20,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ],
                                 ),
                               );
@@ -844,7 +1220,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount - widget.billAmount / 11).toStringAsFixed(2)}',
+                      '\$${(actualTotal - actualTotal / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -864,7 +1240,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount).toStringAsFixed(2)}',
+                      '\$${(actualTotal).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w600,
@@ -873,19 +1249,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ],
                 ),
                 if (isDiscountApplied) const SizedBox(height: 4),
-                if (isDiscountApplied)
+                if (isMembershipDiscountApplied)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Discount',
+                        'Membership Discount',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          color: Colors.green.shade600,
+                        ),
+                      ),
+                      Text(
+                        '-\$${(membershipDiscountAmount).toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          color: Colors.green.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (isMembershipDiscountApplied && isManualDiscountApplied) 
+                  const SizedBox(height: 4),
+                if (isManualDiscountApplied)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Manual Discount',
                         style: GoogleFonts.inter(
                           fontSize: 25,
                           color: Colors.red.shade600,
                         ),
                       ),
                       Text(
-                        '-\$${(discountAmount).toStringAsFixed(2)}',
+                        '-\$${(manualDiscountAmount).toStringAsFixed(2)}',
                         style: GoogleFonts.inter(
                           fontSize: 25,
                           color: Colors.red.shade600,
@@ -905,7 +1303,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${((widget.billAmount - discountAmount) / 11).toStringAsFixed(2)}',
+                      '\$${((actualTotal - discountAmount) / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -925,7 +1323,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     Text(
-                      '\$${(widget.billAmount - discountAmount).toStringAsFixed(2)}',
+                      '\$${(actualTotal - discountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w700,
@@ -1037,9 +1435,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           child: GestureDetector(
                             onTap: () async {
                               if (method['label'] == 'EFTPOS') {
-                                totalPaid = widget.billAmount - discountAmount;
+                                totalPaid = actualTotal - discountAmount;
                                 customAmountString =
-                                    (widget.billAmount - discountAmount)
+                                    (actualTotal - discountAmount)
                                         .toString();
                                 setState(() {
                                   selectedMethod = method['label'];
@@ -1051,9 +1449,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   selectedMethod = method['label'];
                                 });
                               } else {
-                                totalPaid = widget.billAmount - discountAmount;
+                                totalPaid = actualTotal - discountAmount;
                                 customAmountString =
-                                    (widget.billAmount - discountAmount)
+                                    (actualTotal - discountAmount)
                                         .toString();
                                 setState(() {
                                   selectedMethod = method['label'];
@@ -1206,32 +1604,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
-                                  discountType == 'percentage' 
-                                    ? '${discountValue.toStringAsFixed(0)}% Discount Applied${isBookingOnlyDiscount ? ' (Booking Only)' : ''}'
-                                    : '\$${discountAmount.toStringAsFixed(2)} Discount Applied${isBookingOnlyDiscount ? ' (Booking Only)' : ''}',
+                                  _getDiscountDisplayText(),
                                   style: GoogleFonts.inter(
                                     color: Colors.indigo.shade500,
                                     fontWeight: FontWeight.w600,
-                                    fontSize: 25,
+                                    fontSize: _getDiscountDisplayText().length > 20 ? 20 : 25,
                                   ),
                                 ),
                               ),
                             ),
                           if (isDiscountApplied) const SizedBox(width: 12),
 
-                          // Remove Discount
-                          if (isDiscountApplied)
+                          // Remove Manual Discount
+                          if (isManualDiscountApplied)
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
                                   setState(() {
-                                    discountAmount = 0.0;
-                                    isDiscountApplied = false;
-                                    discountType = 'flat';
-                                    discountValue = 0.0;
-                                    isBookingOnlyDiscount = false;
+                                    manualDiscountAmount = 0.0;
+                                    isManualDiscountApplied = false;
+                                    manualDiscountType = 'flat';
+                                    manualDiscountValue = 0.0;
+                                    isManualBookingOnlyDiscount = false;
                                     discountController.clear();
-                                    notesController.clear();
+                                    // Don't clear notes - they might be needed
                                   });
                                 },
                                 style: ElevatedButton.styleFrom(
@@ -1247,7 +1643,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                 ),
                                 child: Text(
-                                  'Remove Discount',
+                                  'Remove Manual Discount',
                                   style: GoogleFonts.inter(
                                     color: Colors.black,
                                     fontWeight: FontWeight.w600,
@@ -1441,15 +1837,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     if (totalPaid > 0) {
                                       print(widget.billAmount);
                                       print(discountAmount);
-                                      if (double.parse(balanceAmountController.text,) <= 0 && totalPaid >= (widget.billAmount - discountAmount)) {
+                                      if (double.parse(balanceAmountController.text,) <= 0 && totalPaid >= (actualTotal - discountAmount)) {
                                         setState(() {
                                           checkoutController.checkoutPayBtn.value = true;
                                         });
 
                                         if (isDiscountApplied) {
-                                          if (notesController.text == null ||
+                                          // Check if it's only manual discount that needs notes
+                                          if (isManualDiscountApplied && (notesController.text == null ||
                                               notesController.text == '' ||
-                                              notesController.text.isEmpty) {
+                                              notesController.text.isEmpty)) {
                                             showCustomSnackbar(
                                               'Warning',
                                               'Please enter the discount notes',
@@ -1462,6 +1859,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             });
                                             return;
                                           }
+                                          // Auto-fill notes for membership discount if not provided
+                                          if (isMembershipDiscountApplied && notesController.text.isEmpty) {
+                                            notesController.text = 'Membership Discount';
+                                          }
                                         }
 
                                         try {
@@ -1472,7 +1873,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             String? paymentDevices = prefs.getString('paymentDevices');
                                             final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
 
-                                            double? overallTotal  = widget.billAmount;
+                                            double? overallTotal  = actualTotal;
                                             final total           = overallTotal;
 
                                             if (selectedMethod == 'EFTPOS') {
@@ -1497,8 +1898,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   total: total.toDouble(),
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
-                                                  isMembershipApplied: widget.isMembershipApplied,
-                                                  membershipId:widget.membershipID,
+                                                  isMembershipApplied: isMembershipApplied || (selectedMembershipId != null && selectedMembershipId!.isNotEmpty),
+                                                  membershipId: selectedMembershipId ?? '',
                                                 );
 
                                               });
@@ -1513,7 +1914,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 paid: totalPaid,
                                                 balance: double.parse(balanceAmountController.text,),
                                                 isMembershipApplied: widget.isMembershipApplied,
-                                                membershipId:widget.membershipID,
+                                                membershipId: selectedMembershipId ?? '',
                                               );
 
                                             }
@@ -1530,17 +1931,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             double? bookingTotal;
                                             double? overallTotal;
                                             
-                                            if (isBookingOnlyDiscount) {
-                                              // Apply discount only to booking, not products
+                                            // Calculate booking total with membership discount
+                                            bookingTotal = bookingSubTotal - membershipDiscountAmount;
+                                            
+                                            // Apply manual discount based on its type
+                                            if (isManualBookingOnlyDiscount) {
+                                              // Manual discount applies only to booking
+                                              bookingTotal -= manualDiscountAmount;
                                               itemTotal = cartItemsTotal;
-                                              bookingTotal = bookingSubTotal - discountAmount;
-                                              overallTotal = itemTotal + bookingTotal;
                                             } else {
-                                              // Apply discount to cart items (existing behavior)
-                                              itemTotal = cartItemsTotal - discountAmount;
-                                              bookingTotal = bookingSubTotal;
-                                              overallTotal = itemTotal + bookingTotal;
+                                              // Manual discount applies to cart items
+                                              itemTotal = cartItemsTotal - manualDiscountAmount;
                                             }
+                                            
+                                            overallTotal = itemTotal + bookingTotal;
 
                                             if (selectedMethod == 'EFTPOS') {
                                               final total = overallTotal;
@@ -1639,17 +2043,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                             double? bookingTotal;
                                             double? overallTotal;
                                             
-                                            if (isBookingOnlyDiscount) {
-                                              // Apply discount only to booking, not products
+                                            // Calculate booking total with membership discount
+                                            bookingTotal = bookingSubTotal - membershipDiscountAmount;
+                                            
+                                            // Apply manual discount based on its type
+                                            if (isManualBookingOnlyDiscount) {
+                                              // Manual discount applies only to booking
+                                              bookingTotal -= manualDiscountAmount;
                                               itemTotal = cartItemsTotal;
-                                              bookingTotal = bookingSubTotal - discountAmount;
-                                              overallTotal = itemTotal + bookingTotal;
                                             } else {
-                                              // Apply discount to cart items (existing behavior)
-                                              itemTotal = cartItemsTotal - discountAmount;
-                                              bookingTotal = bookingSubTotal;
-                                              overallTotal = itemTotal + bookingTotal;
+                                              // Manual discount applies to cart items
+                                              itemTotal = cartItemsTotal - manualDiscountAmount;
                                             }
+                                            
+                                            overallTotal = itemTotal + bookingTotal;
 
                                             String? orderId = '';
                                             //double? total   = 0;
@@ -1693,7 +2100,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                         balance: double.parse(balanceAmountController.text,),
                                                         bookingId: controller.bookingId,
                                                         isMembershipApplied: widget.isMembershipApplied,
-                                                        membershipId:widget.membershipID,
+                                                        membershipId: selectedMembershipId ?? '',
                                                         printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                         orderId: orderId,
                                                       );
@@ -1703,7 +2110,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                       await checkoutController.registerUser(
                                                         mobile: widget.mobileno,
                                                         firstName: widget.customerName,
-                                                        membershipId: widget.membershipID,
+                                                        membershipId: selectedMembershipId ?? '',
                                                       ).then((value) {
                                                         populateCartWithSubSlots(widget.bookings,);
                                                         checkoutController.processFinalCheckout(
@@ -1718,7 +2125,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                           balance: double.parse(balanceAmountController.text,),
                                                           bookingId: controller.bookingId,
                                                           isMembershipApplied: widget.isMembershipApplied,
-                                                          membershipId: widget.membershipID,
+                                                          membershipId: selectedMembershipId ?? '',
                                                           printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                           orderId: orderId,
                                                         );
@@ -1767,8 +2174,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   paid: totalPaid,
                                                   balance: double.parse(balanceAmountController.text,),
                                                   bookingId: controller.bookingId,
-                                                  isMembershipApplied: widget.isMembershipApplied,
-                                                  membershipId:widget.membershipID,
+                                                  isMembershipApplied: isMembershipApplied || (selectedMembershipId != null && selectedMembershipId!.isNotEmpty),
+                                                  membershipId: selectedMembershipId ?? '',
                                                   printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                   orderId: orderId,
                                                 );
@@ -1776,7 +2183,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 await checkoutController.registerUser(
                                                   mobile: widget.mobileno,
                                                   firstName: widget.customerName,
-                                                  membershipId: widget.membershipID,
+                                                  membershipId: selectedMembershipId ?? '',
                                                 ).then((value) {
                                                   populateCartWithSubSlots(widget.bookings,);
                                                   checkoutController.processFinalCheckout(
@@ -1791,7 +2198,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                     balance: double.parse(balanceAmountController.text,),
                                                     bookingId: controller.bookingId,
                                                     isMembershipApplied: widget.isMembershipApplied,
-                                                    membershipId: widget.membershipID,
+                                                    membershipId: selectedMembershipId ?? '',
                                                     printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
                                                     orderId: orderId,
                                                   );
@@ -2016,6 +2423,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     CheckoutController checkoutController,
   ) async {
     print('Enhanced discount dialog called'); // Debug print
+    
+    // No need to check for membership discount since both can be applied together
+    // Manual discounts require admin approval anyway
+    
     discountController.clear();
     String discountType = 'flat'; // 'flat' or 'percentage'
     bool isBookingOnly = false;
@@ -2030,8 +2441,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         sum + (double.tryParse(item.product.price) ?? 0) * item.quantity);
     
     // Add membership if applied
-    if (widget.isMembershipApplied == true && widget.membershipPrice != null) {
-      productTotal += widget.membershipPrice!;
+    if (isMembershipApplied == true && selectedMembershipPrice != null) {
+      productTotal += selectedMembershipPrice!;
     }
 
     await showDialog(
@@ -2201,7 +2612,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 }
                                 
                                 double calculatedDiscount = 0;
-                                double maxDiscount = isBookingOnly ? bookingTotal : widget.billAmount;
+                                double maxDiscount = isBookingOnly ? bookingTotal : actualTotal;
                                 
                                 if (discountType == 'percentage') {
                                   if (enteredValue > 100) {
@@ -2224,18 +2635,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 if (needsAdminApproval) {
                                   // Show admin PIN dialog
                                   final approved = await _showAdminPinDialog();
+                                  print('Admin approval result: $approved');
                                   if (!approved) {
                                     return;
                                   }
                                 }
                                 
-                                setState(() {
-                                  this.discountAmount = calculatedDiscount;
-                                  this.isDiscountApplied = true;
-                                  this.discountType = discountType;
-                                  this.discountValue = enteredValue;
-                                  this.isBookingOnlyDiscount = isBookingOnly;
+                                print('Applying discount: $calculatedDiscount, type: $discountType, value: $enteredValue');
+                                
+                                // Update the parent state, not the dialog state
+                                this.setState(() {
+                                  manualDiscountAmount = calculatedDiscount;
+                                  isManualDiscountApplied = true;
+                                  manualDiscountType = discountType;
+                                  manualDiscountValue = enteredValue;
+                                  isManualBookingOnlyDiscount = isBookingOnly;
                                 });
+                                
+                                print('Discount applied: amount=$discountAmount, applied=$isDiscountApplied');
                                 Navigator.pop(context);
                               },
                               style: ElevatedButton.styleFrom(
@@ -2278,7 +2695,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     // Calculate bill amount based on discount type
     final double billAmount;
-    if (isBookingOnlyDiscount) {
+    if (isManualBookingOnlyDiscount || isMembershipDiscountApplied) {
       // For booking-only discount, the total bill is unchanged for products
       // but reduced for the booking portion
       billAmount = widget.billAmount - discountAmount;
@@ -2408,9 +2825,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             setState(() {}); // Rebuild to reflect updated totalPaid
           } else if (amount == 'Exact') {
             setState(() {
-              totalPaid = widget.billAmount - discountAmount;
+              totalPaid = actualTotal - discountAmount;
               customAmountString =
-                  (widget.billAmount - discountAmount).toString();
+                  (actualTotal - discountAmount).toString();
             });
           }
         },
@@ -3086,6 +3503,427 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+  
+  Widget _buildMembershipPanel() {
+    return Column(
+      children: [
+        // Header
+        Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            border: Border(
+              bottom: BorderSide(color: Colors.grey.shade300),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Select Membership Plan',
+                style: GoogleFonts.inter(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, size: 28),
+                onPressed: () {
+                  setState(() {
+                    _isMembershipPanelOpen = false;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        
+        // Membership list
+        Expanded(
+          child: Obx(() {
+            if (membershipController.membershipPlans.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.card_membership, size: 64, color: Colors.grey.shade400),
+                    SizedBox(height: 16),
+                    Text(
+                      'No membership plans available',
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            
+            return ListView.builder(
+              padding: EdgeInsets.all(20),
+              itemCount: membershipController.membershipPlans.length,
+              itemBuilder: (context, index) {
+                final plan = membershipController.membershipPlans[index];
+                final planName = plan['name'] ?? '';
+                final planPrice = (plan['price'] ?? 0.0).toDouble();
+                final planId = plan['id'] ?? '';
+                final validDays = plan['valid_days'] ?? 0;
+                final discount = plan['discount'] ?? 0;
+                final peakPrice = (plan['peak_price'] ?? 0.0).toDouble();
+                final nonPeakPrice = (plan['non_peak_price'] ?? 0.0).toDouble();
+                
+                // Determine color based on plan name
+                Color? backgroundColor;
+                Color? borderColor;
+                Color? textColor;
+                IconData planIcon = Icons.card_membership;
+                
+                if (planName.toString().toLowerCase().contains('gold')) {
+                  backgroundColor = Colors.amber.shade50;
+                  borderColor = Colors.amber.shade600;
+                  textColor = Colors.amber.shade900;
+                  planIcon = Icons.workspace_premium;
+                } else if (planName.toString().toLowerCase().contains('silver')) {
+                  backgroundColor = Colors.grey.shade100;
+                  borderColor = Colors.grey.shade600;
+                  textColor = Colors.grey.shade800;
+                  planIcon = Icons.military_tech;
+                } else if (planName.toString().toLowerCase().contains('bronze')) {
+                  backgroundColor = Colors.orange.shade50;
+                  borderColor = Colors.orange.shade600;
+                  textColor = Colors.orange.shade900;
+                  planIcon = Icons.shield;
+                }
+                
+                return GestureDetector(
+                  onTap: () {
+                    print('Membership selected: $planName, Price: $planPrice');
+                    
+                    // Set selected membership
+                    setState(() {
+                      isMembershipApplied = true;
+                      selectedMembershipId = planId;
+                      selectedMembershipName = planName;
+                      selectedMembershipPrice = planPrice;
+                      selectedMembershipPeakPrice = peakPrice;
+                      selectedMembershipNonPeakPrice = nonPeakPrice;
+                      
+                      // Update colors based on new membership
+                      _updateMembershipColors();
+                      
+                      // Apply membership booking discount automatically
+                      // For now, let's use the non-peak price as the discount amount
+                      // You can add logic to determine peak vs non-peak based on time/date
+                      if (nonPeakPrice > 0 || peakPrice > 0) {
+                        isMembershipDiscountApplied = true;
+                        // Use non-peak price, or peak price if non-peak is not available
+                        membershipDiscountAmount = nonPeakPrice > 0 ? nonPeakPrice : peakPrice;
+                      }
+                      
+                      // Update totals
+                      totalPaid = actualTotal - discountAmount;
+                      paidAmountController.text = totalPaid.toStringAsFixed(2);
+                      
+                      // Close panel
+                      _isMembershipPanelOpen = false;
+                    });
+                    
+                    // Force update the checkout controller
+                    final checkoutController = Get.find<CheckoutController>();
+                    checkoutController.update();
+                    
+                    print('After setState - isMembershipApplied: $isMembershipApplied, Name: $selectedMembershipName');
+                    
+                    // Show success message
+                    showCustomSnackbar(
+                      'Membership Added',
+                      '$planName membership has been added to the booking',
+                      Colors.green,
+                    );
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(bottom: 16),
+                    child: Material(
+                      color: backgroundColor ?? Colors.white,
+                      elevation: 2,
+                      shadowColor: borderColor?.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: borderColor ?? Colors.grey.shade300,
+                            width: 2,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  planIcon,
+                                  size: 32,
+                                  color: textColor ?? Colors.black,
+                                ),
+                                SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        planName,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: textColor ?? Colors.black,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            'Valid for $validDays days',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          if (discount > 0) ...[
+                                            SizedBox(width: 16),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                '${discount.toInt()}% OFF',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.green.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          if (nonPeakPrice > 0 || peakPrice > 0) ...[
+                                            SizedBox(width: 8),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'Booking Discount: \$${(nonPeakPrice > 0 ? nonPeakPrice : peakPrice).toStringAsFixed(2)}',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.blue.shade800,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: (textColor ?? Colors.black).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '\$${planPrice.toStringAsFixed(2)}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: textColor ?? Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+        ),
+      ],
+    );
+  }
+  
+  Future<void> _showMembershipSelectionDialog() async {
+    // Fetch membership plans
+    await membershipController.fetchMembershipPlanDetails();
+    
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 600,
+              maxHeight: 500,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Select Membership Plan',
+                    style: GoogleFonts.inter(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 20),
+                  Expanded(
+                    child: Obx(() {
+                      if (membershipController.membershipPlans.isEmpty) {
+                        return Center(
+                          child: Text(
+                            'No membership plans available',
+                            style: GoogleFonts.inter(fontSize: 20),
+                          ),
+                        );
+                      }
+                      
+                      return ListView.builder(
+                        itemCount: membershipController.membershipPlans.length,
+                        itemBuilder: (context, index) {
+                          final plan = membershipController.membershipPlans[index];
+                          final planName = plan['name'] ?? '';
+                          final planPrice = (plan['price'] ?? 0.0).toDouble();
+                          final planId = plan['id'] ?? '';
+                          
+                          // Determine color based on plan name
+                          Color? backgroundColor;
+                          Color? borderColor;
+                          Color? textColor;
+                          
+                          if (planName.toString().toLowerCase().contains('gold')) {
+                            backgroundColor = Colors.yellow.shade100;
+                            borderColor = Colors.yellow.shade700;
+                            textColor = Colors.yellow.shade900;
+                          } else if (planName.toString().toLowerCase().contains('silver')) {
+                            backgroundColor = Colors.grey.shade200;
+                            borderColor = Colors.grey.shade600;
+                            textColor = Colors.grey.shade800;
+                          } else if (planName.toString().toLowerCase().contains('bronze')) {
+                            backgroundColor = Colors.orange.shade100;
+                            borderColor = Colors.orange.shade700;
+                            textColor = Colors.orange.shade900;
+                          }
+                          
+                          return Card(
+                            margin: EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: BorderSide(
+                                color: borderColor ?? Colors.grey.shade300,
+                                width: 2,
+                              ),
+                            ),
+                            color: backgroundColor ?? Colors.white,
+                            child: ListTile(
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 8,
+                              ),
+                              title: Text(
+                                planName,
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                  color: textColor ?? Colors.black,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Valid for ${plan['valid_days'] ?? 0} days',
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              trailing: Text(
+                                '\$${planPrice.toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor ?? Colors.black,
+                                ),
+                              ),
+                              onTap: () {
+                                // Set selected membership
+                                setState(() {
+                                  isMembershipApplied = true;
+                                  selectedMembershipId = planId;
+                                  selectedMembershipName = planName;
+                                  selectedMembershipPrice = planPrice;
+                                  
+                                  // Update totals
+                                  totalPaid = actualTotal - discountAmount;
+                                  paidAmountController.text = totalPaid.toStringAsFixed(2);
+                                });
+                                
+                                Navigator.pop(context);
+                                
+                                // Show success message
+                                showCustomSnackbar(
+                                  'Membership Added',
+                                  '$planName membership has been added to the booking',
+                                  Colors.green,
+                                );
+                              },
+                            ),
+                          );
+                        },
+                      );
+                    }),
+                  ),
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.inter(
+                            fontSize: 20,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         );
       },
     );
