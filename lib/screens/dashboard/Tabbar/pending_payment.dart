@@ -619,18 +619,21 @@ class _PendingPaymentState extends State<PendingPayment> {
 
   void _handlePaymentAction(BookingModel booking) async {
     try {
-      // Check if this booking has multiple courts
+      // Check if this booking has multiple courts OR has membership
       final bool hasMultipleCourts = await _checkIfBookingHasMultipleCourts(booking);
+      final bool hasMembership = await _checkIfBookingHasMembership(booking);
       
-      if (hasMultipleCourts) {
-        // Show dialog for multiple courts
+      print('🔍 Payment action check - Multiple courts: $hasMultipleCourts, Has membership: $hasMembership');
+      
+      if (hasMultipleCourts || hasMembership) {
+        // Show dialog for payment options
         _showPaymentOptionsDialog(booking);
       } else {
-        // Go directly to individual court checkout for single court
+        // Go directly to individual court checkout for single court without membership
         _processIndividualCourtPayment(booking);
       }
     } catch (e) {
-      print('Error checking multiple courts: $e');
+      print('Error checking payment options: $e');
       // Fallback to showing dialog
       _showPaymentOptionsDialog(booking);
     }
@@ -678,7 +681,40 @@ class _PendingPaymentState extends State<PendingPayment> {
     }
   }
 
-  void _showPaymentOptionsDialog(BookingModel booking) {
+  Future<bool> _checkIfBookingHasMembership(BookingModel booking) async {
+    try {
+      // Get the full booking information to check for membership
+      final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
+      
+      if (bookingInfo == null) {
+        print('Could not retrieve booking info for ${booking.bookingNo}');
+        return false;
+      }
+      
+      // Check if membership_data exists and is not null
+      final hasMembership = bookingInfo['membership_data'] != null;
+      
+      if (hasMembership) {
+        final membershipData = bookingInfo['membership_data'];
+        print('👑 Booking ${booking.bookingNo} has membership: ${membershipData['membershipplan_id']}');
+      } else {
+        print('❌ Booking ${booking.bookingNo} has no membership');
+      }
+      
+      return hasMembership;
+      
+    } catch (e) {
+      print('Error checking membership for booking ${booking.bookingNo}: $e');
+      return false;
+    }
+  }
+
+  void _showPaymentOptionsDialog(BookingModel booking) async {
+    // Check if membership is included
+    final bool hasMembership = await _checkIfBookingHasMembership(booking);
+    
+    if (!mounted) return;
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -740,6 +776,23 @@ class _PendingPaymentState extends State<PendingPayment> {
                   ),
                 ],
               ),
+              if (hasMembership) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(LucideIcons.crown, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Membership included',
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.amber.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
           actions: [
@@ -806,18 +859,26 @@ class _PendingPaymentState extends State<PendingPayment> {
         final remainingAmount = courtInfo['remaining_amount'] as double;
         
         if (remainingAmount <= 0) {
-          _showSnackbar('This court has already been paid for.', Colors.orange);
+          if (mounted) {
+            _showSnackbar('This court has already been paid for.', Colors.orange);
+          }
           return;
         }
 
         // Navigate to checkout page for individual court payment
-        await _navigateToIndividualCourtCheckout(booking, courtInfo);
+        if (mounted) {
+          await _navigateToIndividualCourtCheckout(booking, courtInfo);
+        }
       } else {
-        _showSnackbar('Could not retrieve court information for payment.', Colors.red);
+        if (mounted) {
+          _showSnackbar('Could not retrieve court information for payment.', Colors.red);
+        }
       }
     } catch (e) {
       print('❌ Error in _processIndividualCourtPayment: $e');
-      _showSnackbar('Error processing payment: $e', Colors.red);
+      if (mounted) {
+        _showSnackbar('Error processing payment: $e', Colors.red);
+      }
     }
   }
 
@@ -882,26 +943,30 @@ class _PendingPaymentState extends State<PendingPayment> {
       }
       
       // Navigate to checkout screen
-      Get.to(CheckoutScreen(
-        type: 'ExistingBooking', // Use ExistingBooking type for proper payment handling
-        customerName: booking.customerName!,
-        mobileno: booking.customerMobile!,
-        selectedDateTime: booking.startTime ?? DateTime.now(),
-        billAmount: totalAmount,
-        bookings: individualCourtBookings,
-        membershipID: membershipID,
-        membershipName: membershipName,
-        isMembershipApplied: isMembershipApplied,
-        membershipPrice: membershipPrice,
-        exbookingId: bookingData['id'],
-        exorderId: null, // No order for individual court payments
-        exuserId: customerData['id'],
-        forpayment: 'individual-court-payment',
-      ));
+      if (mounted) {
+        Get.to(CheckoutScreen(
+          type: 'ExistingBooking', // Use ExistingBooking type for proper payment handling
+          customerName: booking.customerName!,
+          mobileno: booking.customerMobile!,
+          selectedDateTime: booking.startTime ?? DateTime.now(),
+          billAmount: totalAmount,
+          bookings: individualCourtBookings,
+          membershipID: membershipID,
+          membershipName: membershipName,
+          isMembershipApplied: isMembershipApplied,
+          membershipPrice: membershipPrice,
+          exbookingId: bookingData['id'],
+          exorderId: null, // No order for individual court payments
+          exuserId: customerData['id'],
+          forpayment: 'individual-court-payment',
+        ));
+      }
       
     } catch (e) {
       print('Error navigating to individual court checkout: $e');
-      _showSnackbar('Error opening checkout: $e', Colors.red);
+      if (mounted) {
+        _showSnackbar('Error opening checkout: $e', Colors.red);
+      }
     }
   }
 
@@ -913,17 +978,92 @@ class _PendingPaymentState extends State<PendingPayment> {
       
       await bookingController.getBookingInfo(bookingNo: booking.bookingNo).then((value) async {
         if (value != null) {
+          print('📊 Full booking data structure keys: ${value.keys}');
+          print('📊 Booking data keys: ${value['booking'].keys}');
+          
+          // Debug the raw booking data first
+          print('📊 Raw booking grand_total: ${value['booking']['grand_total']}');
+          print('📊 Booking ID: ${value['booking']['id']}');
+          
+          // Use the raw grand_total directly since BookingWithAll might not parse it correctly
+          totalAmount = value['booking']['grand_total'] != null 
+              ? double.parse(value['booking']['grand_total'].toString()) 
+              : 0.0;
+          
           final bookingData = BookingWithAll.fromJson(value['booking']);
           final orderData = value['order'] != null ? Orders.fromJson(value['order']) : value['order'];
           final userData = value['customer'];
-          totalAmount = (bookingData.grandTotal ?? 0) + (orderData != null ? double.parse(value['order']['total'].toString()) ?? 0 : 0);
+          
+          // Add order total if there are products
+          if (orderData != null && value['order']['total'] != null) {
+            totalAmount += double.parse(value['order']['total'].toString());
+          }
+          
+          print('💰 Total calculation: Booking GT=${bookingData.grandTotal}, Raw GT=${value['booking']['grand_total']}, Order=${orderData != null ? value['order']['total'] : 0}, Final Total=$totalAmount');
 
           if (orderData != null) {
             await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
           }
 
-          List<dynamic> jsonList = jsonDecode(value['booking']['bcart_items']);
-          List<BookingInfo> bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
+          // Handle potential null bcart_items or reconstruct from booking_slots
+          List<BookingInfo> bookings = [];
+          if (value['booking']['bcart_items'] != null && value['booking']['bcart_items'].toString().isNotEmpty) {
+            List<dynamic> jsonList = jsonDecode(value['booking']['bcart_items']);
+            bookings = jsonList.map((b) => BookingInfo.fromJson(b)).toList();
+          } else if (value['booking']['booking_slots'] != null) {
+            // Reconstruct booking info from booking_slots if bcart_items is empty
+            try {
+              final bookingSlots = value['booking']['booking_slots'] as List<dynamic>;
+              Map<String, List<BookingSubSlotInfo>> courtSubSlots = {};
+              
+              for (final slot in bookingSlots) {
+                // Safely access nested properties
+                final platformStatus = slot['platform_status'];
+                final courtName = platformStatus != null && platformStatus['court_name'] != null 
+                    ? platformStatus['court_name'].toString() 
+                    : 'Court';
+                
+                // Safely parse times
+                final startTimeStr = slot['start_time']?.toString();
+                final endTimeStr = slot['end_time']?.toString();
+                if (startTimeStr == null || endTimeStr == null) continue;
+                
+                final startTime = DateTime.parse(startTimeStr);
+                final endTime = DateTime.parse(endTimeStr);
+                // Get the original price from the slot
+                final price = slot['price'] != null ? (slot['price'] as num).toDouble() : 0.0;
+                print('🎾 Court: $courtName, Time: $startTimeStr-$endTimeStr, Price: $price');
+                
+                if (!courtSubSlots.containsKey(courtName)) {
+                  courtSubSlots[courtName] = [];
+                }
+                
+                courtSubSlots[courtName]!.add(BookingSubSlotInfo(
+                  startTime: DateFormat('HH:mm').format(startTime),
+                  endTime: DateFormat('HH:mm').format(endTime),
+                  price: price,
+                  isPeak: slot['is_peak'] ?? false,
+                ));
+              }
+              
+              // Create BookingInfo for each court
+              final bookingDateStr = value['booking']['booking_date']?.toString();
+              final bookingDate = bookingDateStr != null 
+                  ? DateTime.parse(bookingDateStr) 
+                  : DateTime.now();
+                  
+              courtSubSlots.forEach((courtName, subSlots) {
+                bookings.add(BookingInfo(
+                  courtName: courtName,
+                  selectedDateTime: bookingDate,
+                  bookingId: value['booking']['id'],
+                  subSlots: subSlots,
+                ));
+              });
+            } catch (e) {
+              print('Error reconstructing booking slots: $e');
+            }
+          }
 
           String membershipID = '';
           String membershipName = '';
@@ -931,37 +1071,54 @@ class _PendingPaymentState extends State<PendingPayment> {
           double membershipPrice = 0;
 
           if (value['membership_data'] != null) {
-            await bookingController.getMembershipDetails(membershipId: value['membership_data']['membershipplan_id']).then((membershipInfo) {
-              if (membershipInfo != null) {
-                totalAmount += double.parse(membershipInfo['membership']['price'].toString());
-                membershipID = membershipInfo['membership']['id'];
-                membershipName = membershipInfo['membership']['name'];
-                isMembershipApplied = true;
-                membershipPrice = double.parse(membershipInfo['membership']['price'].toString());
+            try {
+              final membershipPlanId = value['membership_data']['membershipplan_id']?.toString();
+              if (membershipPlanId != null && membershipPlanId.isNotEmpty) {
+                await bookingController.getMembershipDetails(membershipId: membershipPlanId).then((membershipInfo) {
+                  if (membershipInfo != null && membershipInfo['membership'] != null) {
+                    // Don't add membership price to totalAmount as it's already included in bookingData.grandTotal
+                    membershipID = membershipInfo['membership']['id']?.toString() ?? '';
+                    membershipName = membershipInfo['membership']['name']?.toString() ?? '';
+                    isMembershipApplied = true;
+                    final priceStr = membershipInfo['membership']['price']?.toString();
+                    membershipPrice = priceStr != null ? double.tryParse(priceStr) ?? 0.0 : 0.0;
+                  }
+                });
               }
-            });
+            } catch (e) {
+              print('Error processing membership data: $e');
+            }
           }
 
-          Get.to(CheckoutScreen(
-            type: 'ExistingBooking',
-            customerName: booking.customerName!,
-            mobileno: booking.customerMobile!,
-            selectedDateTime: DateTime.now(),
-            billAmount: totalAmount,
-            bookings: bookings,
-            membershipID: membershipID,
-            membershipName: membershipName,
-            isMembershipApplied: isMembershipApplied,
-            membershipPrice: membershipPrice,
-            exbookingId: bookingData.id,
-            exorderId: orderData != null ? orderData.id : null,
-            exuserId: userData['id'],
-            forpayment: 'existing-order-payment',
-          ));
+          if (mounted) {
+            print('🎯 Navigating to checkout with: totalAmount=$totalAmount, bookings=${bookings.length}, membership=$isMembershipApplied');
+            
+            // For existing bookings with membership already paid, we need to handle it specially
+            // The membership is included in the total but we want to show it in the UI
+            Get.to(CheckoutScreen(
+              type: 'ExistingBooking',
+              customerName: booking.customerName!,
+              mobileno: booking.customerMobile!,
+              selectedDateTime: DateTime.now(),
+              billAmount: totalAmount,
+              bookings: bookings,
+              membershipID: membershipID,
+              membershipName: membershipName,
+              isMembershipApplied: membershipID.isNotEmpty, // Show membership if it exists
+              membershipPrice: membershipPrice, // Keep the actual price for display
+              exbookingId: bookingData.id,
+              exorderId: orderData != null ? orderData.id : null,
+              exuserId: userData['id'],
+              forpayment: 'existing-order-payment',
+              // Note: The total already includes membership, checkout screen should handle this
+            ));
+          }
         }
       });
     } catch (e) {
-      _showSnackbar('Error processing full booking payment: $e', Colors.red);
+      if (mounted) {
+        _showSnackbar('Error processing full booking payment: $e', Colors.red);
+      }
     }
   }
 
@@ -972,12 +1129,14 @@ class _PendingPaymentState extends State<PendingPayment> {
   }
 
   void _showSnackbar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        duration: Duration(seconds: 3),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: color,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }

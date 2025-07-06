@@ -8,7 +8,7 @@ import 'package:get/get.dart';
 
 import '../../models/booking_model.dart';
 import '../../controllers/new_booking_controller.dart';
-import '../checkout/checkout_screen.dart';
+import '../checkout/checkout_screen.dart' as checkout;
 
 bool isBookingEnded(DateTime? endTime) {
   if (endTime == null) return true;

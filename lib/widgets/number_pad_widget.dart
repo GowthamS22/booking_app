@@ -42,12 +42,12 @@ class _NumberPadWidgetState extends State<NumberPadWidget> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: GridView.count(
         crossAxisCount: 3,
-        childAspectRatio: 1.8,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
+        childAspectRatio: 2.2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         children: [
@@ -60,13 +60,9 @@ class _NumberPadWidgetState extends State<NumberPadWidget> {
           _buildButton('7', 6, onTap: () => widget.onNumberTap('7')),
           _buildButton('8', 7, onTap: () => widget.onNumberTap('8')),
           _buildButton('9', 8, onTap: () => widget.onNumberTap('9')),
-          _buildIconButton(Icons.backspace, 9, onTap: widget.onBackspaceTap),
+          _buildButton('.', 9, onTap: () => widget.onNumberTap('.')),
           _buildButton('0', 10, onTap: () => widget.onNumberTap('0')),
-          _buildIconButton(Icons.check, 11,
-            onTap: widget.submitForm,
-            // color: Colors.white,
-            // bgColor: Colors.green,
-          ),
+          _buildIconButton(Icons.backspace, 11, onTap: widget.onBackspaceTap),
         ],
       ),
     );
@@ -87,7 +83,7 @@ class _NumberPadWidgetState extends State<NumberPadWidget> {
             child: Text(
               text,
               style: GoogleFonts.poppins(
-                fontSize: 30,
+                fontSize: 24,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -113,7 +109,7 @@ class _NumberPadWidgetState extends State<NumberPadWidget> {
           borderRadius: BorderRadius.circular(8),
           onTap: () => _animateButton(index, onTap),
           child: Center(
-            child: Icon(icon, size: 35, color: color),
+            child: Icon(icon, size: 28, color: color),
           ),
         ),
       ),

@@ -1,6 +1,6 @@
 import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/controllers/membership_controller.dart';
-import 'package:booking_app/screens/checkout/checkout_screen.dart';
+import 'package:booking_app/screens/checkout/checkout_screen.dart' as checkout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -32,6 +32,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
   List<Map<String, dynamic>> filteredCustomers = [];
   String? selectedMembershipId;
   double _selectedPrice = 0.0;
+  
+  // Customer detail panel state
+  bool _isCustomerPanelOpen = false;
+  Map<String, dynamic>? _selectedCustomer;
+  Map<String, dynamic>? _customerDetails;
 
   @override
   void initState() {
@@ -54,6 +59,40 @@ class _MembershipScreenState extends State<MembershipScreen> {
     });
   }
 
+  Future<void> _fetchCustomerDetails(String customerId) async {
+    try {
+      // Get customer details directly from database
+      final prefs = await SharedPreferences.getInstance();
+      final centerSlug = prefs.getString('centerSlug');
+      
+      final response = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('*')
+          .eq('id', customerId)
+          .maybeSingle();
+      
+      final customerData = response;
+
+      if (customerData == null) {
+        setState(() {
+          _customerDetails = null;
+        });
+        return;
+      }
+
+      setState(() {
+        _customerDetails = customerData;
+      });
+    } catch (e) {
+      print('Error fetching customer details: $e');
+      setState(() {
+        _customerDetails = null;
+      });
+      showCustomSnackbar('Error', 'Failed to load customer details', Colors.red);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (isLoading || membershipController.centerSlug == null) {
@@ -62,9 +101,11 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
+      body: Stack(
+        children: [
+          Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -482,6 +523,34 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                           },
                                         ),
                                         const SizedBox(width: 10),
+                                        // View Details Button
+                                        IconButton(
+                                          icon: Container(
+                                            padding: EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue.shade50,
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.blue.shade200,
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              LucideIcons.eye,
+                                              color: Colors.blue.shade600,
+                                              size: 24,
+                                            ),
+                                          ),
+                                          onPressed: () async {
+                                            // Open customer detail panel
+                                            setState(() {
+                                              _selectedCustomer = customer;
+                                              _isCustomerPanelOpen = true;
+                                            });
+                                            await _fetchCustomerDetails(customer['id']);
+                                          },
+                                          tooltip: 'View Details',
+                                        ),
+                                        const SizedBox(width: 10),
                                         IconButton(
                                           icon: Icon(
                                             LucideIcons.trash2,
@@ -513,8 +582,514 @@ class _MembershipScreenState extends State<MembershipScreen> {
             }),
           ],
         ),
+            ),
+            
+            // Customer Detail Panel
+            if (_isCustomerPanelOpen) _buildCustomerDetailPanel(),
+          ],
+        ),
+    );
+  }
+
+  Widget _buildCustomerDetailPanel() {
+    if (_selectedCustomer == null || _customerDetails == null) {
+      return Positioned(
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: MediaQuery.of(context).size.width * 0.4,
+        child: Container(
+          color: Colors.white,
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    final customer = _customerDetails!['customer'];
+    final recentBookings = _customerDetails!['recentBookings'] as List;
+    final lifetimeSpent = _customerDetails!['lifetimeSpent'] as double;
+    final monthlySpent = _customerDetails!['monthlySpent'] as double;
+
+    // Determine VIP status based on monthly spending
+    final isVIP = monthlySpent > 500; // You can adjust this threshold
+    
+    return Positioned(
+      right: 0,
+      top: 0,
+      bottom: 0,
+      width: MediaQuery.of(context).size.width * 0.4,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(-2, 0),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: isVIP ? Colors.amber.shade50 : Colors.grey.shade50,
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey.shade300),
+                ),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: isVIP ? Colors.amber.shade600 : Colors.grey.shade600,
+                    child: Text(
+                      (customer['first_name'] ?? '').isNotEmpty 
+                          ? customer['first_name'][0].toUpperCase()
+                          : '?',
+                      style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}',
+                              style: GoogleFonts.inter(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (isVIP) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.amber.shade600,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  'VIP',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          customer['mobile'] ?? '',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        Text(
+                          customer['email'] ?? 'No email',
+                          style: GoogleFonts.inter(
+                            fontSize: 16,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 28),
+                    onPressed: () {
+                      setState(() {
+                        _isCustomerPanelOpen = false;
+                        _selectedCustomer = null;
+                        _customerDetails = null;
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Membership Details
+                    _buildSectionCard(
+                      title: 'Membership Details',
+                      icon: Icons.card_membership,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (customer['membershipplan'] != null) ...[
+                            _buildDetailRow('Plan', customer['membershipplan']['name'] ?? 'N/A'),
+                            // Use customer fields directly for membership validity
+                            // if (customer['membership_validity'] != null) ...[
+                            //   _buildDetailRow('Valid Until', _formatDate(customer['membership_validity'])),
+                            // ],
+                            _buildDetailRow('Status', 'Active'),
+                          ] else ...[
+                            Text(
+                              'No active membership',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Spending Summary
+                    _buildSectionCard(
+                      title: 'Spending Summary',
+                      icon: Icons.analytics,
+                      child: Column(
+                        children: [
+                          _buildDetailRow('Monthly Spending', '\${monthlySpent.toStringAsFixed(2)}'),
+                          _buildDetailRow('Lifetime Spending', '\${lifetimeSpent.toStringAsFixed(2)}'),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Recent Bookings
+                    _buildSectionCard(
+                      title: 'Recent Bookings',
+                      icon: Icons.history,
+                      child: recentBookings.isEmpty
+                          ? Text(
+                              'No recent bookings',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: Colors.grey.shade600,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            )
+                          : Column(
+                              children: recentBookings.map((booking) {
+                                return _buildBookingTile(booking);
+                              }).toList(),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+    Color? iconColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  (iconColor ?? Colors.blue).withOpacity(0.1),
+                  (iconColor ?? Colors.blue).withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (iconColor ?? Colors.blue).withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    icon, 
+                    size: 20, 
+                    color: iconColor ?? Colors.blue.shade700,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: Colors.grey.shade900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingTile(Map<String, dynamic> booking) {
+    final bookingSlots = booking['booking_slots'] as List? ?? [];
+    final firstSlot = bookingSlots.isNotEmpty ? bookingSlots.first : null;
+    final sportName = firstSlot?['platform_status']?['sports']?['sport_name'] ?? 'Unknown Sport';
+    final courtName = firstSlot?['platform_status']?['platform_id'] ?? 'Unknown Court';
+    final paymentStatus = booking['payment_status'] ?? 'Unknown';
+    final isPaid = paymentStatus.toLowerCase() == 'paid';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isPaid ? Colors.green.shade200 : Colors.orange.shade200,
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Sport Icon Container
+          Container(
+            width: 60,
+            height: 100,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  sportName.toLowerCase().contains('badminton')
+                      ? Colors.blue.shade400
+                      : sportName.toLowerCase().contains('tennis')
+                          ? Colors.green.shade400
+                          : Colors.purple.shade400,
+                  sportName.toLowerCase().contains('badminton')
+                      ? Colors.blue.shade600
+                      : sportName.toLowerCase().contains('tennis')
+                          ? Colors.green.shade600
+                          : Colors.purple.shade600,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+            ),
+            child: sportName.toLowerCase().contains('badminton') || sportName.toLowerCase().contains('tennis')
+              ? Image.asset(
+                  sportName.toLowerCase().contains('badminton')
+                      ? 'assets/images/icons/badminton.png'
+                      : 'assets/images/icons/tennis.png',
+                  width: 30,
+                  height: 30,
+                  color: Colors.white,
+                )
+              : Icon(
+                  Icons.sports,
+                  color: Colors.white,
+                  size: 30,
+                ),
+          ),
+          // Booking Details
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          booking['booking_no'] ?? 'N/A',
+                          style: GoogleFonts.inter(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isPaid ? Colors.green.shade50 : Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: isPaid ? Colors.green.shade300 : Colors.orange.shade300,
+                          ),
+                        ),
+                        child: Text(
+                          '\$${(booking['grand_total'] as num?)?.toStringAsFixed(2) ?? '0.00'}',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isPaid ? Colors.green.shade700 : Colors.orange.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on, size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text(
+                        courtName,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatDate(booking['created_at']),
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                      if (firstSlot != null) ...[
+                        const SizedBox(width: 12),
+                        Icon(Icons.access_time, size: 14, color: Colors.blue.shade600),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_formatTime(firstSlot['start_time'])} - ${_formatTime(firstSlot['end_time'])}',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: Colors.blue.shade600,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return 'N/A';
+    try {
+      final date = DateTime.parse(dateStr);
+      return DateFormat('MMM dd, yyyy').format(date);
+    } catch (e) {
+      return 'Invalid Date';
+    }
+  }
+
+  String _formatTime(String? timeStr) {
+    if (timeStr == null) return 'N/A';
+    try {
+      final time = DateTime.parse(timeStr);
+      return DateFormat('HH:mm').format(time);
+    } catch (e) {
+      return 'Invalid Time';
+    }
   }
 
   Widget _buildTopBar() {
@@ -1576,7 +2151,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
 
                                                           if (customerId != null && customerId.isNotEmpty) {
                                                             Get.to(
-                                                              CheckoutScreen(
+                                                              checkout.CheckoutScreen(
                                                                 type: 'Membership',
                                                                 customerName: name,
                                                                 mobileno: mobile,
@@ -1639,7 +2214,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                                                           );
 
                                                           Get.to(
-                                                            CheckoutScreen(
+                                                            checkout.CheckoutScreen(
                                                               type: 'Membership',
                                                               customerName: name,
                                                               mobileno: mobile,
@@ -1832,6 +2407,16 @@ class _MembershipScreenState extends State<MembershipScreen> {
           }).toList();
     }
     setState(() {});
+  }
+
+  void showCustomSnackbar(String title, String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$title: $message'),
+        backgroundColor: color,
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 }
 

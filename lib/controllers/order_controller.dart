@@ -112,7 +112,7 @@ class OrderController extends GetxController {
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
-            .neq('bookings.payment_status', 'Paid')
+            .not('bookings.payment_status', 'in', ['Paid', 'paid'])
             .gte('start_time', todayStart.toIso8601String())
             .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'paid') {
@@ -287,12 +287,22 @@ class OrderController extends GetxController {
         }).toList();
       }
 
-      // ✅ STEP 3: Sort by booking_no ascending
-      filteredMerged.sort((a, b) {
-        final aNo = (a['bookings']?['booking_no'] ?? '').toString();
-        final bNo = (b['bookings']?['booking_no'] ?? '').toString();
-        return aNo.compareTo(bNo);
-      });
+      // ✅ STEP 3: Sort by time descending for upcoming, unpaid, all tabs; by booking_no for active tab
+      if (filterType == 'Active') {
+        // For Active tab, sort by booking_no ascending  
+        filteredMerged.sort((a, b) {
+          final aNo = (a['bookings']?['booking_no'] ?? '').toString();
+          final bNo = (b['bookings']?['booking_no'] ?? '').toString();
+          return aNo.compareTo(bNo);
+        });
+      } else {
+        // For upcoming, unpaid, all tabs, sort by start_time descending (newest first)
+        filteredMerged.sort((a, b) {
+          final aTime = DateTime.parse(a['start_time']);
+          final bTime = DateTime.parse(b['start_time']);
+          return bTime.compareTo(aTime); // Reversed for descending order
+        });
+      }
 
       // ✅ STEP 4: Format & map to model
       final result =
@@ -398,7 +408,7 @@ class OrderController extends GetxController {
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
-            .neq('bookings.payment_status', 'Paid')
+            .not('bookings.payment_status', 'in', ['Paid', 'paid'])
             .gte('start_time', todayStart.toIso8601String())
             .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'paid') {
@@ -489,13 +499,40 @@ class OrderController extends GetxController {
           }
 
           if (filterType == 'unpaid') {
-            final membershipCarData = await supabase
+            // Check for active membership first
+            var membershipCarData = await supabase
                 .schema('${centerSlug}_prod_schema')
                 .from('membership_data')
                 .select('customer_id, price, status')
                 .eq('customer_id', newItem['bookings']['customer_id'])
                 .eq('status', true)
                 .maybeSingle();
+
+            // If no active membership found, check for pending membership (Pay Later bookings)
+            if (membershipCarData == null) {
+              membershipCarData = await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('membership_data')
+                  .select('customer_id, price, status')
+                  .eq('customer_id', newItem['bookings']['customer_id'])
+                  .eq('status', false)
+                  .maybeSingle();
+            }
+
+            // If still no membership found, check for string status 'pending'
+            // if (membershipCarData == null) {
+            //   try {
+            //     membershipCarData = await supabase
+            //         .schema('${centerSlug}_prod_schema')
+            //         .from('membership_data')
+            //         .select('customer_id, price, status')
+            //         .eq('customer_id', newItem['bookings']['customer_id'])
+            //         .eq('status', 'pending')
+            //         .maybeSingle();
+            //   } catch (e) {
+            //     print('Skipping string status query due to type mismatch: $e');
+            //   }
+            // }
 
             if (membershipCarData != null) {
               finalGrandTotal += double.parse(membershipCarData['price'].toString());
@@ -571,12 +608,22 @@ class OrderController extends GetxController {
         }).toList();
       }
 
-      // ✅ STEP 3: Sort by booking_no ascending
-      filteredMerged.sort((a, b) {
-        final aNo = (a['bookings']?['booking_no'] ?? '').toString();
-        final bNo = (b['bookings']?['booking_no'] ?? '').toString();
-        return aNo.compareTo(bNo);
-      });
+      // ✅ STEP 3: Sort by time descending for upcoming, unpaid, all tabs; by booking_no for active tab
+      if (filterType == 'Active') {
+        // For Active tab, sort by booking_no ascending  
+        filteredMerged.sort((a, b) {
+          final aNo = (a['bookings']?['booking_no'] ?? '').toString();
+          final bNo = (b['bookings']?['booking_no'] ?? '').toString();
+          return aNo.compareTo(bNo);
+        });
+      } else {
+        // For upcoming, unpaid, all tabs, sort by start_time descending (newest first)
+        filteredMerged.sort((a, b) {
+          final aTime = DateTime.parse(a['start_time']);
+          final bTime = DateTime.parse(b['start_time']);
+          return bTime.compareTo(aTime); // Reversed for descending order
+        });
+      }
 
       // ✅ STEP 4: Format & map to model
       final result = filteredMerged
@@ -656,13 +703,40 @@ class OrderController extends GetxController {
           .eq('booking_id', bookingId)
           .maybeSingle();
 
-      final membershipDataResponse = await supabase
+      // Check for active membership first
+      var membershipDataResponse = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('membership_data')
           .select('*')
           .eq('customer_id', userResponse!['id'])
           .eq('status', true)
           .maybeSingle();
+
+      // If no active membership found, check for pending membership (Pay Later bookings)
+      if (membershipDataResponse == null) {
+        membershipDataResponse = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .select('*')
+            .eq('customer_id', userResponse['id'])
+            .eq('status', false)
+            .maybeSingle();
+      }
+
+      // If still no membership found, check for string status 'pending'
+      // if (membershipDataResponse == null) {
+      //   try {
+      //     membershipDataResponse = await supabase
+      //         .schema('${centerSlug}_prod_schema')
+      //         .from('membership_data')
+      //         .select('*')
+      //         .eq('customer_id', userResponse['id'])
+      //         .eq('status', 'pending')
+      //         .maybeSingle();
+      //   } catch (e) {
+      //     print('Skipping string status query due to type mismatch: $e');
+      //   }
+      // }
 
       // Return a combined object
       return {
@@ -756,14 +830,40 @@ class OrderController extends GetxController {
 
       final remainingAmount = courtTotal - paidAmount;
 
-      // Get membership data if applicable
-      final membershipDataResponse = await supabase
+      // Get membership data if applicable - check for active membership first
+      var membershipDataResponse = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('membership_data')
           .select('*')
           .eq('customer_id', customerId)
           .eq('status', true)
           .maybeSingle();
+
+      // If no active membership found, check for pending membership (Pay Later bookings)
+      if (membershipDataResponse == null) {
+        membershipDataResponse = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .select('*')
+            .eq('customer_id', customerId)
+            .eq('status', false)
+            .maybeSingle();
+      }
+
+      // If still no membership found, check for string status 'pending'
+      // if (membershipDataResponse == null) {
+      //   try {
+      //     membershipDataResponse = await supabase
+      //         .schema('${centerSlug}_prod_schema')
+      //         .from('membership_data')
+      //         .select('*')
+      //         .eq('customer_id', customerId)
+      //         .eq('status', 'pending')
+      //         .maybeSingle();
+      //   } catch (e) {
+      //     print('Skipping string status query due to type mismatch: $e');
+      //   }
+      // }
 
       return {
         'booking': bookingResponse,

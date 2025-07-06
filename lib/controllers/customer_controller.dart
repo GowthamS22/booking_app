@@ -10,6 +10,7 @@ import '../config/palette.dart';
 import '../models/booking_model.dart';
 import '../models/membership_plan.dart';
 import '../models/user.dart';
+import 'default_controller.dart';
 
 class CustomerController extends GetxController {
   final supabase = Supabase.instance.client;
@@ -106,7 +107,8 @@ class CustomerController extends GetxController {
       if (picked != null && picked != selectedDate) {
         isLoading.value = true;
         selectedDate = picked;
-        getBookingSlotDetails(
+        final defaultController = Get.find<DefaultController>();
+        defaultController.getBookingSlotDetails(
           userId: id,
           bookingId: null,
           subBookingId: null,
@@ -193,132 +195,126 @@ class CustomerController extends GetxController {
           : Comparable.compare(val2, val1);
 
   // get booking slot details
-  Future<void> getBookingSlotDetails({
-    String? userId,
-    String? bookingId,
-    String? subBookingId,
-    DateTime? selDate,
-  }) async {
-    //Clear Bookings
-    selectedUser.clear();
-    selectedBooking.clear();
-    selectedBookingSlots.clear();
+  Future<Map<String, dynamic>?> getCustomerDetailsById(String customerId) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
 
-    //Retrieve User Data
-    final userResponse =
-        await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('customers')
-            .select()
-            .eq('id', userId!)
-            .single();
+      if (centerSlug == null) {
+        print('Error: centerSlug is null');
+        return null;
+      }
 
-    if (userResponse != null) {
-      final userData = User.fromMap(userResponse);
-      print(userData);
-      selectedUser.add(User.fromMap(userResponse));
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
 
-      //Retrieve Booking Data
-      final bookingResponse = await supabase
+      // Fetch comprehensive customer details
+      final customerResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .select('''
+            *,
+            membershipplan:membershipplan_id(*)
+          ''')
+          .eq('id', customerId)
+          .maybeSingle();
+
+      if (customerResponse == null) return null;
+
+      // Fetch all bookings and orders for the customer
+      final allBookingsResponse = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('bookings')
-          .select()
-          .eq('customer_id', userId);
+          .select('''
+            id,
+            booking_no,
+            created_at,
+            grand_total,
+            payment_status,
+            is_cancelled,
+            is_showoff,
+            booking_slots(
+              price,
+              start_time,
+              end_time,
+              court_id,
+              platform_status:court_id(
+                platform_id,
+                sports(sport_name)
+              )
+            )
+          ''')
+          .eq('customer_id', customerId)
+          .order('created_at', ascending: false);
 
-      for (var booking in bookingResponse) {
-        selectedBooking.add(
-          Booking(
-            booking['id'],
-            booking['booking_no'],
-            booking['customer_id'],
-            booking['name'],
-            booking['mobile'],
-            booking['email'],
-            booking['notes'],
-            (booking['sub_total'] as num).toDouble(),
-            (booking['discount'] as num).toDouble(),
-            (booking['gst'] as num).toDouble(),
-            (booking['total'] as num).toDouble(),
-            booking['payment_type'],
-            booking['payment_status'],
-            booking['status'],
-            [],
-            booking['created_by'],
-            booking['updated_by'],
-            DateTime.parse(booking['created_at']),
-            DateTime.parse(booking['updated_at']),
-          ),
-        );
-      }
-
-      //Booking Slot query
-      QuerySnapshot<Map<String, dynamic>> bookingSlotsSnapshot;
-
-      final slotQuery = supabase
+      final allOrdersResponse = await supabase
           .schema('${centerSlug}_prod_schema')
-          .from('booking_slots')
-          .select()
-          .eq('booking_id', bookingId!)
-          .eq('status', 'Booked')
-          .eq('booking_id', bookingId);
+          .from('orders')
+          .select('''
+            id,
+            total,
+            created_at,
+            order_status,
+            booking_id,
+            cart_items
+          ''')
+          .eq('customer_id', customerId)
+          .order('created_at', ascending: false);
 
-      if (selectedDateOption.value == 'Last 7 Days') {
-        slotQuery
-          ..gte(
-            'start_time',
-            DateTime.now().subtract(Duration(days: 7)).toIso8601String(),
-          )
-          ..lte('start_time', DateTime.now().toIso8601String());
-      } else if (selDate != null) {
-        final startOfDay = DateTime(selDate.year, selDate.month, selDate.day);
-        final endOfDay = startOfDay.add(Duration(days: 1));
-        slotQuery
-          ..gte('start_time', startOfDay.toIso8601String())
-          ..lt('start_time', endOfDay.toIso8601String());
-      }
-      final slotResponse = await slotQuery;
-      //Store the booking slot in model
-      for (final slot in slotResponse) {
-        final serviceName = await getServiceName(slot['service_id']);
-        final courtName = await getCourtName(slot['court_id']);
+      double lifetimeSpent = 0.0;
+      double monthlySpent = 0.0;
 
-        selectedBookingSlots.add(
-          BookingSlot(
-            id: slot['id'],
-            userId: userId,
-            name: slot['name'],
-            mobile: slot['mobile'],
-            bookingId: slot['booking_id'],
-            subBookingId: slot['sub_booking_id'],
-            date: DateTime.parse(slot['start_time']),
-            service: serviceName,
-            serviceId: slot['service_id'],
-            court: courtName,
-            courtId: slot['court_id'],
-            startTime: DateTime.parse(slot['start_time']),
-            endTime: DateTime.parse(slot['end_time']),
-            price: (slot['price'] as num).toDouble(),
-            slotType: slot['slot_type'],
-            repeatDays: slot['repeat_days'],
-            repeatEnd:
-                slot['repeat_end'] != null
-                    ? DateTime.parse(slot['repeat_end'])
-                    : null,
-            repeatId: slot['repeat_id'],
-            repeatGroupId: slot['repeat_group_id'],
-            paymentStatus: slot['payment_status'],
-            status: slot['status'],
-            createdBy: slot['created_by'],
-            updatedBy: slot['updated_by'],
-            createdAt: DateTime.parse(slot['created_at']),
-            updatedAt: DateTime.parse(slot['updated_at']),
-          ),
-        );
+      // Calculate spending from bookings (excluding cancelled/no-show and memberships)
+      final nonMembershipBookings = allBookingsResponse.where((b) {
+        final status = (b['status'] ?? '').toString().toLowerCase();
+        final isCancelled = b['is_cancelled'] == true;
+        final isShowoff = b['is_showoff'] == true;
+        // Assuming membership bookings have a specific flag or are identified by a linked membership_data entry
+        // For now, we'll exclude based on the booking status and if it's a regular booking
+        return status != 'cancelled' && !isCancelled && !isShowoff; // && b['is_membership_booking'] != true;
+      }).toList();
+
+      for (final booking in nonMembershipBookings) {
+        final bookingTotal = (booking['grand_total'] as num?)?.toDouble() ?? 0.0;
+        lifetimeSpent += bookingTotal;
+        final createdAt = DateTime.parse(booking['created_at']);
+        if (createdAt.isAfter(startOfMonth)) {
+          monthlySpent += bookingTotal;
+        }
       }
+
+      // Calculate spending from orders (excluding those linked to bookings and memberships)
+      final nonMembershipOrders = allOrdersResponse.where((order) {
+        // Exclude orders linked to bookings (already counted in bookingTotal)
+        // Exclude orders that are membership payments (assuming a flag or specific product type)
+        return order['booking_id'] == null; // && order['is_membership_purchase'] != true;
+      }).toList();
+
+      for (final order in nonMembershipOrders) {
+        final orderTotal = (order['total'] as num?)?.toDouble() ?? 0.0;
+        lifetimeSpent += orderTotal;
+        final createdAt = DateTime.parse(order['created_at']);
+        if (createdAt.isAfter(startOfMonth)) {
+          monthlySpent += orderTotal;
+        }
+      }
+
+      // Recent bookings (last 5, active/completed, sorted by created_at descending)
+      final recentBookings = allBookingsResponse
+          .where((b) => (b['status'] == 'Booked' || b['status'] == 'Completed') && b['is_cancelled'] != true && b['is_showoff'] != true)
+          .take(5)
+          .toList();
+
+      return {
+        'customer': customerResponse,
+        'monthlySpent': monthlySpent,
+        'lifetimeSpent': lifetimeSpent,
+        'recentBookings': recentBookings,
+      };
+    } catch (e) {
+      print('Error fetching customer details by ID: $e');
+      return null;
     }
-
-    isLoading.value = false;
-    update();
   }
 
   Future<void> fetchCustomerDetails1({bool? hasMembership}) async {
@@ -523,13 +519,22 @@ class CustomerController extends GetxController {
             id,
             status,
             is_cancelled,
+            is_showoff,
+            created_at,
             booking_slots (
-              price
+              price,
+              start_time,
+              end_time,
+              court_id,
+              platform_status!court_id (platform_id)
             )
           ),
           orders (
             id,
-            total
+            total,
+            created_at,
+            order_status,
+            cart_items
           ),
           membershippayment (
             id,
@@ -548,41 +553,86 @@ class CustomerController extends GetxController {
         }).toList();
         final payments = customer['membershippayment'] as List<dynamic>? ?? [];
 
-        // Filter out cancelled bookings
+        // Filter out cancelled and no-show bookings, and sum booking slot prices
+        double bookingSpent = 0.0;
         final nonCancelledBookings = bookingList.where((b) {
           final status = (b['status'] ?? '').toString().toLowerCase();
           final isCancelled = b['is_cancelled'] == true;
-          return status != 'cancelled' && !isCancelled && b['is_showoff']==false;
+          final isShowoff = b['is_showoff'] == true;
+          return status != 'cancelled' && !isCancelled && !isShowoff;
         }).toList();
 
-        // Sum booking slot prices
-        final bookingSpent = nonCancelledBookings.fold<double>(0.0, (sum, b) {
+        for (final b in nonCancelledBookings) {
           final slots = b['booking_slots'] as List<dynamic>? ?? [];
-          return sum + slots.fold<double>(0.0, (slotSum, slot) {
-            return slotSum + ((slot['price'] as num?)?.toDouble() ?? 0.0);
-          });
-        });
+          for (final slot in slots) {
+            bookingSpent += (slot['price'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
 
-        // Sum order totals
-        final orderSpent = orders.fold<double>(0.0, (sum, order) {
-          return sum + ((order['total'] as num?)?.toDouble() ?? 0.0);
-        });
+        // Sum order totals (excluding those linked to bookings, as their value is already in bookingSpent)
+        double orderSpent = 0.0;
+        final standaloneOrders = orders.where((order) => order['booking_id'] == null).toList();
+        for (final order in standaloneOrders) {
+          orderSpent += (order['total'] as num?)?.toDouble() ?? 0.0;
+        }
 
         // Sum membership payments
         final membershipSpent = payments.fold<double>(0.0, (sum, payment) {
           return sum + ((payment['total'] as num?)?.toDouble() ?? 0.0);
         });
 
-        final totalSpent = bookingSpent + orderSpent + membershipSpent;
-        final totalBookings = nonCancelledBookings.length;
+        final totalSpent = bookingSpent + orderSpent; // Total spent excluding memberships
+
+        // Calculate monthly spending (last 30 days)
+        double monthlySpent = 0.0;
+        final thirtyDaysAgo = DateTime.now().subtract(Duration(days: 30));
+
+        // Monthly booking spending
+        for (final b in nonCancelledBookings) {
+          final createdAt = DateTime.parse(b['created_at']);
+          if (createdAt.isAfter(thirtyDaysAgo)) {
+            final slots = b['booking_slots'] as List<dynamic>? ?? [];
+            for (final slot in slots) {
+              monthlySpent += (slot['price'] as num?)?.toDouble() ?? 0.0;
+            }
+          }
+        }
+
+        // Monthly order spending
+        for (final order in standaloneOrders) {
+          final createdAt = DateTime.parse(order['created_at']);
+          if (createdAt.isAfter(thirtyDaysAgo)) {
+            monthlySpent += (order['total'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+
+        // Get recent bookings (last 5, sorted by created_at descending)
+        final recentBookings = nonCancelledBookings
+            .map((b) {
+              final slots = b['booking_slots'] as List<dynamic>? ?? [];
+              String courtNames = '';
+              if (slots.isNotEmpty) {
+                courtNames = slots.map((s) => s['platform_status']?['platform_id'] ?? 'N/A').join(', ');
+              }
+              return {
+                'booking_no': b['booking_no'],
+                'created_at': b['created_at'],
+                'grand_total': b['grand_total'],
+                'court_names': courtNames,
+              };
+            })
+            .toList()
+            ..sort((a, b) => DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at'])))
+            ..take(5);
 
         return {
           'id': customer['id'],
-          'name': '${customer['first_name']}',
+          'name': '${customer['first_name']} ${customer['last_name'] ?? ''}',
           'mobile': customer['mobile'],
           'membership': customer['membershipplan']?['name'] ?? 'N/A',
-          'totalBookings': totalBookings,
           'totalSpent': totalSpent.toStringAsFixed(2),
+          'monthlySpent': monthlySpent.toStringAsFixed(2),
+          'recentBookings': recentBookings.toList(),
         };
       }).toList();
 

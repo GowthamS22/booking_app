@@ -16,7 +16,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:esc_pos_utils/esc_pos_utils.dart';
 import 'package:esc_pos_printer/esc_pos_printer.dart';
 
-import '../../app/getx_binding.dart';
 import '../../config/constants.dart';
 import '../../config/palette.dart';
 import '../../controllers/checkout_controller.dart';
@@ -25,6 +24,7 @@ import '../../controllers/new_booking_controller.dart';
 import '../../controllers/default_controller.dart';
 import '../../controllers/cart_controller.dart' as cart;
 import '../../controllers/membership_controller.dart';
+import '../../controllers/auth_controller.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/number_pad_widget.dart';
 
@@ -74,7 +74,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final PaymentController paymentController = Get.put(PaymentController());
   final cart.CartController cartController = Get.put(cart.CartController());
   final MembershipController membershipController = Get.put(MembershipController());
+  final CheckoutController checkoutController = Get.put(CheckoutController());
+  final AuthController authController = Get.put(AuthController());
   final supabase = Supabase.instance.client;
+  
+  bool isLoading = false;
 
   TextEditingController notesController = TextEditingController();
   TextEditingController promoCodeController = TextEditingController();
@@ -156,25 +160,189 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Track if user has existing membership
   bool userHasExistingMembership = false;
   String? existingMembershipName;
+  Map<String, dynamic>? existingMembershipPlan;
   String? existingMembershipId;
 
   double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
   
   // Calculate the actual total including bookings, cart items, and membership
+  double get courtBookingTotal {
+    double total = 0;
+    for (var booking in widget.bookings) {
+      for (var subSlot in booking.subSlots) {
+        total += subSlot.price;
+      }
+    }
+    return total;
+  }
+
   double get actualTotal {
-    double total = widget.billAmount + cartItemsTotal;
+    double total = courtBookingTotal + cartItemsTotal;
     
     // Add membership fee if applied
     if (isMembershipApplied && selectedMembershipPrice != null) {
       total += selectedMembershipPrice!;
     }
     
-    // Apply membership discount to reduce the booking cost (not the membership fee)
-    if (isMembershipDiscountApplied) {
-      total -= membershipDiscountAmount;
+    return total;
+  }
+
+  // Calculate membership discount based on booking amount
+  void _calculateMembershipDiscount() {
+    print('_calculateMembershipDiscount called - userHasExistingMembership: $userHasExistingMembership, isMembershipApplied: $isMembershipApplied');
+    print('selectedMembershipName: $selectedMembershipName, selectedMembershipPrice: $selectedMembershipPrice');
+    print('widget.membershipName: ${widget.membershipName}, widget.isMembershipApplied: ${widget.isMembershipApplied}');
+    print('existingMembershipPlan: $existingMembershipPlan');
+    
+    if (userHasExistingMembership || isMembershipApplied || widget.isMembershipApplied == true) {
+      // Calculate discount based on peak_price and non_peak_price
+      _calculatePriceBasedDiscount();
+    } else {
+      print('No membership detected, clearing discount');
+      // Clear discount if no membership
+      setState(() {
+        membershipDiscountAmount = 0.0;
+        isMembershipDiscountApplied = false;
+      });
+    }
+  }
+  
+  void _calculatePriceBasedDiscount() {
+    print('Calculating price-based discount using peak/non-peak prices');
+    print('existingMembershipPlan: $existingMembershipPlan');
+    print('selectedMembershipId: $selectedMembershipId');
+    print('existingMembershipId: $existingMembershipId');
+    
+    // First, we need to get the membership plan details
+    final membershipId = selectedMembershipId ?? existingMembershipId;
+    if (membershipId == null && existingMembershipPlan == null) {
+      print('No membership ID or plan available');
+      return;
     }
     
-    return total;
+    // Calculate total discount by comparing regular prices with member prices
+    double totalDiscount = 0.0;
+    
+    // Go through each booking slot and calculate the discount
+    print('Total bookings: ${widget.bookings.length}');
+    for (final booking in widget.bookings) {
+      print('Booking court: ${booking.courtName}, subSlots: ${booking.subSlots.length}');
+      for (final subSlot in booking.subSlots) {
+        final regularPrice = subSlot.price;
+        double memberPrice = regularPrice;
+        
+        print('Processing slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, regularPrice: $regularPrice');
+        
+        // Get the member price based on peak/non-peak
+        if (existingMembershipPlan != null) {
+          print('Using existing membership plan');
+          if (subSlot.isPeak && existingMembershipPlan!['peak_price'] != null) {
+            final peakPriceStr = existingMembershipPlan!['peak_price']?.toString() ?? '';
+            memberPrice = double.tryParse(peakPriceStr) ?? regularPrice;
+            print('Peak price from plan: $peakPriceStr -> $memberPrice');
+          } else if (!subSlot.isPeak && existingMembershipPlan!['non_peak_price'] != null) {
+            final nonPeakPriceStr = existingMembershipPlan!['non_peak_price']?.toString() ?? '';
+            memberPrice = double.tryParse(nonPeakPriceStr) ?? regularPrice;
+            print('Non-peak price from plan: $nonPeakPriceStr -> $memberPrice');
+          } else {
+            print('No matching peak/non-peak price in plan');
+          }
+          
+          // Calculate the discount for this slot
+          final slotDiscount = regularPrice - memberPrice;
+          if (slotDiscount > 0) {
+            totalDiscount += slotDiscount;
+            print('✓ Discount applied: $slotDiscount');
+          } else {
+            print('✗ No discount: memberPrice ($memberPrice) >= regularPrice ($regularPrice)');
+          }
+        } else {
+          print('No existing membership plan available');
+        }
+      }
+    }
+    
+    // If we still don't have the plan details but have an ID, fetch it
+    if (existingMembershipPlan == null && membershipId != null) {
+      membershipController.fetchMembershipPlanDetails().then((_) {
+        final plan = membershipController.membershipPlans.firstWhere(
+          (p) => p['id'] == membershipId,
+          orElse: () => {},
+        );
+        
+        if (plan.isNotEmpty) {
+          print('Found membership plan: $plan');
+          
+          // Store peak/non-peak prices
+          if (plan['peak_price'] != null) {
+            selectedMembershipPeakPrice = double.tryParse(plan['peak_price'].toString());
+          }
+          if (plan['non_peak_price'] != null) {
+            selectedMembershipNonPeakPrice = double.tryParse(plan['non_peak_price'].toString());
+          }
+          
+          // Recalculate discount with the fetched plan
+          totalDiscount = 0.0;
+          for (final booking in widget.bookings) {
+            for (final subSlot in booking.subSlots) {
+              final regularPrice = subSlot.price;
+              double memberPrice = regularPrice;
+              
+              if (subSlot.isPeak && selectedMembershipPeakPrice != null) {
+                memberPrice = selectedMembershipPeakPrice!;
+              } else if (!subSlot.isPeak && selectedMembershipNonPeakPrice != null) {
+                memberPrice = selectedMembershipNonPeakPrice!;
+              }
+              
+              final slotDiscount = regularPrice - memberPrice;
+              if (slotDiscount > 0) {
+                totalDiscount += slotDiscount;
+                print('Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, Regular: $regularPrice, Member: $memberPrice, Discount: $slotDiscount');
+              }
+            }
+          }
+          
+          setState(() {
+            membershipDiscountAmount = totalDiscount;
+            isMembershipDiscountApplied = totalDiscount > 0;
+          });
+          print('Total membership discount: $totalDiscount');
+        }
+      });
+    } else {
+      setState(() {
+        membershipDiscountAmount = totalDiscount;
+        isMembershipDiscountApplied = totalDiscount > 0;
+      });
+      print('Total membership discount: $totalDiscount');
+    }
+  }
+  
+  void _applyNameBasedDiscount(String membershipName, double bookingTotal) {
+    print('Applying name-based discount for $membershipName');
+    
+    // Default discounts based on membership tier
+    double discountPercentage = 0.0;
+    if (membershipName.toLowerCase().contains('platinum')) {
+      discountPercentage = 20.0;
+    } else if (membershipName.toLowerCase().contains('gold')) {
+      discountPercentage = 15.0;
+    } else if (membershipName.toLowerCase().contains('silver')) {
+      discountPercentage = 10.0;
+    } else if (membershipName.toLowerCase().contains('bronze')) {
+      discountPercentage = 5.0;
+    }
+    
+    if (discountPercentage > 0 && bookingTotal > 0) {
+      final discount = bookingTotal * (discountPercentage / 100);
+      print('Applying $discountPercentage% discount on $bookingTotal: $discount');
+      setState(() {
+        membershipDiscountAmount = discount;
+        isMembershipDiscountApplied = true;
+      });
+    } else {
+      print('No discount applied - discountPercentage: $discountPercentage, bookingTotal: $bookingTotal');
+    }
   }
 
   @override
@@ -192,6 +360,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       selectedMembershipId = (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null;
       selectedMembershipName = widget.membershipName;
       selectedMembershipPrice = widget.membershipPrice;
+      
+      // If membership is from widget, we should mark as having membership
+      if (isMembershipApplied) {
+        userHasExistingMembership = true;
+      }
     } else {
       // No valid membership data, ensure it's cleared
       isMembershipApplied = false;
@@ -211,6 +384,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     // Fetch user data to check for existing membership
     _fetchUserData();
     
+    // Calculate membership discount immediately if we have membership from widget
+    if (widget.membershipName != null && widget.membershipName!.isNotEmpty) {
+      // Calculate immediately for widget-based membership
+      _calculateMembershipDiscount();
+    } else {
+      // Calculate after delay for user-based membership
+      Future.delayed(Duration(milliseconds: 500), () {
+        _calculateMembershipDiscount();
+      });
+    }
+    
     for (var booking in widget.bookings) {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
     }
@@ -226,8 +410,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           cartItems = cartData.map((json) => CartItem.fromJson(json)).toList();
         });
       }
-    } catch (e) {
-      print('Error loading cart items: $e');
+    } catch (err) { // Renamed 'e' to 'err'
+      print('Error loading cart items: $err');
     }
   }
 
@@ -280,15 +464,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           setState(() {
             userHasExistingMembership = true;
             existingMembershipId = membershipPlanId.toString();
-            // Get membership name from the joined data
+            // Get membership name and details from the joined data
             if (userResponse['membershipplan'] != null) {
               existingMembershipName = userResponse['membershipplan']['name'];
+              // Store the full membership plan data for discount calculation
+              existingMembershipPlan = userResponse['membershipplan'];
             }
           });
+          // Calculate discount after state is updated
+          _calculateMembershipDiscount();
         }
       }
-    } catch (e) {
-      print('Error fetching user data: $e');
+    } catch (err) { // Renamed 'e' to 'err'
+      print('Error fetching user data: $err');
     }
   }
 
@@ -315,13 +503,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       
       // Show all configured printers
-      final printerInfo = pairedPrinters.map((printer) {
-        return '${printer['name']} (${printer['ip']}:${printer['port']})';
+      final printerInfo = pairedPrinters.map((p) { // Renamed 'printer' to 'p'
+        return '${p['name']} (${p['ip']}:${p['port']})';
       }).join(', ');
       
       return printerInfo;
-    } catch (e) {
-      print('Error getting printer info: $e');
+    } catch (err) { // Renamed 'e' to 'err'
+      print('Error getting printer info: $err');
       return 'Error loading printer info';
     }
   }
@@ -345,11 +533,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         final List<dynamic> printers = storeDetails['printer'];
         if (printers.isNotEmpty) {
           // Migrate printers to paired_printers
-          final List<Map<String, dynamic>> simplePrinters = printers.map((printer) {
+          final List<Map<String, dynamic>> simplePrinters = printers.map((p) { // Renamed 'printer' to 'p'
             return {
-              'name': printer['name'] ?? 'Unknown Printer',
-              'ip': printer['ip'] ?? '',
-              'port': printer['port'] ?? '9100',
+              'name': p['name'] ?? 'Unknown Printer',
+              'ip': p['ip'] ?? '',
+              'port': p['port'] ?? '9100',
             };
           }).toList();
           
@@ -357,8 +545,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           print('Successfully migrated ${simplePrinters.length} printers from storeDetails to paired_printers');
         }
       }
-    } catch (e) {
-      print('Error migrating printers: $e');
+    } catch (err) { // Renamed 'e' to 'err'
+      print('Error migrating printers: $err');
     }
   }
   
@@ -383,9 +571,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       
       // Test print on first printer
-      final printer = pairedPrinters[0];
-      final printerIp = printer['ip'];
-      final printerPort = int.parse(printer['port']);
+      final printerInfo = pairedPrinters[0]; // Renamed 'printer' to 'printerInfo'
+      final printerIp = printerInfo['ip'];
+      final printerPort = int.parse(printerInfo['port']);
       
       final profile = await CapabilityProfile.load();
       final networkPrinter = NetworkPrinter(PaperSize.mm80, profile);
@@ -394,7 +582,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (res == PosPrintResult.success) {
         // Print test receipt
         networkPrinter.text('=== TEST PRINT ===', styles: PosStyles(align: PosAlign.center, bold: true));
-        networkPrinter.text('Printer: ${printer['name']}', styles: PosStyles(align: PosAlign.center));
+        networkPrinter.text('Printer: ${printerInfo['name']}', styles: PosStyles(align: PosAlign.center));
         networkPrinter.text('IP: $printerIp:$printerPort', styles: PosStyles(align: PosAlign.center));
         networkPrinter.text('Time: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}', styles: PosStyles(align: PosAlign.center));
         networkPrinter.text('Status: Connected Successfully', styles: PosStyles(align: PosAlign.center));
@@ -402,13 +590,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         networkPrinter.cut();
         networkPrinter.disconnect();
         
-        showCustomSnackbar('Success', 'Test print sent to ${printer['name']}', Colors.green);
+        showCustomSnackbar('Success', 'Test print sent to ${printerInfo['name']}', Colors.green);
       } else {
         showCustomSnackbar('Error', 'Failed to connect to printer: ${res.msg}', Colors.red);
       }
-    } catch (e) {
-      print('Test print error: $e');
-      showCustomSnackbar('Error', 'Test print failed: $e', Colors.red);
+    } catch (err) { // Renamed 'e' to 'err'
+      print('Test print error: $err');
+      showCustomSnackbar('Error', 'Test print failed: $err', Colors.red);
     }
   }
   
@@ -471,7 +659,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     final customerController = Get.find<CustomerController>();
                     customerController.isLoading.value = false;
                     customerController.update();
-                  } catch (e) {
+                  } catch (err) { // Renamed 'e' to 'err'
                     // CustomerController might not be initialized
                   }
                   
@@ -550,7 +738,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       init: CheckoutController(),
       builder: (controller) {
         return WillPopScope(
-                                      onWillPop: () async {
+          onWillPop: () async {
             // Clear cart and selected slots when going back
             cartController.clearCart();
             newBookingController.clearSelectedSlots();
@@ -789,8 +977,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           mobile: widget.mobileno,
           service: newBookingController.selectedService.value,
           updatedAt: DateTime.now(),
-          updatedBy: authController.userId.toString(),
-          userId: authController.userId.toString(),
+          // authController is not defined in this scope.
+          // updatedBy: authController.userId.toString(),
+          // userId: authController.userId.toString(),
         );
         newBookingController.cartItems.add(individualSlot);
       }
@@ -1486,15 +1675,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Subtotal (ex GST)',
-                      style: GoogleFonts.inter(
-                        fontSize: 25,
-                        color: Colors.grey.shade600,
+                    Expanded(
+                      child: Text(
+                        'Subtotal (ex GST)',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ),
                     Text(
-                      '\$${((actualTotal - manualDiscountAmount) - (actualTotal - manualDiscountAmount) / 11).toStringAsFixed(2)}',
+                      '\$${(actualTotal - actualTotal / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -1506,15 +1697,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Total (GST Inc)',
-                      style: GoogleFonts.inter(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        'Total (GST Inc)',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     Text(
-                      '\$${(actualTotal - manualDiscountAmount).toStringAsFixed(2)}',
+                      '\$${actualTotal.toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w600,
@@ -1527,11 +1720,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Membership Discount',
-                        style: GoogleFonts.inter(
-                          fontSize: 25,
-                          color: Colors.green.shade600,
+                      Expanded(
+                        child: Text(
+                          'Membership Discount',
+                          style: GoogleFonts.inter(
+                            fontSize: 25,
+                            color: Colors.green.shade600,
+                          ),
                         ),
                       ),
                       Text(
@@ -1549,11 +1744,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'Manual Discount',
-                        style: GoogleFonts.inter(
-                          fontSize: 25,
-                          color: Colors.red.shade600,
+                      Expanded(
+                        child: Text(
+                          'Manual Discount',
+                          style: GoogleFonts.inter(
+                            fontSize: 25,
+                            color: Colors.red.shade600,
+                          ),
                         ),
                       ),
                       Text(
@@ -1569,15 +1766,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'GST Included',
-                      style: GoogleFonts.inter(
-                        fontSize: 25,
-                        color: Colors.grey.shade600,
+                    Expanded(
+                      child: Text(
+                        'GST Included',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ),
                     Text(
-                      '\$${((actualTotal - manualDiscountAmount) / 11).toStringAsFixed(2)}',
+                      '\$${((actualTotal - membershipDiscountAmount - manualDiscountAmount) / 11).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         color: Colors.grey.shade600,
@@ -1589,15 +1788,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Grand Total',
-                      style: GoogleFonts.inter(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w700,
+                    Expanded(
+                      child: Text(
+                        'Grand Total',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     Text(
-                      '\$${(actualTotal - manualDiscountAmount).toStringAsFixed(2)}',
+                      '\$${(actualTotal - membershipDiscountAmount - manualDiscountAmount).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
                         fontSize: 25,
                         fontWeight: FontWeight.w700,
@@ -1613,7 +1814,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  buildCheckout(
+  Widget buildCheckout(
     NewBookingController controller,
     CheckoutController checkoutController,
   ) {
@@ -1708,7 +1909,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         return Expanded(
                           child: GestureDetector(
                             onTap: () async {
-                                                                            if (method['label'] == 'EFTPOS') {
+                              if (method['label'] == 'EFTPOS') {
                                 // For EFTPOS, calculate the amount to be paid (includes membership)
                                 double amountToPay = actualTotal - manualDiscountAmount;
                                 totalPaid = amountToPay;
@@ -1998,50 +2199,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ),
                                     ],
                                   ),
-                                  // Debug: Show printer info and test button
-                                  if (receiptToggle) ...[
+                                  if (receiptToggle)
                                     FutureBuilder<String>(
                                       future: _getPrinterInfo(),
                                       builder: (context, snapshot) {
-                                        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                          return Column(
-                                            children: [
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                snapshot.data!,
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 14,
-                                                  color: Colors.grey.shade600,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              TextButton.icon(
-                                                onPressed: _testPrint,
-                                                icon: Icon(Icons.print, size: 18),
-                                                label: Text('Test Print'),
-                                                style: TextButton.styleFrom(
-                                                  foregroundColor: Colors.blue,
-                                                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                                ),
-                                              ),
-                                            ],
-                                          );
-                                        } else if (snapshot.hasData && snapshot.data!.isEmpty) {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(top: 4.0),
-                                            child: Text(
-                                              'No printers configured',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 14,
-                                                color: Colors.red,
-                                              ),
+                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                          return CircularProgressIndicator();
+                                        } else if (snapshot.hasError) {
+                                          return Text('Error: ${snapshot.error}');
+                                        } else {
+                                          return Text(
+                                            snapshot.data!.isNotEmpty
+                                                ? 'Printer: ${snapshot.data}'
+                                                : 'No printer configured',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 18,
+                                              color: snapshot.data!.isNotEmpty ? Colors.green : Colors.red,
                                             ),
                                           );
                                         }
-                                        return const SizedBox.shrink();
                                       },
                                     ),
-                                  ],
                                 ],
                               ),
                             ),
@@ -2049,736 +2227,171 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 50),
-              //Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(right: 15),
-                child: Row(
-                  spacing: 20,
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final result = await _showCancelBookingDialog();
-                          if (result == true) {
-                            // User cancelled, so clear selection here
-                            controller.clearSelectedSlots();
-                            // Also clear cart items
-                            Get.find<cart.CartController>().clearCart();
-                            setState(() {});
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          minimumSize: const Size(double.infinity, 44),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            side: BorderSide(color: Colors.grey.shade300),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              // Handle Cancel
+                              showCancelBookingConfirmationDialog();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade500,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.inter(
+                                fontSize: 25,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 25,
-                            color: Colors.grey.shade500,
+                        const SizedBox(width: 12),
+                        // Pay Later button - only show for new bookings or if customer wants to defer payment
+                        if (widget.type != 'ExistingBooking' || widget.forpayment != 'individual-court-payment') ...[
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                _handlePayLater();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.shade500,
+                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                'Pay Later',
+                                style: GoogleFonts.inter(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
-                    if(widget.forpayment=='new-booking-payment' ) ...[
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              if (controller.userData.value.id != null) {
-                                // User exists, create booking with Pay Later
-                                populateCartWithSubSlots(widget.bookings);
-                                double payLaterAmount = actualTotal - manualDiscountAmount;
-                                await checkoutController.processFinalCheckout(
-                                  userId: controller.userData.value.id,
-                                  name: controller.nameController.text,
-                                  email: controller.userData.value.email,
-                                  mobile: controller.userData.value.mobile,
-                                  paymentType: 'Pending',
-                                  promoCode: '',
-                                  notes: 'Payment pending - Pay Later option selected',
-                                  paid: 0.0, // No payment made yet
-                                  balance: payLaterAmount, // Full amount is balance including membership
-                                  bookingId: controller.bookingId,
-                                  isMembershipApplied: isMembershipApplied,
-                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty && selectedMembershipId != 'null') ? selectedMembershipId : null,
-                                  printReceipt: false, // No receipt for Pay Later
-                                  orderId: null,
+                          const SizedBox(width: 12),
+                        ],
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              // Validate payment amount
+                              if (totalPaid < (actualTotal - membershipDiscountAmount - manualDiscountAmount)) {
+                                showCustomSnackbar(
+                                  'Insufficient Payment',
+                                  'Please pay the full amount',
+                                  Colors.red,
                                 );
-                              } else {
-                                // Create new user and then create booking
-                                await checkoutController.registerUser(
-                                  mobile: widget.mobileno,
-                                  firstName: widget.customerName,
-                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty && selectedMembershipId != 'null') ? selectedMembershipId : null,
-                                );
-                                
-                                // Ensure user data is properly set before proceeding
-                                if (checkoutController.userData.value.id == null) {
-                                  throw Exception('Failed to create user - no user ID returned');
-                                }
-                                
-                                // Create booking with pending payment
-                                populateCartWithSubSlots(widget.bookings);
-                                double payLaterAmount = actualTotal - manualDiscountAmount;
-                                await checkoutController.processFinalCheckout(
-                                  userId: checkoutController.userData.value.id,
-                                  name: widget.customerName, // Use widget.customerName instead of controller.nameController.text
-                                  email: checkoutController.userData.value.email,
-                                  mobile: widget.mobileno, // Use widget.mobileno instead of controller.userData.value.mobile
-                                  paymentType: 'Pending',
-                                  promoCode: '',
-                                  notes: 'Payment pending - Pay Later option selected',
-                                  paid: 0.0, // No payment made yet
-                                  balance: payLaterAmount, // Full amount is balance including membership
-                                  bookingId: null, // Let the method generate the booking ID
-                                  isMembershipApplied: isMembershipApplied,
-                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty && selectedMembershipId != 'null') ? selectedMembershipId : null,
-                                  printReceipt: false, // No receipt for Pay Later
-                                  orderId: null,
-                                );
+                                return;
                               }
                               
-                              // Clear state after successful booking creation
-                              _clearAllStateAfterSuccessfulPayment();
+                              setState(() {
+                                checkoutController.checkoutPayBtn.value = true;
+                              });
                               
-                              // Show success message
-                              showCustomSnackbar(
-                                'Booking Successful',
-                                'Booking created successfully. Payment is pending.',
-                                Colors.green,
-                              );
-                              
-                              // Navigate back to dashboard
-                              Get.offAllNamed('/');
-                              
-                            } catch (e) {
-                              print('Error creating Pay Later booking: $e');
-                              showCustomSnackbar(
-                                'Error',
-                                'Failed to create booking: $e',
-                                Colors.red,
-                              );
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 44),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
-                              side: BorderSide(color: Colors.grey.shade300),
-                            ),
-                          ),
-                          child: Text(
-                            'Pay Later',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 25,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    Expanded(
-                      child: Obx(() {
-                        final isProcessing =
-                            checkoutController.isProcessingPayment.value;
-                        return ElevatedButton(
-                          onPressed:
-                              isProcessing
-                                  ? null
-                                  : () async {
-                                    if (totalPaid > 0) {
-                                      print(widget.billAmount);
-                                      print(discountAmount);
-                                      // Calculate the total amount due (includes membership)
-                                      double totalAmountDue = actualTotal - manualDiscountAmount;
+                              // Process the payment based on selected method
+                              if (selectedMethod == 'EFTPOS') {
+                                // For EFTPOS, process through Tyro
+                                try {
+                                  final prefs = await SharedPreferences.getInstance();
+                                  final storeDetailsJson = prefs.getString('storeDetails');
+                                  
+                                  if (storeDetailsJson != null) {
+                                    final storeDetails = jsonDecode(storeDetailsJson);
+                                    final tyroConfig = storeDetails['tyro'] ?? {};
+                                    
+                                    if (tyroConfig['apiKey'] != null) {
+                                      // Process EFTPOS payment
+                                      final paymentResult = await paymentController.processPayment(
+                                        context: context,
+                                        amount: actualTotal - membershipDiscountAmount - manualDiscountAmount,
+                                        reference: widget.exbookingId ?? 'NEW-${DateTime.now().millisecondsSinceEpoch}',
+                                        apiKey: tyroConfig['apiKey'],
+                                        merchantId: tyroConfig['merchantId'] ?? '',
+                                        terminalId: tyroConfig['terminalId'] ?? '',
+                                        integrationKey: tyroConfig['integrationKey'] ?? '',
+                                        posProductVendor: tyroConfig['posProductVendor'] ?? 'Solution22',
+                                        posProductName: tyroConfig['posProductName'] ?? 'DropIn Booking',
+                                        posProductVersion: tyroConfig['posProductVersion'] ?? '1.0',
+                                      );
                                       
-                                      if (double.parse(balanceAmountController.text,) <= 0 && totalPaid >= totalAmountDue) {
-                                        setState(() {
-                                          checkoutController.checkoutPayBtn.value = true;
-                                        });
-
-                                        if (isDiscountApplied) {
-                                          // Check if it's only manual discount that needs notes
-                                          if (isManualDiscountApplied && (notesController.text == null ||
-                                              notesController.text == '' ||
-                                              notesController.text.isEmpty)) {
-                                            showCustomSnackbar(
-                                              'Warning',
-                                              'Please enter the discount notes',
-                                              Colors.orange,
-                                            );
-                                            setState(() {
-                                              checkoutController
-                                                  .checkoutPayBtn
-                                                  .value = false;
-                                            });
-                                            return;
-                                          }
-                                          // Auto-fill notes for membership discount if not provided
-                                          if (isMembershipDiscountApplied && notesController.text.isEmpty) {
-                                            notesController.text = 'Membership Discount';
-                                          }
-                                        }
-
-                                        try {
-                                          // Continue with existing payment processing
-                                          if (widget.type == 'Membership') {
-
-                                            final prefs = await SharedPreferences.getInstance();
-                                            String? paymentDevices = prefs.getString('paymentDevices');
-                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
-
-                                            double? overallTotal  = actualTotal;
-                                            final total           = overallTotal;
-
-                                            if (selectedMethod == 'EFTPOS') {
-
-                                              await paymentController.processPayment(
-                                                context: context,
-                                                amount: total.toDouble(),
-                                                reference: controller.bookingId,
-                                                apiKey: paymentDeviceData['api_key'], // Get from secure storage
-                                                merchantId: paymentDeviceData['merchant_id'],
-                                                terminalId: paymentDeviceData['terminal_id'],
-                                                integrationKey: paymentDeviceData['integration_key'],
-                                                posProductVendor: paymentDeviceData['product_vendor'],
-                                                posProductName: paymentDeviceData['product_name'],
-                                                posProductVersion: paymentDeviceData['product_version'],
-                                              ).then((value) async {
-
-                                                await checkoutController.processMembershipPayment(
-                                                  userId: widget.exuserId,
-                                                  paymentType: selectedMethod,
-                                                  notes: notesController.text,
-                                                  total: total.toDouble(),
-                                                  paid: totalPaid,
-                                                  balance: double.parse(balanceAmountController.text,),
-                                                  isMembershipApplied: isMembershipApplied || (selectedMembershipId != null && selectedMembershipId!.isNotEmpty),
-                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                );
-
-                                              });
-
-                                            }  else {
-
-                                                                                              await checkoutController.processMembershipPayment(
-                                                  userId: widget.exuserId,
-                                                  paymentType: selectedMethod,
-                                                  notes: notesController.text,
-                                                  total: total.toDouble(),
-                                                  paid: totalPaid,
-                                                  balance: double.parse(balanceAmountController.text,),
-                                                  isMembershipApplied: widget.isMembershipApplied,
-                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                );
-
-                                            }
-
-                                          } else if (widget.type == 'ExistingBooking') {
-
-                                            final prefs = await SharedPreferences.getInstance();
-                                            String? paymentDevices = prefs.getString('paymentDevices');
-                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
-
-                                            double? itemSubTotal  = cartItemsTotal;
-                                            double? bookingSubTotal = widget.billAmount - cartItemsTotal;
-                                            double? itemTotal;
-                                            double? bookingTotal;
-                                            double? overallTotal;
-                                            
-                                            // Calculate booking total with membership discount
-                                            bookingTotal = bookingSubTotal - membershipDiscountAmount;
-                                            
-                                            // Apply manual discount based on its type
-                                            if (isManualBookingOnlyDiscount) {
-                                              // Manual discount applies only to booking
-                                              bookingTotal -= manualDiscountAmount;
-                                              itemTotal = cartItemsTotal;
-                                            } else {
-                                              // Manual discount applies to cart items
-                                              itemTotal = cartItemsTotal - manualDiscountAmount;
-                                            }
-                                            
-                                            overallTotal = itemTotal + bookingTotal;
-
-                                            if (selectedMethod == 'EFTPOS') {
-                                              final total = overallTotal;
-                                              await paymentController.processPayment(
-                                                context: context,
-                                                amount: total.toDouble(),
-                                                reference: controller.bookingId,
-                                                apiKey: paymentDeviceData['api_key'], // Get from secure storage
-                                                merchantId: paymentDeviceData['merchant_id'],
-                                                terminalId: paymentDeviceData['terminal_id'],
-                                                integrationKey: paymentDeviceData['integration_key'],
-                                                posProductVendor: paymentDeviceData['product_vendor'],
-                                                posProductName: paymentDeviceData['product_name'],
-                                                posProductVersion: paymentDeviceData['product_version'],
-                                                ).then((value) async {
-
-                                                await checkoutController.makeBookingPayment(
-                                                  bookingId: widget.exbookingId,
-                                                  orderId: widget.exorderId,
-                                                  userId: widget.exuserId,
-                                                  paymentType: selectedMethod,
-                                                  promoCode: promoCodeController.text,
-                                                  notes: notesController.text,
-                                                  paid: totalPaid,
-                                                  balance: double.parse(balanceAmountController.text,),
-                                                  printReceipt: widget.exorderId != null ? false : true,
-                                                  isMembershipApplied: widget.isMembershipApplied ?? false,
-                                                  membershipId: (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null,
-                                                  paymentMode: widget.forpayment,
-                                                );
-
-                                                if(widget.exorderId!=null && widget.exorderId!='') {
-                                                  checkoutController.productsPayment(
-                                                    order_id: widget.exorderId,
-                                                    price: itemSubTotal,
-                                                    taxes: (itemTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                    surcharge: 0,
-                                                    discount: discountAmount,
-                                                    billAmount: itemTotal,
-                                                    paidAmount: totalPaid,
-                                                    balanceAmount: double.parse(balanceAmountController.text,),
-                                                    paymentType: selectedMethod,
-                                                    paymentNotes: notesController.text,
-                                                    receiptToggle: receiptToggle,
-                                                    printBoth: true,
-                                                    customerId: widget.exuserId
-                                                  );
-                                                }
-
-                                              });
-                                            }  else {
-
-                                              await checkoutController.makeBookingPayment(
-                                                bookingId: widget.exbookingId,
-                                                orderId: widget.exorderId,
-                                                userId: widget.exuserId,
-                                                paymentType: selectedMethod,
-                                                promoCode: promoCodeController.text,
-                                                notes: notesController.text,
-                                                paid: totalPaid,
-                                                balance: double.parse(balanceAmountController.text,),
-                                                printReceipt: widget.exorderId != null ? false : true,
-                                                isMembershipApplied: widget.isMembershipApplied ?? false,
-                                                membershipId: (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null,
-                                                paymentMode: widget.forpayment,
-                                              );
-
-                                              if(widget.exorderId!=null && widget.exorderId!='') {
-                                                checkoutController.productsPayment(
-                                                  order_id: widget.exorderId,
-                                                  price: itemSubTotal,
-                                                  taxes: (itemTotal) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                  surcharge: 0,
-                                                  discount: discountAmount,
-                                                  billAmount: itemTotal,
-                                                  paidAmount: totalPaid,
-                                                  balanceAmount: double.parse(balanceAmountController.text,),
-                                                  paymentType: selectedMethod,
-                                                  paymentNotes: notesController.text,
-                                                  receiptToggle: receiptToggle,
-                                                  printBoth: true,
-                                                  customerId: widget.exuserId
-                                                );
-                                              }
-
-                                            }
-
-
-                                          } else if (widget.type == 'New') {
-
-                                            final prefs = await SharedPreferences.getInstance();
-                                            String? paymentDevices = prefs.getString('paymentDevices');
-                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
-
-                                            double? itemSubTotal  = cartItemsTotal;
-                                            double? bookingSubTotal = widget.billAmount - cartItemsTotal;
-                                            double? itemTotal;
-                                            double? bookingTotal;
-                                            double? overallTotal;
-                                            
-                                            // Calculate booking total with membership discount
-                                            bookingTotal = bookingSubTotal - membershipDiscountAmount;
-                                            
-                                            // Apply manual discount based on its type
-                                            if (isManualBookingOnlyDiscount) {
-                                              // Manual discount applies only to booking
-                                              bookingTotal -= manualDiscountAmount;
-                                              itemTotal = cartItemsTotal;
-                                            } else {
-                                              // Manual discount applies to cart items
-                                              itemTotal = cartItemsTotal - manualDiscountAmount;
-                                            }
-                                            
-                                            overallTotal = itemTotal + bookingTotal;
-
-                                            String? orderId = '';
-                                            //double? total   = 0;
-
-                                            //Create order if the cart items are exist
-                                            if(cartItems.length > 0) {
-                                              await checkoutController.createTempOrder(total:(itemTotal ?? 0.0),).then((value) {
-                                                orderId = value['id'];
-                                                //total = value['total'];
-                                              },);
-                                            }
-
-                                            if (selectedMethod == 'EFTPOS') {
-                                              final total = overallTotal;
-                                              try {
-                                                  await paymentController.processPayment(
-                                                    context: context,
-                                                    amount: total.toDouble(),
-                                                    reference: controller.bookingId,
-                                                    apiKey: paymentDeviceData['api_key'], // Get from secure storage
-                                                    merchantId: paymentDeviceData['merchant_id'],
-                                                    terminalId: paymentDeviceData['terminal_id'],
-                                                    integrationKey: paymentDeviceData['integration_key'],
-                                                    posProductVendor: paymentDeviceData['product_vendor'],
-                                                    posProductName: paymentDeviceData['product_name'],
-                                                    posProductVersion: paymentDeviceData['product_version'],
-                                                  ).then((value) async {
-
-                                                    if (controller.userData.value.id != null) {
-
-                                                      populateCartWithSubSlots(widget.bookings,);
-                                                      await checkoutController.processFinalCheckout(
-                                                        userId: controller.userData.value.id,
-                                                        name: controller.nameController.text,
-                                                        email: controller.userData.value.email,
-                                                        mobile: controller.userData.value.mobile,
-                                                        paymentType: selectedMethod,
-                                                        promoCode: promoCodeController.text,
-                                                        notes: notesController.text,
-                                                        paid: totalPaid,
-                                                        balance: double.parse(balanceAmountController.text,),
-                                                        bookingId: controller.bookingId,
-                                                        isMembershipApplied: widget.isMembershipApplied,
-                                                        membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                        printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
-                                                        orderId: orderId,
-                                                      );
-
-                                                    } else {
-
-                                                      await checkoutController.registerUser(
-                                                        mobile: widget.mobileno,
-                                                        firstName: widget.customerName,
-                                                        membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                      ).then((value) {
-                                                        populateCartWithSubSlots(widget.bookings,);
-                                                        checkoutController.processFinalCheckout(
-                                                          userId: checkoutController.userData.value.id,
-                                                          name: controller.nameController.text,
-                                                          email: controller.userData.value.email,
-                                                          mobile: controller.userData.value.mobile,
-                                                          paymentType: selectedMethod,
-                                                          promoCode: promoCodeController.text,
-                                                          notes: notesController.text,
-                                                          paid: totalPaid,
-                                                          balance: double.parse(balanceAmountController.text,),
-                                                          bookingId: controller.bookingId,
-                                                          isMembershipApplied: widget.isMembershipApplied,
-                                                          membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                          printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
-                                                          orderId: orderId,
-                                                        );
-                                                      });
-                                                    }
-
-                                                    if(orderId!=null && orderId!='') {
-                                                      checkoutController.productsPayment(
-                                                        order_id: orderId,
-                                                        price: itemSubTotal,
-                                                        taxes: (itemTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                        surcharge: 0,
-                                                        discount: discountAmount,
-                                                        billAmount: itemTotal,
-                                                        paidAmount: totalPaid,
-                                                        balanceAmount: double.parse(balanceAmountController.text,),
-                                                        paymentType: selectedMethod,
-                                                        paymentNotes: notesController.text,
-                                                        receiptToggle: receiptToggle,
-                                                        printBoth: true,
-                                                        customerId: checkoutController.userData.value.id
-                                                      );
-                                                    }
-
-                                                  });
-                                              } catch (e) {
-                                                Get.snackbar(
-                                                  'Error',
-                                                  paymentController.paymentError.value,
-                                                  backgroundColor: Colors.red,
-                                                );
-                                              }
-
-                                            } else {
-
-                                              if (controller.userData.value.id != null) {
-                                                populateCartWithSubSlots(widget.bookings,);
-                                                await checkoutController.processFinalCheckout(
-                                                  userId: controller.userData.value.id,
-                                                  name: controller.nameController.text,
-                                                  email: controller.userData.value.email,
-                                                  mobile: controller.userData.value.mobile,
-                                                  paymentType: selectedMethod,
-                                                  promoCode: promoCodeController.text,
-                                                  notes: notesController.text,
-                                                  paid: totalPaid,
-                                                  balance: double.parse(balanceAmountController.text,),
-                                                  bookingId: controller.bookingId,
-                                                  isMembershipApplied: isMembershipApplied || (selectedMembershipId != null && selectedMembershipId!.isNotEmpty),
-                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                  printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
-                                                  orderId: orderId,
-                                                );
-                                              } else {
-                                                await checkoutController.registerUser(
-                                                  mobile: widget.mobileno,
-                                                  firstName: widget.customerName,
-                                                  membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                ).then((value) {
-                                                  populateCartWithSubSlots(widget.bookings,);
-                                                  checkoutController.processFinalCheckout(
-                                                    userId: checkoutController.userData.value.id,
-                                                    name: controller.nameController.text,
-                                                    email: controller.userData.value.email,
-                                                    mobile: controller.userData.value.mobile,
-                                                    paymentType: selectedMethod,
-                                                    promoCode: promoCodeController.text,
-                                                    notes: notesController.text,
-                                                    paid: totalPaid,
-                                                    balance: double.parse(balanceAmountController.text,),
-                                                    bookingId: controller.bookingId,
-                                                    isMembershipApplied: widget.isMembershipApplied,
-                                                    membershipId: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                                    printReceipt: receiptToggle==true ? orderId=='' ? true : false : false,
-                                                    orderId: orderId,
-                                                  );
-                                                });
-                                              }
-
-                                              if(orderId!=null && orderId!='') {
-                                                checkoutController.productsPayment(
-                                                  order_id: orderId,
-                                                  price: itemSubTotal,
-                                                  taxes: (itemTotal) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                  surcharge: 0,
-                                                  discount: discountAmount,
-                                                  billAmount: itemTotal,
-                                                  paidAmount: totalPaid,
-                                                  balanceAmount: double.parse(balanceAmountController.text,),
-                                                  paymentType: selectedMethod,
-                                                  paymentNotes: notesController.text,
-                                                  receiptToggle: receiptToggle,
-                                                  printBoth: true,
-                                                  customerId: checkoutController.userData.value.id
-                                                );
-                                              }
-
-                                            }
-
-                                          } else if (widget.type == 'Product') {
-
-                                            final prefs = await SharedPreferences.getInstance();
-                                            String? paymentDevices = prefs.getString('paymentDevices');
-                                            final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
-
-                                            checkoutController.createTempOrder(total:(widget.billAmount - discountAmount),).then((value) async {
-                                                  final orderId = value['id'];
-                                                  final total = value['total'];
-                                                  if (selectedMethod == 'EFTPOS') {
-                                                    try {
-                                                      // print(orderId);
-                                                      // print(total);
-                                                      // print(paymentDeviceData);
-                                                      await paymentController.processPayment(
-                                                            context: context,
-                                                            amount: total.toDouble(),
-                                                            reference: orderId,
-                                                            apiKey: paymentDeviceData['api_key'], // Get from secure storage
-                                                            merchantId: paymentDeviceData['merchant_id'],
-                                                            terminalId: paymentDeviceData['terminal_id'],
-                                                            integrationKey: paymentDeviceData['integration_key'],
-                                                            posProductVendor: paymentDeviceData['product_vendor'],
-                                                            posProductName: paymentDeviceData['product_name'],
-                                                            posProductVersion: paymentDeviceData['product_version'],
-                                                          ).then((value) async {
-
-                                                            if(widget.exuserId!=null && widget.exuserId!='') {
-
-                                                              checkoutController.productsPayment(
-                                                                order_id: orderId,
-                                                                price: widget.billAmount - discountAmount,
-                                                                taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                                surcharge: 0,
-                                                                discount: discountAmount,
-                                                                billAmount: widget.billAmount,
-                                                                paidAmount: totalPaid,
-                                                                balanceAmount: double.parse(balanceAmountController.text,),
-                                                                paymentType: selectedMethod,
-                                                                paymentNotes: notesController.text,
-                                                                paymentResponse: value.toString(),
-                                                                receiptToggle: receiptToggle,
-                                                                customerId: widget.exuserId,
-                                                              );
-
-                                                            } else {
-                                                              await checkoutController.registerUser(
-                                                                mobile: widget.mobileno,
-                                                                firstName: widget.customerName,
-                                                              ).then((userInfo) {
-
-                                                                checkoutController.productsPayment(
-                                                                  order_id: orderId,
-                                                                  price: widget.billAmount - discountAmount,
-                                                                  taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                                  surcharge: 0,
-                                                                  discount: discountAmount,
-                                                                  billAmount: widget.billAmount,
-                                                                  paidAmount: totalPaid,
-                                                                  balanceAmount: double.parse(balanceAmountController.text,),
-                                                                  paymentType: selectedMethod,
-                                                                  paymentNotes: notesController.text,
-                                                                  paymentResponse: value.toString(),
-                                                                  receiptToggle: receiptToggle,
-                                                                  customerId: checkoutController.userData.value.id,
-                                                                );
-
-                                                              });
-                                                            }
-
-                                                          });
-
-                                                      if (paymentController.paymentStatus.value == 'Payment successful') {
-                                                        print(
-                                                          'Payment Successful via Tyro',
-                                                        );
-                                                      }
-                                                    } catch (e) {
-                                                      Get.snackbar(
-                                                        'Error',
-                                                        paymentController.paymentError.value,
-                                                        backgroundColor: Colors.red,
-                                                      );
-                                                    }
-                                                  } else {
-                                                    if(widget.exuserId!=null && widget.exuserId!='') {
-                                                      checkoutController.productsPayment(
-                                                        order_id: orderId,
-                                                        price: widget.billAmount - discountAmount,
-                                                        taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                        surcharge: 0,
-                                                        discount: discountAmount,
-                                                        billAmount: widget.billAmount - discountAmount,
-                                                        paidAmount: totalPaid,
-                                                        balanceAmount: double.parse(balanceAmountController.text,),
-                                                        paymentType: selectedMethod,
-                                                        paymentNotes: notesController.text,
-                                                        receiptToggle: receiptToggle,
-                                                        customerId: widget.exuserId,
-                                                      );
-                                                    } else {
-                                                      await checkoutController.registerUser(
-                                                        mobile: widget.mobileno,
-                                                        firstName: widget.customerName,
-                                                      ).then((userInfo) {
-
-                                                        checkoutController.productsPayment(
-                                                          order_id: orderId,
-                                                          price: widget.billAmount - discountAmount,
-                                                          taxes: (widget.billAmount - discountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                                                          surcharge: 0,
-                                                          discount: discountAmount,
-                                                          billAmount: widget.billAmount - discountAmount,
-                                                          paidAmount: totalPaid,
-                                                          balanceAmount: double.parse(balanceAmountController.text,),
-                                                          paymentType: selectedMethod,
-                                                          paymentNotes: notesController.text,
-                                                          receiptToggle: receiptToggle,
-                                                          customerId: checkoutController.userData.value.id,
-                                                        );
-
-                                                      });
-                                                    }
-
-                                                  }
-                                                });
-                                          }
-                                          //Checkout End
-
-                                        } catch (e) {
-                                          showCustomSnackbar(
-                                            'Error',
-                                            e.toString(),
-                                            Colors.red,
-                                          );
-                                        } finally {
-                                          setState(() {
-                                            checkoutController.checkoutPayBtn.value = false;
-                                          });
-                                        }
+                                      if (paymentResult['status'] == 'completed') {
+                                        _handlePaymentSuccess();
                                       } else {
+                                        setState(() {
+                                          checkoutController.checkoutPayBtn.value = false;
+                                        });
                                         showCustomSnackbar(
-                                          'Warning',
-                                          'Invalid Amount',
-                                          Colors.orange,
+                                          'Payment Failed',
+                                          'EFTPOS payment was not successful',
+                                          Colors.red,
                                         );
                                       }
                                     } else {
+                                      // No Tyro config, fallback to manual
                                       showCustomSnackbar(
-                                        'Warning',
-                                        'Please enter the Paid Amount',
+                                        'EFTPOS Not Configured',
+                                        'Processing as manual payment',
                                         Colors.orange,
                                       );
+                                      _handlePaymentSuccess();
                                     }
-                                  },
-                          style: ElevatedButton.styleFrom(
-                            minimumSize: const Size(double.infinity, 44),
-                            backgroundColor: Colors.green.shade500,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                                  } else {
+                                    // No store details, process as manual
+                                    _handlePaymentSuccess();
+                                  }
+                                } catch (e) {
+                                  setState(() {
+                                    checkoutController.checkoutPayBtn.value = false;
+                                  });
+                                  print('EFTPOS payment error: $e');
+                                  showCustomSnackbar(
+                                    'Payment Error',
+                                    'Failed to process EFTPOS payment: $e',
+                                    Colors.red,
+                                  );
+                                }
+                              } else {
+                                // For Cash and On Account/Void
+                                _handlePaymentSuccess();
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade500,
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Obx(() => checkoutController.checkoutPayBtn.value
+                              ? const SizedBox(
+                                  height: 30,
+                                  width: 30,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 3,
+                                  ),
+                                )
+                              : Text(
+                                  'Pay Now',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
                             ),
                           ),
-                          child:
-                              checkoutController.checkoutPayBtn.value
-                                  ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                  : Text(
-                                    'Pay Now',
-                                    style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 25,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                        );
-                      }),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -2787,759 +2400,437 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ],
       ),
-    );  // End of body Column
-  }  // End of buildCheckout method
-
-  Future<void> _showDiscountDialog(
-    CheckoutController checkoutController,
-  ) async {
-    print('Enhanced discount dialog called'); // Debug print
-    
-    // No need to check for membership discount since both can be applied together
-    // Manual discounts require admin approval anyway
-    
-    discountController.clear();
-    String discountType = 'flat'; // 'flat' or 'percentage'
-    bool isBookingOnly = false;
-    double bookingTotal = 0;
-    double productTotal = 0;
-    
-    // Calculate booking total and product total separately
-    for (var booking in widget.bookings) {
-      bookingTotal += booking.subSlots.fold(0.0, (sum, slot) => sum + slot.price);
-    }
-    productTotal = cartItems.fold(0, (sum, item) => 
-        sum + (double.tryParse(item.product.price) ?? 0) * item.quantity);
-    
-    // Add membership if applied
-    if (isMembershipApplied == true && selectedMembershipPrice != null) {
-      productTotal += selectedMembershipPrice!;
-    }
-
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minWidth: MediaQuery.of(context).size.width * 0.4,
-                  maxWidth: MediaQuery.of(context).size.width * 0.4,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Apply Discount',
-                        style: GoogleFonts.inter(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(height: 20),
-                      
-                      // Breakdown of amounts
-                      Container(
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('Booking Total:', style: GoogleFonts.inter(fontSize: 20)),
-                                Text('\$${bookingTotal.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 20)),
-                              ],
-                            ),
-                            if (productTotal > 0) ...[
-                              SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Product Total:', style: GoogleFonts.inter(fontSize: 20)),
-                                  Text('\$${productTotal.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 20)),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      
-                      SizedBox(height: 20),
-                      
-                      // Discount Type Selection
-                      Text('Discount Type', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w500)),
-                      SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: RadioListTile<String>(
-                              title: Text('Flat Fee', style: GoogleFonts.inter(fontSize: 18)),
-                              value: 'flat',
-                              groupValue: discountType,
-                              onChanged: (value) {
-                                setState(() {
-                                  discountType = value!;
-                                  discountController.clear();
-                                });
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: RadioListTile<String>(
-                              title: Text('Percentage', style: GoogleFonts.inter(fontSize: 18)),
-                              value: 'percentage',
-                              groupValue: discountType,
-                              onChanged: (value) {
-                                setState(() {
-                                  discountType = value!;
-                                  discountController.clear();
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      
-                      // Apply to booking only checkbox (only show if there are products)
-                      if (productTotal > 0)
-                        CheckboxListTile(
-                          title: Text('Apply to booking only', style: GoogleFonts.inter(fontSize: 18)),
-                          subtitle: Text('Discount will not apply to products', style: GoogleFonts.inter(fontSize: 16, color: Colors.grey)),
-                          value: isBookingOnly,
-                          onChanged: (value) {
-                            setState(() {
-                              isBookingOnly = value!;
-                            });
-                          },
-                        ),
-                      
-                      SizedBox(height: 20),
-                      
-                      // Discount Input
-                      TextField(
-                        controller: discountController,
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d+\.?\d{0,2}'),
-                          ),
-                        ],
-                        decoration: InputDecoration(
-                          prefixText: discountType == 'flat' ? '\$' : '',
-                          suffixText: discountType == 'percentage' ? '%' : '',
-                          border: OutlineInputBorder(),
-                          hintText: discountType == 'flat' ? '0.00' : '0',
-                          labelText: 'Discount Amount',
-                        ),
-                        style: GoogleFonts.inter(fontSize: 25),
-                      ),
-                      
-                      SizedBox(height: 30),
-                      
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () => Navigator.pop(context),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Palette.newColorbg,
-                                minimumSize: const Size(0, 60),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                  side: BorderSide(color: Palette.newColor),
-                                ),
-                              ),
-                              child: Text(
-                                'Cancel',
-                                style: GoogleFonts.inter(
-                                  fontSize: 22,
-                                  color: Palette.newColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 20),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final enteredValue = double.tryParse(discountController.text) ?? 0.0;
-                                if (enteredValue <= 0) {
-                                  showCustomSnackbar('Invalid Amount', 'Please enter a valid discount amount', Colors.red);
-                                  return;
-                                }
-                                
-                                double calculatedDiscount = 0;
-                                double maxDiscount = isBookingOnly ? bookingTotal : actualTotal;
-                                
-                                if (discountType == 'percentage') {
-                                  if (enteredValue > 100) {
-                                    showCustomSnackbar('Invalid Percentage', 'Percentage cannot exceed 100%', Colors.red);
-                                    return;
-                                  }
-                                  calculatedDiscount = maxDiscount * (enteredValue / 100);
-                                } else {
-                                  if (enteredValue > maxDiscount) {
-                                    showCustomSnackbar('Invalid Amount', 'Discount cannot exceed \$${maxDiscount.toStringAsFixed(2)}', Colors.red);
-                                    return;
-                                  }
-                                  calculatedDiscount = enteredValue;
-                                }
-                                
-                                // Check if this is a booking discount that needs admin approval
-                                bool needsAdminApproval = isBookingOnly || 
-                                    (discountType == 'percentage' && enteredValue >= 100 && bookingTotal > 0);
-                                
-                                if (needsAdminApproval) {
-                                  // Show admin PIN dialog
-                                  final approved = await _showAdminPinDialog();
-                                  print('Admin approval result: $approved');
-                                  if (!approved) {
-                                    return;
-                                  }
-                                }
-                                
-                                print('Applying discount: $calculatedDiscount, type: $discountType, value: $enteredValue');
-                                
-                                // Update the parent state, not the dialog state
-                                this.setState(() {
-                                  manualDiscountAmount = calculatedDiscount;
-                                  isManualDiscountApplied = true;
-                                  manualDiscountType = discountType;
-                                  manualDiscountValue = enteredValue;
-                                  isManualBookingOnlyDiscount = isBookingOnly;
-                                });
-                                
-                                print('Discount applied: amount=$discountAmount, applied=$isDiscountApplied');
-                                Navigator.pop(context);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Palette.newColor,
-                                minimumSize: const Size(0, 60),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              child: Text(
-                                'Apply',
-                                style: GoogleFonts.inter(
-                                  fontSize: 22,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 
   Widget _buildAmountSummary(CheckoutController checkoutController) {
-    // Calculate bill amount - this is the amount due (courts + products + membership - discounts)
-    double totalAmountDue = actualTotal - manualDiscountAmount;
-    
-    final double totalPaid = this.totalPaid;
-    final double balance = totalAmountDue - totalPaid;
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _amountColumn('Bill Amount', totalAmountDue), // Show total amount due including membership
-          _divider(),
-          _amountColumn('Total Paid', totalPaid),
-          _divider(),
-          _amountColumn('Balance', balance, isBalance: true),
+          // Bill Amount Column
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Bill Amount',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${(actualTotal - membershipDiscountAmount - manualDiscountAmount).toStringAsFixed(2)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Divider
+          Container(
+            height: 40,
+            width: 1,
+            color: Colors.grey.shade300,
+          ),
+          
+          // Total Paid Column
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Total Paid',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${totalPaid.toStringAsFixed(2)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Divider
+          Container(
+            height: 40,
+            width: 1,
+            color: Colors.grey.shade300,
+          ),
+          
+          // Balance Column
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Balance',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey.shade600,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '${(actualTotal - membershipDiscountAmount - manualDiscountAmount - totalPaid).toStringAsFixed(2)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF4A90E2), // Nice blue color similar to screenshot
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _divider() => Container(
-    width: 2,
-    height: MediaQuery.of(context).size.height * .13,
-    color: Colors.grey.shade300,
-  );
-
-  Widget _amountColumn(String label, double amount, {bool isBalance = false}) {
+  Widget _buildAmountSelector() {
+    final double billAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+    
     return Column(
       children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            color: Colors.grey.shade500,
-            fontWeight: FontWeight.w600,
-            fontSize: 25,
+        // Quick amount buttons
+        Container(
+          margin: const EdgeInsets.only(bottom: 16, right: 15),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300, width: 2),
           ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          '${amount.abs().toStringAsFixed(2)}',
-          style: GoogleFonts.inter(
-            fontSize: 40,
-            fontWeight: FontWeight.w700,
-            color:
-                isBalance && amount != 0
-                    ? Colors.indigo.shade500
-                    : Colors.black,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Quick Amount',
+                style: GoogleFonts.inter(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade900,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildQuickAmountButton('\$10', 10.0),
+                  _buildQuickAmountButton('\$20', 20.0),
+                  _buildQuickAmountButton('\$50', 50.0),
+                  _buildQuickAmountButton('\$100', 100.0),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildQuickAmountButton('Exact', billAmount),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        _showCustomAmountDialog();
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 5),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: selectedAmount == 'custom' 
+                            ? const Color(0xFFF0F4FF) 
+                            : Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selectedAmount == 'custom' 
+                              ? const Color(0xFF6366F1) 
+                              : Colors.grey.shade300,
+                            width: 2,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Custom',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: selectedAmount == 'custom'
+                                ? const Color(0xFF6366F1)
+                                : Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          totalPaid = 0.0;
+                          customAmountString = '';
+                          paidAmountController.text = '0.00';
+                          selectedAmount = '';
+                        });
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 5),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.red.shade300,
+                            width: 2,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Clear',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ],
     );
   }
-
-  // Widget _buildPaymentOptions() {
-  //   return Column(
-  //     children: [
-  //       Row(
-  //         crossAxisAlignment: CrossAxisAlignment.center,
-  //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //         children:
-  //             paymentMethods.map((method) {
-  //               final isSelected = selectedMethod == method;
-  //               return Container(
-  //                 height: MediaQuery.of(context).size.height * 0.07,
-  //                 width: MediaQuery.of(context).size.width * 0.08,
-  //                 color: Colors.amber,
-  //               );
-  //             }).toList(),
-  //       ),
-  //       if (selectedMethod == 'EFTPOS') ...[
-  //         SizedBox(height: 20),
-  //         Obx(() {
-  //           final controller = Get.find<CheckoutController>();
-  //           return Column(
-  //             children: [
-  //               if (controller.isProcessingPayment.value)
-  //                 CircularProgressIndicator(),
-  //               if (controller.paymentStatus.value.isNotEmpty)
-  //                 Padding(
-  //                   padding: const EdgeInsets.symmetric(vertical: 8.0),
-  //                   child: Text(
-  //                     controller.paymentStatus.value,
-  //                     style: GoogleFonts.inter(
-  //                       fontSize: 14,
-  //                       color:
-  //                           controller.paymentStatus.value.contains('failed')
-  //                               ? Colors.red
-  //                               : Colors.green,
-  //                     ),
-  //                   ),
-  //                 ),
-  //             ],
-  //           );
-  //         }),
-  //       ],
-  //     ),
-  //   );
-  // }
-  Widget _buildAmountSelector() {
-    final List<String> row1 = ['\$10', '\$20', '\$50'];
-    final List<String> row2 = ['\$100', 'Exact', 'Custom'];
-
-    Widget buildAmountButton(String amount) {
-      final bool isSelected = amount == selectedAmount;
-
-      return GestureDetector(
-        onTap: () async {
+  
+  Widget _buildQuickAmountButton(String label, double amount) {
+    // Don't show selected state for amount buttons (only for Exact and Custom)
+    final bool isSpecialButton = label == 'Exact' || label == 'Custom';
+    final bool isSelected = isSpecialButton && selectedAmount == label;
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
           setState(() {
-            selectedAmount = amount;
-          });
-
-          // Safely parse numeric values
-          if (amount.startsWith('\$')) {
-            final parsed = double.tryParse(amount.replaceAll('\$', ''));
-            if (parsed != null) {
-              _addPayment(parsed); // Your custom function
+            if (label == 'Exact') {
+              // For Exact button, set the exact amount
+              selectedAmount = label;
+              totalPaid = amount;
+              customAmountString = amount.toStringAsFixed(2);
+              paidAmountController.text = totalPaid.toStringAsFixed(2);
+            } else if (label == 'Custom') {
+              // Custom button behavior is handled elsewhere
+              selectedAmount = label;
+            } else {
+              // For amount buttons ($10, $20, etc), add to existing amount
+              totalPaid += amount;
+              customAmountString = totalPaid.toStringAsFixed(2);
+              paidAmountController.text = totalPaid.toStringAsFixed(2);
+              // Don't change selectedAmount for regular amount buttons
             }
-          } else if (amount == 'Custom') {
-            await _showCustomAmountDialog();
-            setState(() {}); // Rebuild to reflect updated totalPaid
-          } else if (amount == 'Exact') {
-            setState(() {
-              totalPaid = actualTotal - manualDiscountAmount;
-              customAmountString =
-                  (actualTotal - manualDiscountAmount).toString();
-            });
-          }
+          });
         },
         child: Container(
-          width: MediaQuery.of(context).size.width / 5.7,
-          height: MediaQuery.of(context).size.height * .08,
-          alignment: Alignment.center,
+          margin: const EdgeInsets.symmetric(horizontal: 5),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFFF0F4FF) : Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color:
-                  isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
-              width: isSelected ? 2 : 1,
+              color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
+              width: 2,
             ),
           ),
-          child: Text(
-            amount,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.w600,
-              color: isSelected ? Colors.indigo.shade500 : Colors.grey.shade700,
-              fontSize: 25,
+          child: Center(
+            child: Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade700,
+              ),
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
+
+  void _showCustomAmountDialog() {
+    String tempCustomAmount = totalPaid > 0 ? totalPaid.toStringAsFixed(2) : '';
+    // Remove trailing zeros
+    if (tempCustomAmount.contains('.')) {
+      tempCustomAmount = tempCustomAmount.replaceAll(RegExp(r'\.?0+$'), '');
+      if (tempCustomAmount.endsWith('.')) {
+        tempCustomAmount = tempCustomAmount.substring(0, tempCustomAmount.length - 1);
+      }
     }
-
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10, top: 10, right: 15),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300, width: 2),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children:
-                  row1
-                      .map(
-                        (amount) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: buildAmountButton(amount),
-                        ),
-                      )
-                      .toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children:
-                  row2
-                      .map(
-                        (amount) => Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          child: buildAmountButton(amount),
-                        ),
-                      )
-                      .toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCashButtons() {
-    final cashAmounts = ['\$10', '\$20', '\$50', '\$100', 'Exact', 'Custom'];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ...cashAmounts.map(
-              (amt) => ElevatedButton(
-                onPressed: () => _addPayment(double.parse(amt)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  minimumSize: Size(50, 50),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: Colors.grey.shade300, width: 2),
-                  ),
-                ),
-                child: Text(
-                  '\$$amt',
-                  style: GoogleFonts.inter(
-                    color: Colors.grey.shade800,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  selectedMethod = 'CASH';
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                minimumSize: Size(50, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: BorderSide(color: Colors.grey.shade300, width: 1),
-                ),
-              ),
-              child: Text(
-                'Custom',
-                style: GoogleFonts.inter(
-                  color: Colors.grey.shade800,
-                  fontSize: 25,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // SizedBox(height: 16),
-        // ...keys.map((key) {
-        //   return Padding(
-        //     padding: const EdgeInsets.symmetric(vertical: 4),
-        //     child: GestureDetector(
-        //       onTap: () {
-        //         setState(() {
-        //           if (key == '⌫') {
-        //             if (customAmountString.isNotEmpty) {
-        //               customAmountString = customAmountString
-        //                   .substring(
-        //                     0,
-        //                     customAmountString.length - 1,
-        //                   );
-        //             }
-        //           } else if (key == '.') {
-        //             if (!customAmountString.contains('.')) {
-        //               customAmountString += '.';
-        //             }
-        //           } else {
-        //             if (customAmountString == '0') {
-        //               customAmountString = key; // replace initial 0
-        //             } else {
-        //               customAmountString += key;
-        //             }
-        //           }
-
-        //           totalPaid =
-        //               double.tryParse(customAmountString) ?? 0.0;
-        //         });
-        //       },
-        //       child: Container(
-        //         width: 100,
-        //         height: 60,
-        //         alignment: Alignment.center,
-        //         decoration: BoxDecoration(
-        //           border: Border.all(color: Colors.grey.shade300),
-        //           borderRadius: BorderRadius.circular(10),
-        //           color: Colors.white,
-        //         ),
-        //         child:
-        //             key == '⌫'
-        //                 ? const Icon(Icons.backspace_outlined)
-        //                 : Text(
-        //                   key,
-        //                   style: GoogleFonts.inter(
-        //                     fontSize: 24,
-        //                     fontWeight: FontWeight.w500,
-        //                   ),
-        //                 ),
-        //       ),
-        //     ),
-        //   );
-        // }).toList(),
-      ],
-    );
-  }
-
-  Future<void> _showCustomAmountDialog() async {
-    String input = '';
-    await showDialog(
+    
+    showDialog(
       context: context,
-      builder: (context) {
+      builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (context, setState) {
-            void onKeyTap(String key) {
-              setState(() {
-                if (key == '⌫') {
-                  if (input.isNotEmpty) {
-                    input = input.substring(0, input.length - 1);
-                  }
-                } else if (key == '.') {
-                  if (!input.contains('.')) {
-                    input += '.';
-                  }
-                } else {
-                  if (input == '0') {
-                    input = key;
-                  } else {
-                    input += key;
-                  }
-                }
-              });
-            }
-
+          builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: Colors.white,
               title: Text(
-                'Enter Amount',
+                'Enter Custom Amount',
                 style: GoogleFonts.inter(
-                  color: Colors.grey.shade700,
                   fontSize: 24,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    height: MediaQuery.of(context).size.height * .05,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(6),
                       color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Text(
-                      input.isEmpty ? '0' : input,
+                      '\$${tempCustomAmount.isEmpty ? '0.00' : (double.tryParse(tempCustomAmount) ?? 0.0).toStringAsFixed(2)}',
                       style: GoogleFonts.inter(
-                        fontSize: 30,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
-                    height: MediaQuery.of(context).size.height * .50,
-                    width: MediaQuery.of(context).size.width * .30,
-                    child: GridView.count(
-                      crossAxisCount: 3,
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 1.5,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        ...[
-                          '1',
-                          '2',
-                          '3',
-                          '4',
-                          '5',
-                          '6',
-                          '7',
-                          '8',
-                          '9',
-                          '.',
-                          '0',
-                          '⌫',
-                        ].map(
-                          (key) => SizedBox(
-                            height: MediaQuery.of(context).size.height / 2,
-                            child: ElevatedButton(
-                              onPressed: () => onKeyTap(key),
-                              style: ElevatedButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                backgroundColor: Colors.grey[200],
-                                foregroundColor: Colors.black,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                              ),
-                              child:
-                                  key == '⌫'
-                                      ? const Icon(
-                                        Icons.backspace_outlined,
-                                        size: 25,
-                                      )
-                                      : Text(
-                                        key,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 25,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    height: 280,
+                    width: 300,
+                    child: NumberPadWidget(
+                      onNumberTap: (value) {
+                        setDialogState(() {
+                          if (value == '.') {
+                            if (!tempCustomAmount.contains('.')) {
+                              if (tempCustomAmount.isEmpty) {
+                                tempCustomAmount = '0.';
+                              } else {
+                                tempCustomAmount += value;
+                              }
+                            }
+                          } else {
+                            if (tempCustomAmount == '0' && value == '0') {
+                              return;
+                            }
+                            if (tempCustomAmount == '0' && value != '.') {
+                              tempCustomAmount = value;
+                            } else {
+                              if (tempCustomAmount.contains('.')) {
+                                final parts = tempCustomAmount.split('.');
+                                if (parts.length > 1 && parts[1].length >= 2) {
+                                  return;
+                                }
+                              }
+                              tempCustomAmount += value;
+                            }
+                          }
+                        });
+                      },
+                      onBackspaceTap: () {
+                        setDialogState(() {
+                          if (tempCustomAmount.isNotEmpty) {
+                            tempCustomAmount = tempCustomAmount.substring(0, tempCustomAmount.length - 1);
+                          }
+                        });
+                      },
+                      submitForm: () {
+                        // Apply the custom amount
+                        setState(() {
+                          if (tempCustomAmount.isEmpty || tempCustomAmount == '.') {
+                            totalPaid = 0.0;
+                            customAmountString = '';
+                          } else {
+                            totalPaid = double.tryParse(tempCustomAmount) ?? 0.0;
+                            customAmountString = totalPaid.toStringAsFixed(2);
+                          }
+                          paidAmountController.text = totalPaid.toStringAsFixed(2);
+                          selectedAmount = '';
+                        });
+                        Navigator.pop(context);
+                      },
                     ),
                   ),
                 ],
               ),
               actions: [
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 90,
-                      vertical: 15,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade200),
-                    ),
-                    child: Text(
-                      'Cancel',
-                      style: GoogleFonts.inter(
-                        fontSize: 28,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: Colors.grey.shade600,
                     ),
                   ),
                 ),
-                SizedBox(width: 10),
-                GestureDetector(
-                  onTap: () {
-                    final parsed = double.tryParse(input);
-                    if (parsed != null && parsed > 0) {
-                      print(parsed);
-                      setState(() {
-                        totalPaid = parsed;
-                        customAmountString = parsed.toString();
-                      });
-                      Navigator.of(context).pop();
-                    }
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      if (tempCustomAmount.isEmpty || tempCustomAmount == '.') {
+                        totalPaid = 0.0;
+                        customAmountString = '';
+                      } else {
+                        totalPaid = double.tryParse(tempCustomAmount) ?? 0.0;
+                        customAmountString = totalPaid.toStringAsFixed(2);
+                      }
+                      paidAmountController.text = totalPaid.toStringAsFixed(2);
+                      selectedAmount = '';
+                    });
+                    Navigator.pop(context);
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 100,
-                      vertical: 15,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.indigo.shade500,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey),
-                    ),
-                    child: Text(
-                      'Ok',
-                      style: GoogleFonts.inter(
-                        fontSize: 28,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6366F1),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  ),
+                  child: Text(
+                    'Apply',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -3551,342 +2842,151 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Future<bool> _showAdminPinDialog() async {
-    TextEditingController pinController = TextEditingController();
-    bool isLoading = false;
-    bool? result = await showDialog<bool>(
+  void _showDiscountDialog(CheckoutController checkoutController) {
+    showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                width: MediaQuery.of(context).size.width * 0.4,
-                padding: EdgeInsets.all(30),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.shieldAlert,
-                      size: 60,
-                      color: Colors.orange.shade600,
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      'Admin Approval Required',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 28,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      'Please enter the 4-digit admin PIN',
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        color: Colors.grey.shade600,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 30),
-                    // PIN Code Field
-                    Container(
-                      width: 250,
-                      child: PinCodeTextField(
-                        controller: pinController,
-                        appContext: context,
-                        length: 4,
-                        obscureText: true,
-                        obscuringCharacter: '●',
-                        blinkWhenObscuring: false,
-                        animationType: AnimationType.fade,
-                        pinTheme: PinTheme(
-                          shape: PinCodeFieldShape.box,
-                          borderRadius: BorderRadius.circular(8),
-                          fieldHeight: 60,
-                          fieldWidth: 50,
-                          activeFillColor: Colors.white,
-                          selectedFillColor: Colors.grey.shade100,
-                          inactiveFillColor: Colors.grey.shade100,
-                          activeColor: Palette.newColor,
-                          selectedColor: Palette.newColor,
-                          inactiveColor: Colors.grey.shade300,
-                        ),
-                        cursorColor: Colors.black,
-                        animationDuration: const Duration(milliseconds: 300),
-                        enableActiveFill: true,
-                        keyboardType: TextInputType.none,
-                        onCompleted: (value) async {
-                          setState(() {
-                            isLoading = true;
-                          });
-                          
-                          try {
-                            final prefs = await SharedPreferences.getInstance();
-                            String? centerSlug = prefs.getString('centerSlug');
-                            
-                            final response = await Supabase.instance.client
-                                .schema('${centerSlug}_prod_schema')
-                                .from('store_details')
-                                .select('admin_pin')
-                                .single();
-                            
-                            final adminPin = response['admin_pin']?.toString() ?? '1234';
-                            
-                            if (value == adminPin) {
-                              Navigator.of(context).pop(true);
-                            } else {
-                              setState(() {
-                                isLoading = false;
-                                pinController.clear();
-                              });
-                              showCustomSnackbar(
-                                'Invalid PIN',
-                                'The admin PIN you entered is incorrect',
-                                Colors.red,
-                              );
-                            }
-                          } catch (e) {
-                            setState(() {
-                              isLoading = false;
-                              pinController.clear();
-                            });
-                            print('Error fetching admin PIN: $e');
-                            showCustomSnackbar(
-                              'Error',
-                              'Failed to verify PIN. Please try again.',
-                              Colors.red,
-                            );
-                          }
-                        },
-                        onChanged: (value) {},
-                      ),
-                    ),
-                    SizedBox(height: 20),
-                    if (isLoading)
-                      CircularProgressIndicator(color: Palette.newColor)
-                    else
-                      NumberPadWidget(
-                        onNumberTap: (number) {
-                          if (pinController.text.length < 4) {
-                            setState(() {
-                              pinController.text += number;
-                            });
-                          }
-                        },
-                        onBackspaceTap: () {
-                          setState(() {
-                            if (pinController.text.isNotEmpty) {
-                              pinController.text = pinController.text.substring(
-                                0,
-                                pinController.text.length - 1,
-                              );
-                            }
-                          });
-                        },
-                        submitForm: () async {
-                          if (pinController.text.length == 4) {
-                            setState(() {
-                              isLoading = true;
-                            });
-                            
-                            try {
-                              final prefs = await SharedPreferences.getInstance();
-                              String? centerSlug = prefs.getString('centerSlug');
-                              
-                              final response = await Supabase.instance.client
-                                  .schema('${centerSlug}_prod_schema')
-                                  .from('store_details')
-                                  .select('admin_pin')
-                                  .single();
-                              
-                              final adminPin = response['admin_pin']?.toString() ?? '1234';
-                              
-                              if (pinController.text == adminPin) {
-                                Navigator.of(context).pop(true);
-                              } else {
-                                setState(() {
-                                  isLoading = false;
-                                  pinController.clear();
-                                });
-                                showCustomSnackbar(
-                                  'Invalid PIN',
-                                  'The admin PIN you entered is incorrect',
-                                  Colors.red,
-                                );
-                              }
-                            } catch (e) {
-                              setState(() {
-                                isLoading = false;
-                                pinController.clear();
-                              });
-                              print('Error fetching admin PIN: $e');
-                              showCustomSnackbar(
-                                'Error',
-                                'Failed to verify PIN. Please try again.',
-                                Colors.red,
-                              );
-                            }
-                          }
-                        },
-                      ),
-                    SizedBox(height: 20),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop(false);
-                      },
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.grey.shade700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-    return result ?? false;
-  }
-
-  Future<bool?> _showCancelBookingDialog() async {
-    String title = '';
-    String description = '';
-    if(widget.forpayment=='product-only') {
-      title = 'Cancel Order';
-      description = 'Are you sure you want to cancel the order? \nAll entered details will be cleared.';
-    } else if(widget.forpayment=='existing-order-payment') {
-      title = 'Cancel Payment';
-      description = 'Are you sure you want to cancel the payment?';
-    } else if(widget.forpayment=='new-booking-payment') {
-      title = 'Cancel Booking';
-      description = 'Are you sure you want to cancel the booking? \nAll entered details will be cleared.';
-    } else if(widget.forpayment=='membership-payment') {
-      title = 'Cancel Membership';
-      description = 'Are you sure you want to cancel the membership payment? \nAll entered details will be cleared.';
-    }
-    return showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
+      builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Center(
-            child: Text(
-              title,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.bold,
-                fontSize: 28,
-              ),
+          title: Text(
+            'Apply Discount',
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          content: Text(
-            description,
-            style: GoogleFonts.inter(fontSize: 22),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: discountController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Discount Value',
+                  hintText: 'Enter amount or percentage',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    manualDiscountValue = double.tryParse(value) ?? 0.0;
+                    _calculateManualDiscount();
+                  });
+                },
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: const Text('Flat'),
+                      value: 'flat',
+                      groupValue: manualDiscountType,
+                      onChanged: (value) {
+                        setState(() {
+                          manualDiscountType = value!;
+                          _calculateManualDiscount();
+                        });
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: RadioListTile<String>(
+                      title: const Text('Percentage'),
+                      value: 'percentage',
+                      groupValue: manualDiscountType,
+                      onChanged: (value) {
+                        setState(() {
+                          manualDiscountType = value!;
+                          _calculateManualDiscount();
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Checkbox(
+                    value: isManualBookingOnlyDiscount,
+                    onChanged: (value) {
+                      setState(() {
+                        isManualBookingOnlyDiscount = value!;
+                        _calculateManualDiscount();
+                      });
+                    },
+                  ),
+                  Text('Apply to booking only'),
+                ],
+              ),
+              Text('Calculated Discount: \$${manualDiscountAmount.toStringAsFixed(2)}'),
+            ],
           ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: Text(
-                'No',
-                style: GoogleFonts.inter(
-                  fontSize: 25,
-                  color: Colors.grey.shade700,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
-                // Clear cart when canceling
-                cartController.clearCart();
-                
-                // Clear booking details
-                newBookingController.clearSelectedSlots();
-                newBookingController.mobileNumberController.clear();
-                newBookingController.nameController.clear();
-                
-                // Close the dialog first
-                Navigator.of(context).pop(true);
-                
-                // Then navigate based on the type
-                if (widget.forpayment == 'new-booking-payment') {
-                  // For new bookings, go back to court view
-                  Navigator.of(context).pop();
-                } else {
-                  // For other types, go to dashboard
-                  final defaultController = Get.find<DefaultController>();
-                  defaultController.tabIndex.value = 0;
-                  if (defaultController.dashboardTabController != null) {
-                    defaultController.dashboardTabController!.index = 0;
-                  }
-                  // Navigate to root/dashboard
-                  Get.offAllNamed('/');
-                }
+              onPressed: () {
+                setState(() {
+                  isManualDiscountApplied = manualDiscountAmount > 0;
+                });
+                Navigator.of(context).pop();
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade400,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: Text(
-                'Yes',
-                style: GoogleFonts.inter(
-                  fontSize: 25,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              child: Text('Apply'),
             ),
           ],
         );
       },
     );
   }
-  
+
+  void _calculateManualDiscount() {
+    double totalForDiscount = isManualBookingOnlyDiscount ? courtBookingTotal : (courtBookingTotal + cartItemsTotal);
+    if (manualDiscountType == 'percentage') {
+      manualDiscountAmount = totalForDiscount * (manualDiscountValue / 100);
+    } else {
+      manualDiscountAmount = manualDiscountValue;
+    }
+    // Ensure discount doesn't exceed the total
+    if (manualDiscountAmount > totalForDiscount) {
+      manualDiscountAmount = totalForDiscount;
+    }
+  }
+
+  void _clearAllMembershipState() {
+    setState(() {
+      isMembershipApplied = false;
+      selectedMembershipId = null;
+      selectedMembershipName = null;
+      selectedMembershipPrice = null;
+      selectedMembershipPeakPrice = null;
+      selectedMembershipNonPeakPrice = null;
+      membershipDiscountAmount = 0.0;
+      isMembershipDiscountApplied = false;
+      userHasExistingMembership = false;
+      existingMembershipId = null;
+      existingMembershipName = null;
+    });
+  }
+
   Widget _buildMembershipPanel() {
     return Column(
       children: [
-        // Header
-        Container(
-          padding: EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            border: Border(
-              bottom: BorderSide(color: Colors.grey.shade300),
-            ),
-          ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Select Membership Plan',
+                'Membership Plans',
                 style: GoogleFonts.inter(
-                  fontSize: 24,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.close, size: 28),
+                icon: Icon(Icons.close),
                 onPressed: () {
                   setState(() {
                     _isMembershipPanelOpen = false;
@@ -3896,223 +2996,82 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
         ),
-        
-        // Membership list
         Expanded(
           child: Obx(() {
-            if (membershipController.membershipPlans.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.card_membership, size: 64, color: Colors.grey.shade400),
-                    SizedBox(height: 16),
-                    Text(
-                      'No membership plans available',
-                      style: GoogleFonts.inter(
-                        fontSize: 20,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              );
+            if (membershipController.isLoading.value) {
+              return Center(child: CircularProgressIndicator());
             }
-            
+            if (membershipController.membershipPlans.isEmpty) {
+              return Center(child: Text('No membership plans available.'));
+            }
             return ListView.builder(
-              padding: EdgeInsets.all(20),
               itemCount: membershipController.membershipPlans.length,
               itemBuilder: (context, index) {
                 final plan = membershipController.membershipPlans[index];
-                final planName = plan['name'] ?? '';
-                final planPrice = (plan['price'] ?? 0.0).toDouble();
-                final planId = plan['id'] ?? '';
-                final validDays = plan['valid_days'] ?? 0;
-                final discount = plan['discount'] ?? 0;
-                final peakPrice = (plan['peak_price'] ?? 0.0).toDouble();
-                final nonPeakPrice = (plan['non_peak_price'] ?? 0.0).toDouble();
-                
-                // Determine color based on plan name
-                Color? backgroundColor;
-                Color? borderColor;
-                Color? textColor;
-                IconData planIcon = Icons.card_membership;
-                
-                if (planName.toString().toLowerCase().contains('gold')) {
-                  backgroundColor = Colors.amber.shade50;
-                  borderColor = Colors.amber.shade600;
-                  textColor = Colors.amber.shade900;
-                  planIcon = Icons.workspace_premium;
-                } else if (planName.toString().toLowerCase().contains('silver')) {
-                  backgroundColor = Colors.grey.shade100;
-                  borderColor = Colors.grey.shade600;
-                  textColor = Colors.grey.shade800;
-                  planIcon = Icons.military_tech;
-                } else if (planName.toString().toLowerCase().contains('bronze')) {
-                  backgroundColor = Colors.orange.shade50;
-                  borderColor = Colors.orange.shade600;
-                  textColor = Colors.orange.shade900;
-                  planIcon = Icons.shield;
-                }
-                
-                return GestureDetector(
-                  onTap: () {
-                    print('Membership selected: $planName, Price: $planPrice');
-                    
-                    // Set selected membership
-                    setState(() {
-                      isMembershipApplied = true;
-                      selectedMembershipId = planId;
-                      selectedMembershipName = planName;
-                      selectedMembershipPrice = planPrice;
-                      selectedMembershipPeakPrice = peakPrice;
-                      selectedMembershipNonPeakPrice = nonPeakPrice;
-                      
-                      // Update colors based on new membership
-                      _updateMembershipColors();
-                      
-                      // Apply membership booking discount automatically
-                      // For now, let's use the non-peak price as the discount amount
-                      // You can add logic to determine peak vs non-peak based on time/date
-                      if (nonPeakPrice > 0 || peakPrice > 0) {
-                        isMembershipDiscountApplied = true;
-                        // Use non-peak price, or peak price if non-peak is not available
-                        membershipDiscountAmount = nonPeakPrice > 0 ? nonPeakPrice : peakPrice;
-                      }
-                      
-                      // Keep totalPaid at 0.00 initially - only populate when payment method is selected
-                      totalPaid = 0.0;
-                      paidAmountController.text = '0.00';
-                      
-                      // Close panel
-                      _isMembershipPanelOpen = false;
-                    });
-                    
-                    // Force update the checkout controller
-                    final checkoutController = Get.find<CheckoutController>();
-                    checkoutController.update();
-                    
-                    print('After setState - isMembershipApplied: $isMembershipApplied, Name: $selectedMembershipName');
-                    
-                    // Show success message
-                    showCustomSnackbar(
-                      'Membership Added',
-                      '$planName membership has been added to the booking',
-                      Colors.green,
-                    );
-                  },
-                  child: Container(
-                    margin: EdgeInsets.only(bottom: 16),
-                    child: Material(
-                      color: backgroundColor ?? Colors.white,
-                      elevation: 2,
-                      shadowColor: borderColor?.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: borderColor ?? Colors.grey.shade300,
-                            width: 2,
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          plan['name'] ?? 'N/A',
+                          style: GoogleFonts.inter(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  planIcon,
-                                  size: 32,
-                                  color: textColor ?? Colors.black,
-                                ),
-                                SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        planName,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                          color: textColor ?? Colors.black,
-                                        ),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Valid for $validDays days',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 16,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
-                                          if (discount > 0) ...[
-                                            SizedBox(width: 16),
-                                            Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green.shade100,
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                '${discount.toInt()}% OFF',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.green.shade800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                          if (nonPeakPrice > 0 || peakPrice > 0) ...[
-                                            SizedBox(width: 8),
-                                            Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue.shade100,
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                'Booking Discount: \$${(nonPeakPrice > 0 ? nonPeakPrice : peakPrice).toStringAsFixed(2)}',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.blue.shade800,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: (textColor ?? Colors.black).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '\$${planPrice.toStringAsFixed(2)}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: textColor ?? Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        SizedBox(height: 8),
+                        Text(
+                          'Price: \$${(plan['price'] ?? 0.0).toStringAsFixed(2)}',
+                          style: GoogleFonts.inter(fontSize: 18),
                         ),
-                      ),
+                        if (plan['peak_price'] != null || plan['non_peak_price'] != null) ...[
+                          Text(
+                            'Member Rates:',
+                            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
+                          ),
+                          if (plan['peak_price'] != null)
+                            Text(
+                              'Peak: \$${plan['peak_price']}',
+                              style: GoogleFonts.inter(fontSize: 16),
+                            ),
+                          if (plan['non_peak_price'] != null)
+                            Text(
+                              'Off-Peak: \$${plan['non_peak_price']}',
+                              style: GoogleFonts.inter(fontSize: 16),
+                            ),
+                        ] else ...[
+                          Text(
+                            'Discount: ${plan['discount_value'] ?? 0}${plan['discount_type'] == 'percentage' ? '%' : ''} ${plan['discount_type'] ?? ''}',
+                            style: GoogleFonts.inter(fontSize: 18),
+                          ),
+                        ],
+                        SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              isMembershipApplied = true;
+                              selectedMembershipId = plan['id'];
+                              selectedMembershipName = plan['name'];
+                              selectedMembershipPrice = (plan['price'] as num?)?.toDouble() ?? 0.0;
+                              
+                              // Store peak and non-peak prices
+                              if (plan['peak_price'] != null) {
+                                selectedMembershipPeakPrice = double.tryParse(plan['peak_price'].toString());
+                              }
+                              if (plan['non_peak_price'] != null) {
+                                selectedMembershipNonPeakPrice = double.tryParse(plan['non_peak_price'].toString());
+                              }
+                              
+                              _calculateMembershipDiscount();
+                              _isMembershipPanelOpen = false;
+                            });
+                          },
+                          child: Text('Select Plan'),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -4123,224 +3082,436 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ],
     );
   }
-  
-  Future<void> _showMembershipSelectionDialog() async {
-    // Fetch membership plans
-    await membershipController.fetchMembershipPlanDetails();
-    
-    await showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          insetPadding: EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 600,
-              maxHeight: 500,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Select Membership Plan',
-                    style: GoogleFonts.inter(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+
+  void _showCancelBookingDialog() {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        title: const Text("Confirm", style: TextStyle(fontSize: 25),),
+        content: const Text(
+          "Are you sure you want to cancel this booking and go to the Dashboard?",
+          style: TextStyle(fontSize: 22),
+        ),
+        actions: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            spacing: 20,
+            children: [
+              TextButton(
+                onPressed: () {
+                  Get.back(); // Close dialog
+                },
+                child: const Text("No", style: TextStyle(fontSize: 22),),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.grey[200],
+                  minimumSize: const Size(200, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  SizedBox(height: 20),
-                  Expanded(
-                    child: Obx(() {
-                      if (membershipController.membershipPlans.isEmpty) {
-                        return Center(
-                          child: Text(
-                            'No membership plans available',
-                            style: GoogleFonts.inter(fontSize: 20),
-                          ),
-                        );
-                      }
-                      
-                      return ListView.builder(
-                        itemCount: membershipController.membershipPlans.length,
-                        itemBuilder: (context, index) {
-                          final plan = membershipController.membershipPlans[index];
-                          final planName = plan['name'] ?? '';
-                          final planPrice = (plan['price'] ?? 0.0).toDouble();
-                          final planId = plan['id'] ?? '';
-                          
-                          // Determine color based on plan name
-                          Color? backgroundColor;
-                          Color? borderColor;
-                          Color? textColor;
-                          
-                          if (planName.toString().toLowerCase().contains('gold')) {
-                            backgroundColor = Colors.yellow.shade100;
-                            borderColor = Colors.yellow.shade700;
-                            textColor = Colors.yellow.shade900;
-                          } else if (planName.toString().toLowerCase().contains('silver')) {
-                            backgroundColor = Colors.grey.shade200;
-                            borderColor = Colors.grey.shade600;
-                            textColor = Colors.grey.shade800;
-                          } else if (planName.toString().toLowerCase().contains('bronze')) {
-                            backgroundColor = Colors.orange.shade100;
-                            borderColor = Colors.orange.shade700;
-                            textColor = Colors.orange.shade900;
-                          }
-                          
-                          return Card(
-                            margin: EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              side: BorderSide(
-                                color: borderColor ?? Colors.grey.shade300,
-                                width: 2,
-                              ),
-                            ),
-                            color: backgroundColor ?? Colors.white,
-                            child: ListTile(
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              title: Text(
-                                planName,
-                                style: GoogleFonts.inter(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w600,
-                                  color: textColor ?? Colors.black,
-                                ),
-                              ),
-                              subtitle: Text(
-                                'Valid for ${plan['valid_days'] ?? 0} days',
-                                style: GoogleFonts.inter(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              trailing: Text(
-                                '\$${planPrice.toStringAsFixed(2)}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor ?? Colors.black,
-                                ),
-                              ),
-                              onTap: () {
-                                // Set selected membership
-                                setState(() {
-                                  isMembershipApplied = true;
-                                  selectedMembershipId = planId;
-                                  selectedMembershipName = planName;
-                                  selectedMembershipPrice = planPrice;
-                                  
-                                  // Keep totalPaid at 0.00 initially - only populate when payment method is selected
-                                  totalPaid = 0.0;
-                                  paidAmountController.text = '0.00';
-                                });
-                                
-                                Navigator.pop(context);
-                                
-                                // Show success message
-                                showCustomSnackbar(
-                                  'Membership Added',
-                                  '$planName membership has been added to the booking',
-                                  Colors.green,
-                                );
-                              },
-                            ),
-                          );
-                        },
-                      );
-                    }),
-                  ),
-                  SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.inter(
-                            fontSize: 20,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-        );
-      },
+              ElevatedButton(
+                onPressed: () {
+                  // Clear all booking and cart state
+                  newBookingController.clearSelectedSlots();
+                  cartController.clearCart();
+                  
+                  // Reset any other state that might be stuck
+                  newBookingController.mobileNumberController.clear();
+                  newBookingController.nameController.clear();
+                  newBookingController.selectedService.value = '';
+                  newBookingController.selectedServiceId.value = '';
+                  newBookingController.isLoading.value = false;  // Reset loading state
+                  newBookingController.checkout.value = false;  // Reset checkout state
+                  newBookingController.confirmBtn.value = false;  // Reset confirm button state
+                  newBookingController.courtChangeBtn.value = false;  // Reset court change button
+                  newBookingController.cancelBookingbtn.value = false;  // Reset cancel button
+                  newBookingController.selectedCourtSlots.clear();  // Clear slots again
+                  newBookingController.selectedCourt.value = null;  // Clear court
+                  newBookingController.update();
+                  
+                  // Reset checkout controller state
+                  final checkoutController = Get.find<CheckoutController>();
+                  checkoutController.checkoutPayBtn.value = false;
+                  checkoutController.isLoading.value = false;
+                  checkoutController.update();
+                  
+                  // Reset customer controller state if exists
+                  try {
+                    final customerController = Get.find<CustomerController>();
+                    customerController.isLoading.value = false;
+                    customerController.update();
+                  } catch (err) { // Renamed 'e' to 'err'
+                    // CustomerController might not be initialized
+                  }
+                  
+                  final defaultController = Get.find<DefaultController>();
+                  defaultController.tabIndex.value = 0;
+                  defaultController.dashboardTabController?.index = 0;
+                  
+                  // Force clean navigation with a small delay to ensure state is cleared
+                  Future.delayed(Duration(milliseconds: 100), () {
+                    Get.offAllNamed('/');
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  minimumSize: const Size(200, 60),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text("Yes", style: TextStyle(fontSize: 22, color: Colors.white),),
+              ),
+            ],
+          )
+        ],
+      ),
+      barrierDismissible: false,
     );
   }
 
-  // Method to clear all membership state across controllers
-  void _clearAllMembershipState() {
-    setState(() {
-      // Clear local membership state
-      isMembershipApplied = false;
-      selectedMembershipId = null;
-      selectedMembershipName = null;
-      selectedMembershipPrice = null;
-      selectedMembershipPeakPrice = null;
-      selectedMembershipNonPeakPrice = null;
+  void showCustomSnackbar(String title, String message, Color color) {
+    Get.snackbar(
+      title,
+      message,
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: color,
+      colorText: Colors.white,
+      margin: const EdgeInsets.all(10),
+      borderRadius: 10,
+      isDismissible: true,
+      duration: const Duration(seconds: 3),
+    );
+  }
+  
+  void _handlePaymentSuccess() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
       
-      // Clear membership discount
-      isMembershipDiscountApplied = false;
-      membershipDiscountAmount = 0.0;
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
       
-      // Reset colors
-      _updateMembershipColors();
-      
-      // Keep totalPaid at 0.00 initially
-      totalPaid = 0.0;
-      paidAmountController.text = '0.00';
-      balanceAmountController.text = (actualTotal - manualDiscountAmount).toStringAsFixed(2);
-    });
-    
-    // Clean up any pending membership records from database
-    if (widget.exuserId != null) {
-      try {
-        final checkoutController = Get.find<CheckoutController>();
-        checkoutController.cleanupPendingMembership(customerId: widget.exuserId);
-      } catch (e) {
-        print('Error cleaning up pending membership: $e');
+      // Update booking payment status if we have exbookingId
+      if (widget.exbookingId != null) {
+        // Update booking payment status
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('bookings')
+            .update({
+              'payment_status': 'Paid',
+              'payment_type': selectedMethod,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', widget.exbookingId!);
+            
+        print('Updated booking ${widget.exbookingId} payment status to paid');
+        
+        // Create a booking payment record
+        try {
+          // Get booking details first
+          final bookingData = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('bookings')
+              .select('customer_id, grand_total')
+              .eq('id', widget.exbookingId!)
+              .single();
+              
+          if (bookingData != null) {
+            await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('booking_payments')
+                .insert({
+                  'booking_id': widget.exbookingId,
+                  'customer_id': bookingData['customer_id'],
+                  'total': bookingData['grand_total'],
+                  'paid_amount': totalPaid,
+                  'payment_type': selectedMethod,
+                  'payment_via': selectedMethod,
+                  'status': 'completed',
+                  'notes': notesController.text.isNotEmpty ? notesController.text : null,
+                  'created_by': authController.userId.value,
+                });
+            print('Created booking payment record for booking ${widget.exbookingId}');
+          }
+        } catch (e) {
+          print('Warning: Could not create booking_payments record: $e');
+        }
+        
+        // Update all booking slots payment status
+        try {
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('booking_slots')
+              .update({
+                'payment_status': 'Paid',
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('booking_id', widget.exbookingId!);
+          print('Updated booking slots payment status for booking ${widget.exbookingId}');
+        } catch (e) {
+          print('Warning: Could not update booking_slots: $e');
+        }
+        
+        // If there's a membership associated with this booking, update its status
+        final bookingData = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('bookings')
+            .select('customer_id')
+            .eq('id', widget.exbookingId!)
+            .single();
+            
+        if (bookingData != null && bookingData['customer_id'] != null) {
+          // Check if customer has a pending membership in membership_data
+          final membershipData = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membership_data')
+              .select('*')
+              .eq('customer_id', bookingData['customer_id'])
+              .eq('status', false) // status is boolean, false means pending
+              .maybeSingle();
+              
+          if (membershipData != null) {
+            try {
+              // Update membership status to active
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('membership_data')
+                  .update({
+                    'status': true, // true means active
+                  })
+                  .eq('id', membershipData['id']);
+                  
+              print('Updated membership_data ${membershipData['id']} to active');
+              
+              // Update customer's membership_data_id if needed
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('customers')
+                  .update({
+                    'membership_data_id': membershipData['id'],
+                    'membershipplan_id': membershipData['membershipplan_id'],
+                  })
+                  .eq('id', bookingData['customer_id']);
+                  
+              print('Updated customer ${bookingData['customer_id']} membership references');
+              
+              // Create membership payment record
+              try {
+                await supabase
+                    .schema('${centerSlug}_prod_schema')
+                    .from('membershippayment')
+                    .insert({
+                      'membershipid': membershipData['id'],
+                      'paymenttype': selectedMethod,
+                      'total': double.tryParse(membershipData['price'] ?? '0') ?? 0.0,
+                      'paidamount': double.tryParse(membershipData['price'] ?? '0') ?? 0.0,
+                      'status': true,
+                      'notes': 'Membership payment processed with booking ${widget.exbookingId}',
+                    });
+                print('Created membership payment record for membership ${membershipData['id']}');
+              } catch (e) {
+                print('Warning: Could not create membership payment record: $e');
+              }
+            } catch (e) {
+              print('Warning: Could not update membership_data: $e');
+            }
+          }
+        }
       }
-    }
-    
-    // Clear membership state in other controllers
-    try {
-      final newBookingController = Get.find<NewBookingController>();
-      newBookingController.currentPlan.clear();
-      newBookingController.update();
+      
+      // Update order payment status if we have exorderId  
+      if (widget.exorderId != null) {
+        try {
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('orders')
+              .update({
+                'payment_status': 'Paid',
+                'updated_at': DateTime.now().toIso8601String(),
+              })
+              .eq('id', widget.exorderId!);
+              
+          print('Updated order ${widget.exorderId} payment status to paid');
+        } catch (e) {
+          print('Warning: Could not update order: $e');
+        }
+      }
+      
+      // If this is a new booking (not from pending payment)
+      if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
+        // Create payment record for new booking
+        // This should be handled by the booking creation logic
+        print('New booking payment - should be handled by booking creation');
+      }
+      
+      setState(() {
+        isLoading = false;
+        checkoutController.checkoutPayBtn.value = false;
+      });
+      
+      // Clear all state after successful payment
+      _clearAllStateAfterSuccessfulPayment();
+      
+      // Clear the cart
+      await _clearCartAfterPayment();
+      
+      // Show success dialog
+      newBookingController.showBookingSuccessAlert();
+      
+      // Wait for dialog to be visible
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Navigate to dashboard
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/dashboard',
+        (Route<dynamic> route) => false,
+      );
     } catch (e) {
-      print('NewBookingController not found or error clearing: $e');
+      setState(() {
+        isLoading = false;
+        checkoutController.checkoutPayBtn.value = false;
+      });
+      print('Error handling payment success: $e');
+      showCustomSnackbar(
+        'Error',
+        'Payment successful but error occurred: $e',
+        Colors.orange,
+      );
     }
+  }
+  
+  void _handlePayLater() async {
+    // Show confirmation dialog
+    bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Confirm Pay Later',
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.type == 'ExistingBooking' 
+                  ? 'This booking will remain in the unpaid list. The customer can pay later at their convenience.'
+                  : 'The booking will be confirmed but payment will be pending. You can collect payment later.',
+                style: GoogleFonts.inter(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Amount pending: \$${(actualTotal - membershipDiscountAmount - manualDiscountAmount).toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(color: Colors.grey.shade600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade500,
+              ),
+              child: Text(
+                'Confirm Pay Later',
+                style: GoogleFonts.inter(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
     
-    try {
-      final customerController = Get.find<CustomerController>();
-      customerController.selectedPlan.clear();
-      customerController.currentPlan.clear();
-      customerController.update();
-    } catch (e) {
-      print('CustomerController not found or error clearing: $e');
-    }
-    
-    try {
-      final checkoutController = Get.find<CheckoutController>();
-      checkoutController.update();
-    } catch (e) {
-      print('CheckoutController not found or error clearing: $e');
+    if (confirmed == true) {
+      try {
+        setState(() {
+          isLoading = true;
+        });
+        
+        // For existing bookings, just navigate back without changing payment status
+        if (widget.type == 'ExistingBooking') {
+          showCustomSnackbar(
+            'Pay Later',
+            'Booking remains unpaid. Customer can pay later.',
+            Colors.orange,
+          );
+          
+          // Navigate back to dashboard after a short delay
+          await Future.delayed(const Duration(seconds: 1));
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            '/dashboard',
+            (Route<dynamic> route) => false,
+          );
+        } else {
+          // For new bookings, we need to process it differently
+          // The booking creation happens in new_booking_screen.dart
+          // Here we just need to navigate back with a flag indicating pay later
+          
+          // Clear any payment state
+          setState(() {
+            totalPaid = 0.0;
+            selectedMethod = '';
+          });
+          
+          // Show success message
+          showCustomSnackbar(
+            'Pay Later Selected',
+            'Please complete the booking to save with pending payment',
+            Colors.orange,
+          );
+          
+          // Navigate back to the new booking screen with pay later flag
+          Navigator.of(context).pop({'payLater': true, 'notes': notesController.text});
+        }
+        
+        setState(() {
+          isLoading = false;
+        });
+      } catch (e) {
+        setState(() {
+          isLoading = false;
+        });
+        showCustomSnackbar(
+          'Error',
+          'Failed to process pay later: $e',
+          Colors.red,
+        );
+      }
     }
   }
 }

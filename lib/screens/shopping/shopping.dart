@@ -1683,7 +1683,7 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                               ),
                             ),
                             Text(
-                              '\$${(0.1 * total).toStringAsFixed(2)}',
+                              '\$${(total * 0.1 / 1.1).toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 25,
                                 fontWeight: FontWeight.bold,

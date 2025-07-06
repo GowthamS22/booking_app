@@ -307,7 +307,7 @@ class DefaultController extends GetxController
           .eq('bookings.closed', false)
           .eq('bookings.is_cancelled', false)
           .eq('bookings.is_showoff', false)
-          .neq('bookings.payment_status', 'Paid')
+          .not('bookings.payment_status', 'in', ['Paid', 'paid'])
           .gte('start_time', todayStart.toIso8601String())
           .lte('end_time', todayEnd.toIso8601String());
 

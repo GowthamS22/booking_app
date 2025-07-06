@@ -18,7 +18,7 @@ class ActiveTabScreen extends StatefulWidget {
 
 class _ActiveTabScreenState extends State<ActiveTabScreen> {
   final OrderController bookingController = Get.put(OrderController());
-  bool isGridView = false;
+  bool isGridView = true;  // Changed to true to make grid view the default
   String selectedFilter = 'All';
   final List<String> filterOptions = [
     'All',
