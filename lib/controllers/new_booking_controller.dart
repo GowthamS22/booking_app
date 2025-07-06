@@ -308,6 +308,10 @@ class NewBookingController extends GetxController {
             .eq('customer_id', user['id'])
             .eq('status', true)
             .maybeSingle(); // Use maybeSingle instead of single to handle null case
+            
+        // Check for pending membership payment - NOT NEEDED HERE
+        // The court view screen handles this with checkPendingMembershipPayment()
+        bool hasPendingPayment = false;
 
         return {
           'id': user['id'] ?? '',
@@ -322,6 +326,7 @@ class NewBookingController extends GetxController {
           'validity_end': endDate?.toIso8601String() ?? '',
           'membershipplan_id': user['membershipplan_id'] ?? '',
           'already_in_cart': membershipDataRes != null, // True if found in membership_data table
+          'has_pending_membership': hasPendingPayment, // True if membership payment is pending
         };
       } catch (e) {
         // If no record found, return with already_in_cart as false
@@ -338,6 +343,7 @@ class NewBookingController extends GetxController {
           'validity_end': endDate?.toIso8601String() ?? '',
           'membershipplan_id': user['membershipplan_id'] ?? '',
           'already_in_cart': false,
+          'has_pending_membership': false,
         };
       }
     }));
@@ -1365,20 +1371,47 @@ class NewBookingController extends GetxController {
       final String? paymentStatus = bookingResponse['payment_status'];
       final String? customerId = bookingResponse['customer_id'];
 
-      // Step 2: Clean up pending membership if this is a Pay Later booking
-      if (paymentStatus != 'Paid' && customerId != null) {
+      // Step 2: Always check for and clean up pending membership when cancelling
+      print('📌 Checking if membership cleanup needed - paymentStatus: $paymentStatus, customerId: $customerId');
+      
+      if (customerId != null) {
         try {
-          print('🧹 Cleaning up pending membership for cancelled Pay Later booking...');
-          
-          // Get checkout controller to use cleanup method
-          final checkoutController = Get.find<CheckoutController>();
-          await checkoutController.cleanupPendingMembership(customerId: customerId);
-          
-          print('✅ Pending membership cleaned up for cancelled booking');
+          // First check if customer has any pending membership
+          final pendingMembershipCheck = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membership_data')
+              .select('id, status, created_at')
+              .eq('customer_id', customerId)
+              .eq('status', false)
+              .maybeSingle();
+              
+          if (pendingMembershipCheck != null) {
+            print('🔍 Found pending membership: ${pendingMembershipCheck['id']} created at: ${pendingMembershipCheck['created_at']}');
+            print('🧹 Cleaning up pending membership for cancelled booking...');
+            print('🔍 Booking ID being cancelled: $bookingId');
+            print('🔍 Customer ID: $customerId');
+            
+            // Get checkout controller to use cleanup method
+            final checkoutController = Get.find<CheckoutController>();
+            final cleanupResult = await checkoutController.cleanupPendingMembership(customerId: customerId);
+            
+            print('✅ Cleanup result: $cleanupResult');
+            
+            if (cleanupResult) {
+              print('✅ Pending membership cleaned up successfully for cancelled booking');
+            } else {
+              print('⚠️ Cleanup returned false - check logs above');
+            }
+          } else {
+            print('ℹ️ No pending membership found for customer - no cleanup needed');
+          }
         } catch (e) {
-          print('❌ Error cleaning up pending membership: $e');
+          print('❌ Error checking/cleaning up pending membership: $e');
+          print('Stack trace: ${e.toString()}');
           // Don't fail the cancellation for membership cleanup errors
         }
+      } else {
+        print('⚠️ Customer ID is null - cannot cleanup membership');
       }
 
       // Step 3: Conditionally build update map
@@ -1433,16 +1466,28 @@ class NewBookingController extends GetxController {
       final String? paymentStatus = bookingResponse['payment_status'];
       final String? customerId = bookingResponse['customer_id'];
 
-      // Clean up pending membership if this is a Pay Later booking
-      if (paymentStatus != 'Paid' && customerId != null) {
+      // Clean up pending membership regardless of payment status
+      if (customerId != null) {
         try {
-          print('🧹 Cleaning up pending membership for No Show Pay Later booking...');
-          
-          // Get checkout controller to use cleanup method
-          final checkoutController = Get.find<CheckoutController>();
-          await checkoutController.cleanupPendingMembership(customerId: customerId);
-          
-          print('✅ Pending membership cleaned up for No Show booking');
+          // First check if customer has any pending membership
+          final pendingMembershipCheck = await Supabase.instance.client
+              .schema('${centerSlug}_prod_schema')
+              .from('membership_data')
+              .select('id, status, created_at')
+              .eq('customer_id', customerId)
+              .eq('status', false)
+              .maybeSingle();
+              
+          if (pendingMembershipCheck != null) {
+            print('🔍 Found pending membership for No Show: ${pendingMembershipCheck['id']}');
+            print('🧹 Cleaning up pending membership for No Show booking...');
+            
+            // Get checkout controller to use cleanup method
+            final checkoutController = Get.find<CheckoutController>();
+            await checkoutController.cleanupPendingMembership(customerId: customerId);
+            
+            print('✅ Pending membership cleaned up for No Show booking');
+          }
         } catch (e) {
           print('❌ Error cleaning up pending membership: $e');
           // Don't fail the No Show marking for membership cleanup errors
@@ -1617,6 +1662,9 @@ class NewBookingController extends GetxController {
     // The price is expected to be finalized by getSlotsWithPeakStatusAndPrice
     double? finalizedPrice = price;
 
+    // Don't apply membership discount here - let checkout page handle it
+    // This keeps the regular price in the booking
+    /*
     if (currentPlan.length > 0) {
       double tempDiscount =
           finalizedPrice! * (currentPlan[0]['discount'] / 100);
@@ -1624,6 +1672,7 @@ class NewBookingController extends GetxController {
         (finalizedPrice - tempDiscount).toStringAsFixed(2),
       );
     }
+    */
 
     cartItems.add(
       BookingSlot(
@@ -2185,6 +2234,9 @@ class NewBookingController extends GetxController {
     // The price is expected to be finalized by getSlotsWithPeakStatusAndPrice
     double? finalizedPrice = price;
 
+    // Don't apply membership discount here - let checkout page handle it
+    // This keeps the regular price in the booking
+    /*
     if (currentPlan.length > 0) {
       double tempDiscount =
           finalizedPrice! * (currentPlan[0]['discount'] / 100);
@@ -2192,6 +2244,7 @@ class NewBookingController extends GetxController {
         (finalizedPrice - tempDiscount).toStringAsFixed(2),
       );
     }
+    */
 
     dummyCartItems.add(
       BookingSlot(
@@ -2279,6 +2332,42 @@ class NewBookingController extends GetxController {
     String? centerSlug = preferences.getString('centerSlug');
 
     try {
+      // If bookings are passed from checkout screen, populate cartItems
+      if (bookings != null && bookings.isNotEmpty && cartItems.isEmpty) {
+        print('📍 Populating cartItems from bookings parameter');
+        cartItems.clear();
+        
+        // Get the service name and ID from the current selection
+        String serviceName = selectedService.value.isNotEmpty ? selectedService.value : 'Badminton';
+        String serviceId = selectedServiceId.value.isNotEmpty ? selectedServiceId.value : '';
+        
+        // If service ID is empty, try to get it from the service list
+        if (serviceId.isEmpty && serviceList.isNotEmpty) {
+          serviceId = serviceList[0]['id'] ?? '';
+          serviceName = serviceList[0]['name'] ?? 'Badminton';
+        }
+        
+        for (var booking in bookings) {
+          final dateStr = DateFormat('yyyy-MM-dd').format(booking.selectedDateTime);
+          
+          for (var subSlot in booking.subSlots) {
+            cartItems.add(BookingSlot(
+              date: booking.selectedDateTime,
+              service: serviceName,
+              serviceId: serviceId,
+              court: booking.courtName ?? '',
+              courtId: booking.courtId ?? '',
+              startTime: DateTime.parse('$dateStr ${subSlot.startTime}:00'),
+              endTime: DateTime.parse('$dateStr ${subSlot.endTime}:00'),
+              price: subSlot.price,
+              slotType: subSlot.isPeak ? 'peak' : 'non-peak',
+            ));
+          }
+        }
+        print('📍 Populated ${cartItems.length} cart items from bookings');
+        print('📍 Using service: $serviceName (ID: $serviceId)');
+      }
+      
       // Step 1: Validate slot availability
       bool isValid = await bulkValidateSlots(selectedBSlots: cartItems);
       if (!isValid) {
@@ -2294,14 +2383,28 @@ class NewBookingController extends GetxController {
       }
 
       if(membershipID!=null && membershipID!='') {
-        final planDetails = await supabase
+        // First check if customer already has a pending membership
+        final existingPendingMembership = await supabase
             .schema('${centerSlug}_prod_schema')
-            .from('membershipplan')
-            .select('*')
-            .eq('id', membershipID)
-            .single();
+            .from('membership_data')
+            .select('id, status')
+            .eq('customer_id', userData.value.id.toString())
+            .eq('status', false)
+            .maybeSingle();
+            
+        if (existingPendingMembership != null) {
+          print('⚠️ Customer already has a pending membership: ${existingPendingMembership['id']} - not creating duplicate');
+          // Optionally, you might want to show a warning to the user
+          showCustomSnackbar('Warning', 'You already have a pending membership payment', Colors.orange);
+        } else {
+          final planDetails = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membershipplan')
+              .select('*')
+              .eq('id', membershipID)
+              .single();
 
-        final membershipData = await supabase
+          final membershipData = await supabase
             .schema('${centerSlug}_prod_schema')
             .from('membership_data')
             .insert({
@@ -2316,8 +2419,14 @@ class NewBookingController extends GetxController {
               'swap_time': planDetails['swap_time'],
               'highlights': planDetails['highlights'],
               'validity': planDetails['validity'],
-              'status': true,
-            });
+              'status': false, // Set to false (pending) - will be activated when payment is completed
+              'created_at': DateTime.now().toIso8601String(),
+            })
+            .select()
+            .single();
+            
+        print('🎫 Created pending membership_data record: ${membershipData['id']} for customer: ${userData.value.id}');
+        }
       }
 
       // Step 2: Generate a unique booking ID
@@ -2357,11 +2466,21 @@ class NewBookingController extends GetxController {
               .single();
 
       final insertedBookingId = bookingInsertResponse['id'];
+      
+      // Set the bookingId so it can be accessed from other screens
+      bookingId = insertedBookingId;
 
       // Step 4: Insert booking slots
+      print('📍 cartItems count: ${cartItems.length}');
+      print('📍 cartItems content: ${cartItems.map((e) => '${e.service} - ${e.court}').toList()}');
+      
       List<Map<String, dynamic>> slotData =
           cartItems.map((slot) {
             print('Debug - Processing slot: ${slot.service} ${slot.court}');
+            print('  ServiceId: ${slot.serviceId}, CourtId: ${slot.courtId}');
+            print('  StartTime: ${slot.startTime}, EndTime: ${slot.endTime}');
+            print('  Price: ${slot.price}');
+            
             return {
               'booking_id': insertedBookingId,
               'service_id': slot.serviceId,
@@ -2383,13 +2502,25 @@ class NewBookingController extends GetxController {
             };
           }).toList();
 
+      print('📍 slotData to insert: ${slotData.length} slots');
+      
+      if (slotData.isEmpty) {
+        print('⚠️ WARNING: No slot data to insert! This will result in a booking without slots.');
+      }
+
       try {
-        await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('booking_slots')
-            .insert(slotData);
+        if (slotData.isNotEmpty) {
+          final insertResult = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('booking_slots')
+              .insert(slotData)
+              .select();
+              
+          print('✅ Successfully inserted ${insertResult.length} booking slots');
+        }
       } catch (error) {
-        print('Error inserting booking slots: $error');
+        print('❌ Error inserting booking slots: $error');
+        throw error; // Re-throw to prevent creating incomplete bookings
       }
 
       String? orderId = '';
@@ -3492,6 +3623,7 @@ class NewBookingController extends GetxController {
               List<BookingInfo> newBookings = [
                 BookingInfo(
                   courtName: "Court ${originalBookingSlot.court}",
+                  courtId: originalBookingSlot.courtId,
                   selectedDateTime: originalBookingSlot.date!,
                   bookingId: originalBookingSlot.bookingId!,
                   subSlots: extendedSubSlots,
@@ -3647,6 +3779,7 @@ class NewBookingController extends GetxController {
                 List<BookingInfo> newBookings = [
                   BookingInfo(
                     courtName: "Court ${courtId.split('-').last}",
+                    courtId: courtId,
                     selectedDateTime: startTime,
                     bookingId: bookingId,
                     subSlots: extendedSubSlots,

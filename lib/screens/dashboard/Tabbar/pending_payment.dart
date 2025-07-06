@@ -904,11 +904,15 @@ class _PendingPaymentState extends State<PendingPayment> {
           final endTime = DateTime.parse(slot['end_time']);
           final price = (slot['price'] as num).toDouble();
           
+          // Check if this is a peak hour slot
+          final hour = startTime.hour;
+          final isPeakHour = (hour >= 17 && hour < 21); // 5 PM to 9 PM is peak
+          
           subSlots.add(BookingSubSlotInfo(
             startTime: DateFormat('HH:mm').format(startTime),
             endTime: DateFormat('HH:mm').format(endTime),
             price: price,
-            isPeak: false, // Set this based on your business logic
+            isPeak: isPeakHour,
           ));
         }
         
@@ -916,6 +920,7 @@ class _PendingPaymentState extends State<PendingPayment> {
         final courtName = booking.courtName ?? 'Court ${booking.platformId}';
         individualCourtBookings.add(BookingInfo(
           courtName: courtName,
+          courtId: booking.courtId,
           selectedDateTime: booking.startTime ?? DateTime.now(),
           bookingId: bookingData['id'],
           subSlots: subSlots,
@@ -1055,6 +1060,7 @@ class _PendingPaymentState extends State<PendingPayment> {
               courtSubSlots.forEach((courtName, subSlots) {
                 bookings.add(BookingInfo(
                   courtName: courtName,
+                  courtId: null, // Court ID not available in this context
                   selectedDateTime: bookingDate,
                   bookingId: value['booking']['id'],
                   subSlots: subSlots,

@@ -886,64 +886,78 @@ class CheckoutController extends GetxController {
 
     try {
       print('🧹 Cleaning up pending membership records for customer: $customerId');
+      print('🔍 Using centerSlug: $centerSlug');
       
-      // Delete pending membership payments (check both boolean false and string 'pending')
-      // First try deleting with status = false
-      await supabase
-          .schema('${centerSlug}_prod_schema')
-          .from('membershippayment')
-          .delete()
-          .eq('customers_id', customerId)
-          .eq('status', false);
-      
-      // Then try deleting with status = 'pending'
-      await supabase
-          .schema('${centerSlug}_prod_schema')
-          .from('membershippayment')
-          .delete()
-          .eq('customers_id', customerId)
-          .eq('status', 'pending');
-
-      // Delete pending membership data (check both boolean false and string 'pending')
-      // First try deleting with status = false
-      await supabase
+      // First, let's check ALL membership_data records for this customer
+      final allMembershipData = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('membership_data')
-          .delete()
-          .eq('customer_id', customerId)
-          .eq('status', false);
+          .select('id, status, customer_id, created_at')
+          .eq('customer_id', customerId);
+          
+      print('📊 ALL membership_data records for customer: $allMembershipData');
       
-      // Then try deleting with status = 'pending'
-      await supabase
+      // Check if there are pending membership_data records
+      final pendingMembershipData = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('membership_data')
-          .delete()
+          .select('id, status')
           .eq('customer_id', customerId)
-          .eq('status', 'pending');
+          .eq('status', false);
+          
+      print('Found ${pendingMembershipData.length} pending membership_data records: $pendingMembershipData');
+      
+      if (pendingMembershipData.isNotEmpty) {
+        // Delete pending membership data
+        final deleteResult = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .delete()
+            .eq('customer_id', customerId)
+            .eq('status', false)
+            .select();
+            
+        print('Deleted membership_data records: $deleteResult');
+      } else {
+        print('⚠️ No pending membership_data records found to delete');
+      }
 
-      // Clear membership from customer record if it's pending
-      final customerData = await supabase
+      // Delete pending membership payments if they exist
+      try {
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membershippayment')
+            .delete()
+            .eq('customers_id', customerId)
+            .eq('status', false);
+        print('Deleted pending membership payments');
+      } catch (e) {
+        print('No membership payments to delete or error: $e');
+      }
+
+      // First check current customer data
+      final currentCustomerData = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('customers')
-          .select('membership_data')
+          .select('id, membershipplan_id, membership_data, membership_data_id')
           .eq('id', customerId)
           .maybeSingle();
-
-      if (customerData != null) {
-        final membershipData = customerData['membership_data'] as Map<String, dynamic>?;
-        if (membershipData != null && 
-            (membershipData['status'] == 'pending' || membershipData['status'] == false)) {
-          await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('customers')
-              .update({
-                'membershipplan_id': null,
-                'membership_data': null,
-                'membership_data_id': null,
-              })
-              .eq('id', customerId);
-        }
-      }
+          
+      print('🔍 Current customer data before cleanup: $currentCustomerData');
+      
+      // Clear membership references from customer record including membership_data column
+      final updateResult = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('customers')
+          .update({
+            'membershipplan_id': null,
+            'membership_data': null,  // Clear the membership_data JSON column
+            'membership_data_id': null,
+          })
+          .eq('id', customerId)
+          .select();
+          
+      print('Updated customer record to clear all membership references: $updateResult');
 
       print('✅ Pending membership records cleaned up');
       return true;
@@ -1267,7 +1281,7 @@ class CheckoutController extends GetxController {
     final response = await supabase
         .schema('${centerSlug}_prod_schema')
         .from('bookings')
-        .select('*, booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
+        .select('*, customers(*, membership_data(*)), booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
         .eq('id', bookingId)
         .single();
 
@@ -1322,19 +1336,53 @@ class CheckoutController extends GetxController {
               ''
           );
         }
+        
+        // Check if there's a membership payment with this booking
+        bool hasMembershipPayment = false;
+        double membershipAmount = 0.0;
+        String membershipName = '';
+        
+        // First check if membership payment was processed with this booking
+        try {
+          final membershipPaymentResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membershippayment')
+              .select('*, membership_data(*)')
+              .eq('notes', 'Membership payment processed with booking $bookingId')
+              .maybeSingle();
+              
+          if (membershipPaymentResponse != null && membershipPaymentResponse['membership_data'] != null) {
+            hasMembershipPayment = true;
+            final membershipData = membershipPaymentResponse['membership_data'];
+            membershipAmount = double.tryParse(membershipData['price']?.toString() ?? '0') ?? 0.0;
+            membershipName = membershipData['name'] ?? 'Membership';
+            
+            // Print membership line item
+            final membershipItemName = membershipName.padRight(20);
+            final membershipQuantity = '1'.padLeft(4);
+            final membershipPrice = '\$${membershipAmount.toStringAsFixed(2)}'.padLeft(7);
+            final membershipTotal = '\$${membershipAmount.toStringAsFixed(2)}'.padLeft(8);
+            
+            printer.text('$membershipItemName $membershipQuantity $membershipPrice $membershipTotal');
+            printer.text('Membership payment', styles: PosStyles(align: PosAlign.left));
+          }
+        } catch (e) {
+          print('Could not check membership payment: $e');
+        }
 
         printer.text('--------------------------------------------');
 
         // Calculate GST correctly for receipt (GST inclusive pricing)
-        final correctGST = (booking.grandTotal ?? 0) / 11;
-        final subTotal = (booking.grandTotal ?? 0) - correctGST;
+        final totalWithMembership = (booking.grandTotal ?? 0) + membershipAmount;
+        final correctGST = totalWithMembership / 11;
+        final subTotal = totalWithMembership - correctGST;
         
         _printAlignedText(printer, 'Sub-Total:', '\$${subTotal.toStringAsFixed(2)}');
         _printAlignedText(printer, 'GST Incl.:', '\$${correctGST.toStringAsFixed(2)}');
         _printAlignedText(printer, 'Payment Method:', '${booking.paymentType}');
-        _printAlignedText(printer, 'Total Amount:', '\$${(booking.grandTotal ?? 0).toStringAsFixed(2)}');
-        _printAlignedText(printer, 'Paid Amount:', '\$${(booking.grandTotal ?? 0).toStringAsFixed(2)}');
-        _printAlignedText(printer, 'Balance Amount:', '\$${(0 ?? 0).abs().toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Total Amount:', '\$${totalWithMembership.toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Paid Amount:', '\$${totalWithMembership.toStringAsFixed(2)}');
+        _printAlignedText(printer, 'Balance Amount:', '\$0.00');
 
         printer.text('--------------------------------------------');
         printer.text('THANK YOU! HAVE A NICE DAY!', styles: PosStyles(align: PosAlign.center));

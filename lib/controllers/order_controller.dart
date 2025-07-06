@@ -802,12 +802,26 @@ class OrderController extends GetxController {
       
       print('🔍 Querying booking slots: bookingId=$bookingId, courtId=$courtId, startTime=${startTime!.toIso8601String()}, endTime=${endTime!.toIso8601String()}');
       
-      final courtSlots = await query
-          .gte('start_time', startTime.toIso8601String())
-          .lt('end_time', endTime.toIso8601String())
+      // First get ALL slots for this booking to debug
+      final allSlotsForBooking = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('booking_slots')
+          .select('*')
+          .eq('booking_id', bookingId)
           .order('start_time');
           
-      print('📊 Found ${courtSlots.length} court slots');
+      print('🔍 ALL slots for this booking: ${allSlotsForBooking.length}');
+      for (final slot in allSlotsForBooking) {
+        print('  - Slot: ${slot['start_time']} to ${slot['end_time']}, court: ${slot['court_id']}, price: ${slot['price']}');
+      }
+      
+      // Now query for specific court and time range
+      final courtSlots = await query
+          .gte('start_time', startTime.toIso8601String())
+          .lte('end_time', endTime.toIso8601String())
+          .order('start_time');
+          
+      print('📊 Found ${courtSlots.length} court slots matching criteria');
 
       // Calculate total amount for this specific court
       double courtTotal = 0.0;

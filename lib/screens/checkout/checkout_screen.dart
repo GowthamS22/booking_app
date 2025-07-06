@@ -25,6 +25,7 @@ import '../../controllers/default_controller.dart';
 import '../../controllers/cart_controller.dart' as cart;
 import '../../controllers/membership_controller.dart';
 import '../../controllers/auth_controller.dart';
+import '../../controllers/order_controller.dart';
 import '../../models/booking_model.dart';
 import '../../widgets/number_pad_widget.dart';
 
@@ -134,7 +135,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double manualDiscountAmount = 0.0;
   bool isManualDiscountApplied = false;
   TextEditingController discountController = TextEditingController();
-  String manualDiscountType = 'flat'; // 'flat' or 'percentage'
+  String manualDiscountType = 'percentage'; // Always percentage-based
   double manualDiscountValue = 0.0; // The raw value entered (e.g., 10 for 10% or $10)
   bool isManualBookingOnlyDiscount = false; // Whether manual discount applies only to booking
   
@@ -145,6 +146,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Combined discount for display
   double get discountAmount => manualDiscountAmount + membershipDiscountAmount;
   bool get isDiscountApplied => isManualDiscountApplied || isMembershipDiscountApplied;
+  
+  // Admin approval tracking
+  bool _hasAdminApproval = false;
 
   // Local membership state
   late bool isMembershipApplied;
@@ -162,6 +166,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String? existingMembershipName;
   Map<String, dynamic>? existingMembershipPlan;
   String? existingMembershipId;
+  
+  // Track pending membership status
+  bool userHasPendingMembership = false;
+  String? pendingMembershipName;
 
   double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
   
@@ -204,6 +212,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         membershipDiscountAmount = 0.0;
         isMembershipDiscountApplied = false;
       });
+      
+      // Show message if user has pending membership
+      if (userHasPendingMembership) {
+        showCustomSnackbar(
+          'No Membership Discount',
+          'Complete your pending membership payment to enjoy discounts',
+          Colors.orange
+        );
+      }
     }
   }
   
@@ -220,47 +237,80 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
     
-    // Calculate total discount by comparing regular prices with member prices
+    // Calculate total booking duration in minutes
+    int totalMinutes = 0;
+    for (final booking in widget.bookings) {
+      for (final subSlot in booking.subSlots) {
+        // Parse start and end times to calculate duration
+        final startParts = subSlot.startTime.split(':');
+        final endParts = subSlot.endTime.split(':');
+        final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+        final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+        totalMinutes += endMinutes - startMinutes;
+      }
+    }
+    
+    print('Total booking duration: $totalMinutes minutes');
+    
+    // Check if total duration meets minimum requirement
+    if (totalMinutes < 60) {
+      print('Booking duration ($totalMinutes min) is less than minimum required (60 min) for membership discount');
+      setState(() {
+        membershipDiscountAmount = 0.0;
+        isMembershipDiscountApplied = false;
+        // Add a message to show to the user
+        showCustomSnackbar(
+          'No Membership Discount', 
+          'Minimum 60 minutes booking required for membership discount. Current booking: $totalMinutes minutes',
+          Colors.orange
+        );
+      });
+      return;
+    }
+    
+    // First check if there's any peak hour slot in the booking
+    bool hasPeakSlot = false;
+    for (final booking in widget.bookings) {
+      for (final subSlot in booking.subSlots) {
+        if (subSlot.isPeak) {
+          hasPeakSlot = true;
+          break;
+        }
+      }
+      if (hasPeakSlot) break;
+    }
+    
+    print('Booking has peak slot: $hasPeakSlot');
+    
+    // Calculate total discount - apply only ONE discount for the entire booking
     double totalDiscount = 0.0;
     
-    // Go through each booking slot and calculate the discount
+    // Determine which discount rate to use
+    if (existingMembershipPlan != null) {
+      if (hasPeakSlot && existingMembershipPlan!['peak_price'] != null) {
+        // Use peak discount if there's any peak slot
+        final peakDiscountStr = existingMembershipPlan!['peak_price']?.toString() ?? '';
+        totalDiscount = double.tryParse(peakDiscountStr) ?? 0.0;
+        print('Applying peak discount (single): $totalDiscount');
+      } else if (!hasPeakSlot && existingMembershipPlan!['non_peak_price'] != null) {
+        // Use non-peak discount only if there are no peak slots
+        final nonPeakDiscountStr = existingMembershipPlan!['non_peak_price']?.toString() ?? '';
+        totalDiscount = double.tryParse(nonPeakDiscountStr) ?? 0.0;
+        print('Applying non-peak discount (single): $totalDiscount');
+      }
+    }
+    
+    // Log booking details for debugging
     print('Total bookings: ${widget.bookings.length}');
+    double bookingSubtotal = 0.0;
     for (final booking in widget.bookings) {
       print('Booking court: ${booking.courtName}, subSlots: ${booking.subSlots.length}');
       for (final subSlot in booking.subSlots) {
-        final regularPrice = subSlot.price;
-        double memberPrice = regularPrice;
-        
-        print('Processing slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, regularPrice: $regularPrice');
-        
-        // Get the member price based on peak/non-peak
-        if (existingMembershipPlan != null) {
-          print('Using existing membership plan');
-          if (subSlot.isPeak && existingMembershipPlan!['peak_price'] != null) {
-            final peakPriceStr = existingMembershipPlan!['peak_price']?.toString() ?? '';
-            memberPrice = double.tryParse(peakPriceStr) ?? regularPrice;
-            print('Peak price from plan: $peakPriceStr -> $memberPrice');
-          } else if (!subSlot.isPeak && existingMembershipPlan!['non_peak_price'] != null) {
-            final nonPeakPriceStr = existingMembershipPlan!['non_peak_price']?.toString() ?? '';
-            memberPrice = double.tryParse(nonPeakPriceStr) ?? regularPrice;
-            print('Non-peak price from plan: $nonPeakPriceStr -> $memberPrice');
-          } else {
-            print('No matching peak/non-peak price in plan');
-          }
-          
-          // Calculate the discount for this slot
-          final slotDiscount = regularPrice - memberPrice;
-          if (slotDiscount > 0) {
-            totalDiscount += slotDiscount;
-            print('✓ Discount applied: $slotDiscount');
-          } else {
-            print('✗ No discount: memberPrice ($memberPrice) >= regularPrice ($regularPrice)');
-          }
-        } else {
-          print('No existing membership plan available');
-        }
+        bookingSubtotal += subSlot.price;
+        print('Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, price: ${subSlot.price}');
       }
     }
+    print('Booking subtotal: $bookingSubtotal, Single discount applied: $totalDiscount');
     
     // If we still don't have the plan details but have an ID, fetch it
     if (existingMembershipPlan == null && membershipId != null) {
@@ -281,26 +331,67 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             selectedMembershipNonPeakPrice = double.tryParse(plan['non_peak_price'].toString());
           }
           
-          // Recalculate discount with the fetched plan
-          totalDiscount = 0.0;
+          // Check minimum duration requirement first
+          int totalMinutes = 0;
           for (final booking in widget.bookings) {
             for (final subSlot in booking.subSlots) {
-              final regularPrice = subSlot.price;
-              double memberPrice = regularPrice;
-              
-              if (subSlot.isPeak && selectedMembershipPeakPrice != null) {
-                memberPrice = selectedMembershipPeakPrice!;
-              } else if (!subSlot.isPeak && selectedMembershipNonPeakPrice != null) {
-                memberPrice = selectedMembershipNonPeakPrice!;
-              }
-              
-              final slotDiscount = regularPrice - memberPrice;
-              if (slotDiscount > 0) {
-                totalDiscount += slotDiscount;
-                print('Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, Regular: $regularPrice, Member: $memberPrice, Discount: $slotDiscount');
-              }
+              final startParts = subSlot.startTime.split(':');
+              final endParts = subSlot.endTime.split(':');
+              final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+              final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+              totalMinutes += endMinutes - startMinutes;
             }
           }
+          
+          if (totalMinutes < 60) {
+            print('Booking duration ($totalMinutes min) is less than minimum required (60 min) for membership discount');
+            setState(() {
+              membershipDiscountAmount = 0.0;
+              isMembershipDiscountApplied = false;
+              showCustomSnackbar(
+                'No Membership Discount', 
+                'Minimum 60 minutes booking required for membership discount. Current booking: $totalMinutes minutes',
+                Colors.orange
+              );
+            });
+            return;
+          }
+          
+          // Check if there's any peak hour slot in the booking
+          bool hasPeakSlot = false;
+          for (final booking in widget.bookings) {
+            for (final subSlot in booking.subSlots) {
+              if (subSlot.isPeak) {
+                hasPeakSlot = true;
+                break;
+              }
+            }
+            if (hasPeakSlot) break;
+          }
+          
+          print('Booking has peak slot: $hasPeakSlot');
+          
+          // Determine which discount to apply (only ONE discount for entire booking)
+          totalDiscount = 0.0;
+          if (hasPeakSlot && selectedMembershipPeakPrice != null) {
+            // Use peak discount if there's any peak slot
+            totalDiscount = selectedMembershipPeakPrice!;
+            print('Applying peak discount (single): $totalDiscount');
+          } else if (!hasPeakSlot && selectedMembershipNonPeakPrice != null) {
+            // Use non-peak discount only if there are no peak slots
+            totalDiscount = selectedMembershipNonPeakPrice!;
+            print('Applying non-peak discount (single): $totalDiscount');
+          }
+          
+          // Log booking details for debugging
+          double bookingSubtotal = 0.0;
+          for (final booking in widget.bookings) {
+            for (final subSlot in booking.subSlots) {
+              bookingSubtotal += subSlot.price;
+              print('Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, price: ${subSlot.price}');
+            }
+          }
+          print('Booking subtotal: $bookingSubtotal, Single discount applied: $totalDiscount');
           
           setState(() {
             membershipDiscountAmount = totalDiscount;
@@ -348,6 +439,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    print('🔍 CheckoutScreen initState called');
     
     // Initialize membership state from widget
     // Only apply membership if it has a valid name and price
@@ -361,10 +453,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       selectedMembershipName = widget.membershipName;
       selectedMembershipPrice = widget.membershipPrice;
       
-      // If membership is from widget, we should mark as having membership
-      if (isMembershipApplied) {
-        userHasExistingMembership = true;
-      }
+      // Don't set userHasExistingMembership here - let _fetchUserData determine the actual status
     } else {
       // No valid membership data, ensure it's cleared
       isMembershipApplied = false;
@@ -381,7 +470,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     
     _loadCartItems();
     
-    // Fetch user data to check for existing membership
+    // Fetch user data to check for existing membership and pending membership
     _fetchUserData();
     
     // Calculate membership discount immediately if we have membership from widget
@@ -444,39 +533,99 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
   
   Future<void> _fetchUserData() async {
+    print('🔍 _fetchUserData called for mobile: ${widget.mobileno}');
     try {
       final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug = preferences.getString('centerSlug');
+      print('🔍 centerSlug: $centerSlug');
       
-      // Get user data by mobile number directly
+      // Clean mobile number - remove spaces
+      final cleanMobile = widget.mobileno;
+      print('🔍 mobile (with spaces): $cleanMobile');
+      
+      // First get the customer to find their ID
       final userResponse = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('customers')
           .select('*, membershipplan:membershipplan_id(*)')
-          .eq('mobile', widget.mobileno)
+          .eq('mobile', cleanMobile)
           .limit(1)
           .maybeSingle();
+          
+      print('🔍 userResponse found: ${userResponse != null}');
       
-      if (userResponse != null) {
-        // Check if user has existing membership
-        final membershipPlanId = userResponse['membershipplan_id'];
-        if (membershipPlanId != null && membershipPlanId.toString().isNotEmpty) {
+      if (userResponse != null && userResponse['id'] != null) {
+        final customerId = userResponse['id'];
+        print('🔍 customerId: $customerId');
+        
+        // Check for any membership_data record (both pending and active)
+        final membershipDataCheck = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .select('id, status')
+            .eq('customer_id', customerId)
+            .limit(1)
+            .maybeSingle();
+            
+        print('🔍 membership_data check result: $membershipDataCheck');
+            
+        if (membershipDataCheck != null) {
+          final bool isActive = membershipDataCheck['status'] == true;
           setState(() {
-            userHasExistingMembership = true;
-            existingMembershipId = membershipPlanId.toString();
-            // Get membership name and details from the joined data
-            if (userResponse['membershipplan'] != null) {
-              existingMembershipName = userResponse['membershipplan']['name'];
-              // Store the full membership plan data for discount calculation
-              existingMembershipPlan = userResponse['membershipplan'];
+            if (isActive) {
+              // Active membership - they already have membership
+              userHasExistingMembership = true;
+              userHasPendingMembership = false;
+            } else {
+              // Pending membership - payment not completed
+              userHasPendingMembership = true;
+              userHasExistingMembership = false;
             }
           });
-          // Calculate discount after state is updated
+          print('✅ Found membership_data record - status: ${isActive ? "ACTIVE" : "PENDING"}');
+          
+          // For active memberships, we need to load the plan details for discount calculation
+          if (isActive) {
+            // Get the membership plan details
+            final membershipResponse = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('membership_data')
+                .select('*, membershipplan(*)')
+                .eq('customer_id', customerId)
+                .eq('status', true)
+                .single();
+                
+            if (membershipResponse != null) {
+              setState(() {
+                existingMembershipPlan = membershipResponse['membershipplan'];
+                existingMembershipName = membershipResponse['name'];
+                existingMembershipId = membershipResponse['membershipplan_id'];
+              });
+            }
+          }
+          
+          // Always calculate membership discount to show warning for pending memberships
           _calculateMembershipDiscount();
+          return;
+        } else {
+          print('❌ No membership_data record found');
+          // Only check old membership field if no membership_data exists
+          final membershipPlanId = userResponse['membershipplan_id'];
+          if (membershipPlanId != null && membershipPlanId.toString().isNotEmpty) {
+            setState(() {
+              userHasExistingMembership = true;
+              existingMembershipId = membershipPlanId.toString();
+              if (userResponse['membershipplan'] != null) {
+                existingMembershipName = userResponse['membershipplan']['name'];
+                existingMembershipPlan = userResponse['membershipplan'];
+              }
+            });
+            _calculateMembershipDiscount();
+          }
         }
       }
-    } catch (err) { // Renamed 'e' to 'err'
-      print('Error fetching user data: $err');
+    } catch (err) {
+      print('Error in _fetchUserData: $err');
     }
   }
 
@@ -734,6 +883,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     _updateMembershipColors();
+    
+    // Debug logging for membership button visibility
+    print('🔍 Add Membership button check:');
+    print('  - isMembershipApplied: $isMembershipApplied');
+    print('  - userHasExistingMembership: $userHasExistingMembership');
+    print('  - userHasPendingMembership: $userHasPendingMembership');
+    print('  - Should show button: ${!isMembershipApplied && !userHasExistingMembership && userHasPendingMembership == false}');
+    
     return GetBuilder(
       init: CheckoutController(),
       builder: (controller) {
@@ -1392,8 +1549,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ],
                     
-                    // Add Membership button when no membership is applied AND user doesn't have existing membership
-                    if (!isMembershipApplied && !userHasExistingMembership) ...[
+                    // Add Membership button when no membership is applied AND user doesn't have existing membership AND no pending membership
+                    if (!isMembershipApplied && !userHasExistingMembership && userHasPendingMembership == false) ...[
                       const SizedBox(height: 8),
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
@@ -1423,6 +1580,54 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
+                        ),
+                      ),
+                    ],
+                    
+                    // Show pending membership message
+                    if (userHasPendingMembership) ...[
+                      const SizedBox(height: 8),
+                      Divider(thickness: 1, color: Colors.grey.shade300),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.orange.shade300),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.info_outline, color: Colors.orange.shade700, size: 28),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Membership Pending Payment',
+                              style: GoogleFonts.inter(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.orange.shade800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'You have a pending ${pendingMembershipName ?? "membership"} payment.',
+                              style: GoogleFonts.inter(
+                                fontSize: 16,
+                                color: Colors.orange.shade700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Complete the payment to enjoy membership discounts.',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                color: Colors.orange.shade600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -2105,6 +2310,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     manualDiscountValue = 0.0;
                                     isManualBookingOnlyDiscount = false;
                                     discountController.clear();
+                                    // Clear admin approval when removing discount
+                                    _hasAdminApproval = false;
                                     // Don't clear notes - they might be needed
                                   });
                                 },
@@ -2283,8 +2490,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              // Validate payment amount
-                              if (totalPaid < (actualTotal - membershipDiscountAmount - manualDiscountAmount)) {
+                              final totalAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+                              
+                              print('🔍 Payment calculation:');
+                              print('  Actual total: $actualTotal');
+                              print('  Membership discount: $membershipDiscountAmount');
+                              print('  Manual discount: $manualDiscountAmount');
+                              print('  Total amount to pay: $totalAmount');
+                              print('  Total paid: $totalPaid');
+                              print('  Selected method: $selectedMethod');
+                              
+                              // Admin approval is now handled when applying the discount
+                              // No need to check again here
+                              
+                              // Check for 100% discount scenario
+                              if (totalAmount <= 0) {
+                                // 100% discount - process as fully discounted payment
+                                setState(() {
+                                  checkoutController.checkoutPayBtn.value = true;
+                                });
+                                
+                                // Handle as a fully discounted payment
+                                selectedMethod = 'On Account/Void'; // Set payment method for 100% discount
+                                totalPaid = 0.0; // No payment required
+                                _handlePaymentSuccess();
+                                return;
+                              }
+                              
+                              // Validate payment amount for non-100% discount scenarios
+                              if (totalPaid < totalAmount) {
                                 showCustomSnackbar(
                                   'Insufficient Payment',
                                   'Please pay the full amount',
@@ -2310,9 +2544,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     
                                     if (tyroConfig['apiKey'] != null) {
                                       // Process EFTPOS payment
+                                      final paymentAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+                                      totalPaid = paymentAmount; // Ensure totalPaid is set correctly
+                                      
                                       final paymentResult = await paymentController.processPayment(
                                         context: context,
-                                        amount: actualTotal - membershipDiscountAmount - manualDiscountAmount,
+                                        amount: paymentAmount,
                                         reference: widget.exbookingId ?? 'NEW-${DateTime.now().millisecondsSinceEpoch}',
                                         apiKey: tyroConfig['apiKey'],
                                         merchantId: tyroConfig['merchantId'] ?? '',
@@ -2361,6 +2598,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 }
                               } else {
                                 // For Cash and On Account/Void
+                                if (selectedMethod == 'CASH') {
+                                  // Ensure totalPaid is set correctly for cash payments
+                                  totalPaid = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+                                }
                                 _handlePaymentSuccess();
                               }
                             },
@@ -2843,99 +3084,308 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _showDiscountDialog(CheckoutController checkoutController) {
+    // Clear any previous discount values when opening dialog
+    discountController.text = manualDiscountValue > 0 ? manualDiscountValue.toString() : '';
+    
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Apply Discount',
-            style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: discountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Discount Value',
-                  hintText: 'Enter amount or percentage',
-                  border: OutlineInputBorder(),
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.4,
+                padding: const EdgeInsets.all(30),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Apply Discount',
+                          style: GoogleFonts.inter(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.close, size: 28),
+                          onPressed: () => Navigator.of(context).pop(),
+                          color: Colors.grey.shade600,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Discount value input
+                    Text(
+                      'Discount Percentage',
+                      style: GoogleFonts.inter(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: discountController,
+                      keyboardType: TextInputType.number,
+                      style: GoogleFonts.inter(fontSize: 24),
+                      decoration: InputDecoration(
+                        hintText: 'Enter percentage (0-100)',
+                        hintStyle: GoogleFonts.inter(
+                          fontSize: 20,
+                          color: Colors.grey.shade400,
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Palette.newColor, width: 2),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                      ],
+                      onChanged: (value) {
+                        setDialogState(() {
+                          double parsedValue = double.tryParse(value) ?? 0.0;
+                          // Clamp to 0-100 range
+                          if (parsedValue > 100) {
+                            discountController.text = '100';
+                            discountController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: discountController.text.length),
+                            );
+                            manualDiscountValue = 100.0;
+                          } else {
+                            manualDiscountValue = parsedValue;
+                          }
+                          _calculateManualDiscount();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Apply to booking only checkbox
+                    InkWell(
+                      onTap: () {
+                        setDialogState(() {
+                          isManualBookingOnlyDiscount = !isManualBookingOnlyDiscount;
+                          _calculateManualDiscount();
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isManualBookingOnlyDiscount
+                              ? Colors.blue.shade50
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isManualBookingOnlyDiscount
+                                ? Colors.blue.shade300
+                                : Colors.grey.shade300,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Checkbox(
+                                value: isManualBookingOnlyDiscount,
+                                onChanged: (value) {
+                                  setDialogState(() {
+                                    isManualBookingOnlyDiscount = value!;
+                                    _calculateManualDiscount();
+                                  });
+                                },
+                                activeColor: Palette.newColor,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Apply to court bookings only',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                            const Spacer(),
+                            Icon(
+                              Icons.info_outline,
+                              size: 20,
+                              color: Colors.grey.shade500,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Discount preview
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.green.shade200,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Calculated Discount',
+                                style: GoogleFonts.inter(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.green.shade700,
+                                ),
+                              ),
+                              Text(
+                                '-\$${manualDiscountAmount.toStringAsFixed(2)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.green.shade700,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${manualDiscountValue.toStringAsFixed(1)}% of \$${isManualBookingOnlyDiscount ? courtBookingTotal.toStringAsFixed(2) : (courtBookingTotal + cartItemsTotal).toStringAsFixed(2)}',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              color: Colors.green.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    
+                    // Action buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              discountController.clear();
+                              Navigator.of(context).pop();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey.shade200,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: manualDiscountAmount > 0
+                                ? () async {
+                                    // Close dialog first
+                                    Navigator.of(context).pop();
+                                    
+                                    // Show admin PIN dialog for ANY manual discount
+                                    final approved = await _showAdminPinDialog();
+                                    if (!approved) {
+                                      showCustomSnackbar(
+                                        'Admin Approval Required',
+                                        'Manual discount requires admin approval',
+                                        Colors.orange,
+                                      );
+                                      // Reset discount values since it wasn't approved
+                                      setState(() {
+                                        manualDiscountAmount = 0.0;
+                                        manualDiscountValue = 0.0;
+                                        discountController.clear();
+                                      });
+                                      return;
+                                    }
+                                    
+                                    // Admin approved - apply the discount
+                                    setState(() {
+                                      isManualDiscountApplied = true;
+                                      _hasAdminApproval = true;
+                                    });
+                                    
+                                    // Show success message
+                                    showCustomSnackbar(
+                                      'Success',
+                                      'Discount of \$${manualDiscountAmount.toStringAsFixed(2)} applied with admin approval',
+                                      Colors.green,
+                                    );
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Palette.newColor,
+                              disabledBackgroundColor: Colors.grey.shade300,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Apply Discount',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: manualDiscountAmount > 0 
+                                    ? Colors.white 
+                                    : Colors.grey.shade500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                onChanged: (value) {
-                  setState(() {
-                    manualDiscountValue = double.tryParse(value) ?? 0.0;
-                    _calculateManualDiscount();
-                  });
-                },
               ),
-              Row(
-                children: [
-                  Expanded(
-                    child: RadioListTile<String>(
-                      title: const Text('Flat'),
-                      value: 'flat',
-                      groupValue: manualDiscountType,
-                      onChanged: (value) {
-                        setState(() {
-                          manualDiscountType = value!;
-                          _calculateManualDiscount();
-                        });
-                      },
-                    ),
-                  ),
-                  Expanded(
-                    child: RadioListTile<String>(
-                      title: const Text('Percentage'),
-                      value: 'percentage',
-                      groupValue: manualDiscountType,
-                      onChanged: (value) {
-                        setState(() {
-                          manualDiscountType = value!;
-                          _calculateManualDiscount();
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Checkbox(
-                    value: isManualBookingOnlyDiscount,
-                    onChanged: (value) {
-                      setState(() {
-                        isManualBookingOnlyDiscount = value!;
-                        _calculateManualDiscount();
-                      });
-                    },
-                  ),
-                  Text('Apply to booking only'),
-                ],
-              ),
-              Text('Calculated Discount: \$${manualDiscountAmount.toStringAsFixed(2)}'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  isManualDiscountApplied = manualDiscountAmount > 0;
-                });
-                Navigator.of(context).pop();
-              },
-              child: Text('Apply'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -2943,12 +3393,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _calculateManualDiscount() {
     double totalForDiscount = isManualBookingOnlyDiscount ? courtBookingTotal : (courtBookingTotal + cartItemsTotal);
-    if (manualDiscountType == 'percentage') {
-      manualDiscountAmount = totalForDiscount * (manualDiscountValue / 100);
-    } else {
-      manualDiscountAmount = manualDiscountValue;
-    }
-    // Ensure discount doesn't exceed the total
+    
+    // Ensure percentage is within valid range (0-100)
+    double validPercentage = manualDiscountValue.clamp(0.0, 100.0);
+    
+    // Always calculate as percentage
+    manualDiscountAmount = totalForDiscount * (validPercentage / 100);
+    
+    // Ensure discount doesn't exceed the total (redundant with 100% cap, but kept for safety)
     if (manualDiscountAmount > totalForDiscount) {
       manualDiscountAmount = totalForDiscount;
     }
@@ -2967,6 +3419,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       userHasExistingMembership = false;
       existingMembershipId = null;
       existingMembershipName = null;
+      userHasPendingMembership = false;
+      pendingMembershipName = null;
     });
   }
 
@@ -3083,6 +3537,251 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
+  Widget _buildNumberButton(String number, TextEditingController controller, {bool isBackspace = false, bool isPlaceholder = false}) {
+    if (isPlaceholder) {
+      return Container();
+    }
+    
+    return ElevatedButton(
+      onPressed: () {
+        if (isBackspace) {
+          if (controller.text.isNotEmpty) {
+            controller.text = controller.text.substring(0, controller.text.length - 1);
+          }
+        } else {
+          if (controller.text.length < 4) {
+            controller.text += number;
+          }
+        }
+      },
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isBackspace ? Colors.red.shade100 : Colors.grey.shade100,
+        foregroundColor: isBackspace ? Colors.red.shade700 : Colors.black87,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        elevation: 0,
+      ),
+      child: Text(
+        number,
+        style: GoogleFonts.inter(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _showAdminPinDialog() async {
+    final TextEditingController pinController = TextEditingController();
+    bool isValid = false;
+    
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.3,
+            padding: const EdgeInsets.all(25),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.admin_panel_settings,
+                  size: 60,
+                  color: Palette.newColor,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Admin Approval Required',
+                  style: GoogleFonts.inter(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Manual booking discount requires admin approval',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    color: Colors.grey.shade600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Text(
+                    'Discount Amount: \$${manualDiscountAmount.toStringAsFixed(2)}',
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                PinCodeTextField(
+                  appContext: context,
+                  length: 4,
+                  controller: pinController,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  animationType: AnimationType.fade,
+                  autoFocus: true,
+                  textStyle: GoogleFonts.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  pinTheme: PinTheme(
+                    shape: PinCodeFieldShape.box,
+                    borderRadius: BorderRadius.circular(8),
+                    fieldHeight: 45,
+                    fieldWidth: 45,
+                    activeFillColor: Colors.white,
+                    inactiveFillColor: Colors.grey.shade100,
+                    selectedFillColor: Colors.white,
+                    activeColor: Palette.newColor,
+                    inactiveColor: Colors.grey.shade300,
+                    selectedColor: Palette.newColor,
+                    fieldOuterPadding: EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                  enableActiveFill: true,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  onCompleted: (pin) async {
+                    // Verify admin PIN
+                    try {
+                      // First try SharedPreferences
+                      final prefs = await SharedPreferences.getInstance();
+                      final storeDetailsJson = prefs.getString('storeDetails');
+                      String? adminPin;
+                      
+                      if (storeDetailsJson != null) {
+                        final storeDetails = jsonDecode(storeDetailsJson);
+                        adminPin = storeDetails['admin_pin']?.toString() ?? storeDetails['adminPin']?.toString();
+                        print('Admin PIN from prefs: ${adminPin != null ? "Found (${adminPin.length} digits)" : "Not found"}');
+                      }
+                      
+                      // If not found in prefs, try database
+                      if (adminPin == null || adminPin.isEmpty) {
+                        print('Checking database for admin PIN...');
+                        final centerSlug = prefs.getString('centerSlug');
+                        if (centerSlug != null) {
+                          final storeData = await supabase
+                              .schema('${centerSlug}_prod_schema')
+                              .from('store_details')
+                              .select('admin_pin')
+                              .limit(1)
+                              .maybeSingle();
+                              
+                          if (storeData != null && storeData['admin_pin'] != null) {
+                            adminPin = storeData['admin_pin'].toString();
+                            print('Admin PIN from database: Found (${adminPin.length} digits)');
+                          }
+                        }
+                      }
+                      
+                      print('Entered PIN: $pin');
+                      print('Expected PIN: ${adminPin ?? "Not set"}');
+                      
+                      if (adminPin != null && pin == adminPin) {
+                        isValid = true;
+                        Navigator.of(context).pop();
+                        showCustomSnackbar(
+                          'Approved',
+                          'Admin approval granted for discount',
+                          Colors.green,
+                        );
+                      } else {
+                        pinController.clear();
+                        showCustomSnackbar(
+                          'Invalid PIN',
+                          adminPin == null ? 'Admin PIN not configured' : 'Please enter the correct admin PIN',
+                          Colors.red,
+                        );
+                      }
+                    } catch (e) {
+                      print('Error verifying admin PIN: $e');
+                      showCustomSnackbar(
+                        'Error',
+                        'Failed to verify admin PIN: $e',
+                        Colors.red,
+                      );
+                    }
+                  },
+                  onChanged: (value) {
+                    print('PIN changed: ${value.length} digits entered');
+                  },
+                ),
+                const SizedBox(height: 20),
+                // Number pad for PIN entry
+                Container(
+                  width: 200,
+                  child: GridView.count(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    crossAxisCount: 3,
+                    childAspectRatio: 1.4,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    children: [
+                      for (int i = 1; i <= 9; i++)
+                        _buildNumberButton(i.toString(), pinController),
+                      _buildNumberButton('', pinController, isPlaceholder: true),
+                      _buildNumberButton('0', pinController),
+                      _buildNumberButton('⌫', pinController, isBackspace: true),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade200,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    
+    return isValid;
+  }
+
   void _showCancelBookingDialog() {
     Get.dialog(
       AlertDialog(
@@ -3172,19 +3871,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void showCustomSnackbar(String title, String message, Color color) {
-    Get.snackbar(
-      title,
-      message,
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: color,
-      colorText: Colors.white,
-      margin: const EdgeInsets.all(10),
-      borderRadius: 10,
-      isDismissible: true,
-      duration: const Duration(seconds: 3),
-    );
-  }
   
   void _handlePaymentSuccess() async {
     try {
@@ -3197,8 +3883,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       
       // Update booking payment status if we have exbookingId
       if (widget.exbookingId != null) {
+        print('Processing payment for existing booking: ${widget.exbookingId}');
+        print('Payment method: $selectedMethod, Total paid: $totalPaid');
+        
         // Update booking payment status
-        await supabase
+        final updateResult = await supabase
             .schema('${centerSlug}_prod_schema')
             .from('bookings')
             .update({
@@ -3206,9 +3895,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               'payment_type': selectedMethod,
               'updated_at': DateTime.now().toIso8601String(),
             })
-            .eq('id', widget.exbookingId!);
+            .eq('id', widget.exbookingId!)
+            .select();
             
         print('Updated booking ${widget.exbookingId} payment status to paid');
+        print('Update result: $updateResult');
         
         // Create a booking payment record
         try {
@@ -3221,7 +3912,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               .single();
               
           if (bookingData != null) {
-            await supabase
+            print('Creating booking payment record...');
+            print('Booking data: $bookingData');
+            print('Total paid: $totalPaid, Payment method: $selectedMethod');
+            
+            final paymentRecord = await supabase
                 .schema('${centerSlug}_prod_schema')
                 .from('booking_payments')
                 .insert({
@@ -3234,8 +3929,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   'status': 'completed',
                   'notes': notesController.text.isNotEmpty ? notesController.text : null,
                   'created_by': authController.userId.value,
-                });
+                })
+                .select();
+                
             print('Created booking payment record for booking ${widget.exbookingId}');
+            print('Payment record: $paymentRecord');
+          } else {
+            print('ERROR: bookingData is null, cannot create payment record');
           }
         } catch (e) {
           print('Warning: Could not create booking_payments record: $e');
@@ -3276,28 +3976,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               
           if (membershipData != null) {
             try {
+              print('Found pending membership_data: ${membershipData['id']} for customer ${bookingData['customer_id']}');
+              
               // Update membership status to active
-              await supabase
+              final updateResult = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('membership_data')
                   .update({
                     'status': true, // true means active
+                    'updated_at': DateTime.now().toIso8601String(),
                   })
-                  .eq('id', membershipData['id']);
+                  .eq('id', membershipData['id'])
+                  .select();
                   
               print('Updated membership_data ${membershipData['id']} to active');
+              print('Update result: $updateResult');
               
               // Update customer's membership_data_id if needed
-              await supabase
+              final customerUpdateResult = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('customers')
                   .update({
                     'membership_data_id': membershipData['id'],
                     'membershipplan_id': membershipData['membershipplan_id'],
+                    'updated_at': DateTime.now().toIso8601String(),
                   })
-                  .eq('id', bookingData['customer_id']);
+                  .eq('id', bookingData['customer_id'])
+                  .select();
                   
               print('Updated customer ${bookingData['customer_id']} membership references');
+              print('Customer update result: $customerUpdateResult');
               
               // Create membership payment record
               try {
@@ -3313,12 +4021,52 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'notes': 'Membership payment processed with booking ${widget.exbookingId}',
                     });
                 print('Created membership payment record for membership ${membershipData['id']}');
+                
+                // Verify the membership is now active
+                final verifyMembership = await supabase
+                    .schema('${centerSlug}_prod_schema')
+                    .from('membership_data')
+                    .select('status')
+                    .eq('id', membershipData['id'])
+                    .single();
+                    
+                print('Verification - membership_data status is now: ${verifyMembership['status']}');
+                
               } catch (e) {
                 print('Warning: Could not create membership payment record: $e');
               }
             } catch (e) {
-              print('Warning: Could not update membership_data: $e');
+              print('ERROR: Failed to update membership_data: $e');
+              // Log the full error details
+              print('membership_data id: ${membershipData['id']}');
+              print('customer_id: ${bookingData['customer_id']}');
             }
+          } else {
+            print('No pending membership found for customer ${bookingData['customer_id']}');
+          }
+        }
+        
+        // Handle receipt printing for existing bookings if enabled
+        if (receiptToggle) {
+          print('Receipt printing requested for existing booking...');
+          try {
+            // Get booking details for printing
+            final bookingDetails = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('bookings')
+                .select('grand_total, discount')
+                .eq('id', widget.exbookingId!)
+                .single();
+                
+            if (bookingDetails != null) {
+              // Ensure values are doubles
+              final courtTotal = (bookingDetails['grand_total'] ?? widget.billAmount).toDouble();
+              final discountValue = bookingDetails['discount'] ?? (membershipDiscountAmount + manualDiscountAmount);
+              final discount = discountValue is int ? discountValue.toDouble() : discountValue;
+              await _printReceipt(widget.exbookingId!, courtTotal, discount);
+            }
+          } catch (e) {
+            print('Warning: Could not print receipt for existing booking: $e');
           }
         }
       }
@@ -3343,9 +4091,153 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       
       // If this is a new booking (not from pending payment)
       if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
-        // Create payment record for new booking
-        // This should be handled by the booking creation logic
-        print('New booking payment - should be handled by booking creation');
+        print('Creating new booking with 100% discount...');
+        
+        // For 100% discount, we need to create the booking here
+        try {
+          // Calculate total amount
+          double courtTotal = 0;
+          for (var booking in widget.bookings) {
+            for (var subSlot in booking.subSlots) {
+              courtTotal += subSlot.price;
+            }
+          }
+          
+          // Get customer ID
+          final customerData = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .select('id')
+              .eq('mobile', widget.mobileno)
+              .limit(1)
+              .maybeSingle();
+              
+          if (customerData == null) {
+            throw Exception('Customer not found');
+          }
+          
+          final customerId = customerData['id'];
+          
+          // Get proper booking number
+          final bookingNumberResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .rpc('increment_booking_counter')
+              .select()
+              .single();
+          final bookingNumber = bookingNumberResponse['current_token'] as int;
+          final bookingNo = 'BCK-2025-${bookingNumber}';
+          
+          // Create the main booking record
+          final bookingData = {
+            'booking_no': bookingNo,
+            'customer_id': customerId,
+            'sub_total': courtTotal,
+            'surcharge': 0.0,
+            'grand_total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'notes': notesController.text.isNotEmpty ? notesController.text : 
+                    (manualDiscountAmount > 0 ? 'Manual Discount Applied' : 'Membership Discount Applied'),
+            'discount': membershipDiscountAmount + manualDiscountAmount,
+            'gst': 0.0, // GST is included in the price
+            'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'payment_type': selectedMethod,
+            'payment_status': 'Paid', // 100% discount means paid
+            'status': 'Booked',
+            'created_by': authController.userId.value,
+            'updated_by': authController.userId.value,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          };
+          
+          final bookingResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('bookings')
+              .insert(bookingData)
+              .select()
+              .single();
+              
+          final bookingId = bookingResponse['id'];
+          print('Created booking: $bookingNo with ID: $bookingId');
+          
+          // Create booking slots
+          for (var booking in widget.bookings) {
+            for (var subSlot in booking.subSlots) {
+              // Parse time strings to create proper DateTime objects
+              final bookingDate = widget.selectedDateTime;
+              final startTimeParts = subSlot.startTime.split(':');
+              final endTimeParts = subSlot.endTime.split(':');
+              
+              final startDateTime = DateTime(
+                bookingDate.year,
+                bookingDate.month,
+                bookingDate.day,
+                int.parse(startTimeParts[0]),
+                int.parse(startTimeParts[1]),
+              );
+              
+              final endDateTime = DateTime(
+                bookingDate.year,
+                bookingDate.month,
+                bookingDate.day,
+                int.parse(endTimeParts[0]),
+                int.parse(endTimeParts[1]),
+              );
+              
+              final slotData = {
+                'booking_id': bookingId,
+                'service_id': newBookingController.selectedServiceId.value,
+                'court_id': booking.courtId ?? 'COURT-001', // Default court ID if not available
+                'start_time': startDateTime.toIso8601String(),
+                'end_time': endDateTime.toIso8601String(),
+                'price': subSlot.price,
+                'slot_type': 'Normal',
+                'repeat_days': null,
+                'repeat_end_date': null,
+                'repeat_id': null,
+                'repeat_group_id': null,
+                'status': 'Booked',
+                'created_by': authController.userId.value,
+                'updated_by': authController.userId.value,
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              };
+              
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('booking_slots')
+                  .insert(slotData);
+            }
+          }
+          
+          print('Created booking slots for booking: $bookingId');
+          
+          // Create booking payment record for 100% discount
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('booking_payments')
+              .insert({
+                'booking_id': bookingId,
+                'customer_id': customerId,
+                'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+                'paid_amount': 0.0, // 100% discount
+                'payment_type': selectedMethod,
+                'payment_via': selectedMethod,
+                'status': 'completed',
+                'notes': '100% Discount Applied',
+                'created_by': authController.userId.value,
+              });
+              
+          print('Created payment record for 100% discount booking');
+          
+          // Handle receipt printing if enabled
+          if (receiptToggle) {
+            print('Receipt printing requested...');
+            await _printReceipt(bookingId, courtTotal, membershipDiscountAmount + manualDiscountAmount);
+          }
+          
+        } catch (e) {
+          print('Error creating new booking: $e');
+          throw e;
+        }
       }
       
       setState(() {
@@ -3359,17 +4251,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Clear the cart
       await _clearCartAfterPayment();
       
+      // Refresh pending payments list if we're coming from pending payments
+      if (widget.type == 'ExistingBooking') {
+        try {
+          // Get the order controller and refresh the bookings
+          final OrderController orderController = Get.find<OrderController>();
+          await orderController.fetchBookings('All');
+          print('Refreshed pending payments list after successful payment');
+        } catch (e) {
+          print('Could not refresh pending payments: $e');
+        }
+      }
+      
       // Show success dialog
       newBookingController.showBookingSuccessAlert();
+      
+      // Mark that booking was just completed for court refresh
+      newBookingController.bookingJustCompleted.value = true;
+      
+      // For new bookings, ensure the booking is created in the database
+      if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
+        // Set a flag to indicate payment was processed
+        newBookingController.paymentProcess.value = true;
+      }
       
       // Wait for dialog to be visible
       await Future.delayed(const Duration(seconds: 2));
       
-      // Navigate to dashboard
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/dashboard',
-        (Route<dynamic> route) => false,
-      );
+      // Navigate to dashboard - use Get navigation for consistency
+      Get.offAllNamed('/');
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -3385,7 +4295,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
   
   void _handlePayLater() async {
-    // Show confirmation dialog
+    // Process Pay Later directly without confirmation dialog
+    // If you want to add the dialog back, uncomment the code below
+    
+    /*
     bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -3458,6 +4371,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
     
     if (confirmed == true) {
+    */
+    
+    // Process Pay Later directly
+    {
       try {
         setState(() {
           isLoading = true;
@@ -3478,25 +4395,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             (Route<dynamic> route) => false,
           );
         } else {
-          // For new bookings, we need to process it differently
-          // The booking creation happens in new_booking_screen.dart
-          // Here we just need to navigate back with a flag indicating pay later
-          
-          // Clear any payment state
-          setState(() {
-            totalPaid = 0.0;
-            selectedMethod = '';
-          });
-          
-          // Show success message
-          showCustomSnackbar(
-            'Pay Later Selected',
-            'Please complete the booking to save with pending payment',
-            Colors.orange,
-          );
-          
-          // Navigate back to the new booking screen with pay later flag
-          Navigator.of(context).pop({'payLater': true, 'notes': notesController.text});
+          // For new bookings, process the booking with Pay Later status
+          await _processPayLaterBooking();
         }
         
         setState(() {
@@ -3512,6 +4412,87 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Colors.red,
         );
       }
+    }
+  }
+  
+  Future<void> _processPayLaterBooking() async {
+    try {
+      setState(() {
+        isLoading = true;
+      });
+      
+      // Calculate totals
+      final membershipPrice = (isMembershipApplied && selectedMembershipPrice != null) ? selectedMembershipPrice! : 0.0;
+      final courtTotal = actualTotal - cartController.total - membershipPrice;
+      final totalAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+      
+      // Process the booking with Pay Later status
+      final userData = newBookingController.userData.value;
+      final fullName = userData.firstName != null && userData.lastName != null 
+          ? '${userData.firstName} ${userData.lastName}' 
+          : userData.firstName ?? '';
+          
+      await newBookingController.processCheckout(
+        name: widget.customerName ?? fullName,
+        mobile: widget.mobileno ?? userData.mobile ?? '',
+        email: userData.email ?? '',
+        notes: notesController.text,
+        paymentType: 'Pay Later',
+        bookings: widget.bookings,
+        membershipID: isMembershipApplied ? selectedMembershipId : null,
+        membershipName: isMembershipApplied ? selectedMembershipName : null,
+        membershipPrice: isMembershipApplied ? selectedMembershipPrice : null,
+      );
+      
+      // Get the created booking ID
+      final bookingId = newBookingController.bookingId;
+      
+      if (bookingId.isNotEmpty) {
+        // The booking is already created with payment_status: 'Pending' and payment_type: 'Pay Later'
+        // in the processCheckout method, so we don't need to update it again
+        
+        // Clear the cart and selected slots
+        newBookingController.clearSelectedSlots();
+        newBookingController.cartItems.clear();
+        cartController.clearCart();
+        
+        // Show success message
+        showCustomSnackbar(
+          'Booking Created',
+          'Booking confirmed with pending payment',
+          Colors.green,
+        );
+        
+        // Navigate to dashboard
+        await Future.delayed(const Duration(seconds: 1));
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/dashboard',
+          (Route<dynamic> route) => false,
+        );
+      } else {
+        throw Exception('Failed to create booking');
+      }
+      
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      showCustomSnackbar(
+        'Error',
+        'Failed to create booking: $e',
+        Colors.red,
+      );
+    }
+  }
+  
+  Future<void> _printReceipt(String bookingId, double courtTotal, double discount) async {
+    try {
+      // Call the checkout controller's printBookingReceipt method
+      await checkoutController.printBookingReceipt(bookingId: bookingId);
+      print('Receipt printed successfully for booking: $bookingId');
+    } catch (e) {
+      print('Error printing receipt: $e');
+      // Don't show error to user - receipt printing failure shouldn't block the booking
     }
   }
 }

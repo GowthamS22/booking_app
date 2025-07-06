@@ -64,6 +64,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   double totalPrice = 0.0;
   List<String> selectedSlots = []; // Add this line
   bool hasMembership = false;
+  bool hasPendingMembership = false;
   double? memberPeakPrice;
   double? memberNonPeakPrice;
   bool showTodayButton = false;
@@ -80,26 +81,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     selectedSlots.clear();
     showTodayButton = false;
     
-    // Safely clear controller data
-    try {
-      controller.clearSelectedSlots();
-      controller.selectedCourtSlots.clear();
-      controller.userData.value = AppUser.User();
-    } catch (e) {
-      print('Error clearing controller data: $e');
-    }
-    
-    // Safely clear cart
-    try {
-      cartController.clearCart();
-    } catch (e) {
-      print('Error clearing cart: $e');
-    }
-
-    controller.clearSelectedSlots();
-    controller.userData.value = AppUser.User();
-    cartController.clearCart();
-    
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
     
@@ -115,9 +96,31 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     });
     
+    // Move all controller clearing operations to post-frame callback to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadInitialData();
+      _clearControllersAndLoadData();
     });
+  }
+  
+  void _clearControllersAndLoadData() {
+    // Safely clear controller data after the widget is built
+    try {
+      controller.clearSelectedSlots();
+      controller.selectedCourtSlots.clear();
+      controller.userData.value = AppUser.User();
+    } catch (e) {
+      print('Error clearing controller data: $e');
+    }
+    
+    // Safely clear cart
+    try {
+      cartController.clearCart();
+    } catch (e) {
+      print('Error clearing cart: $e');
+    }
+    
+    // Load initial data after clearing
+    _loadInitialData();
   }
 
   @override
@@ -136,6 +139,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   void dispose() {
+    // Clear controller data before disposing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        cartController.clearCart();
+        controller.clearSelectedSlots();
+        controller.userData.value = AppUser.User();
+      } catch (e) {
+        print('Error clearing controllers on dispose: $e');
+      }
+    });
+    
     // Remove listeners before disposing
     _vertical.removeListener(() {});
     _horizontal.removeListener(() {});
@@ -150,24 +164,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     nameController.dispose();
     mobileController.dispose();
     repeatUntilController.dispose();
-
-    // Clear cart items when screen is disposed
-    try {
-      cartController.clearCart();
-    } catch (e) {
-      print('Error clearing cart on dispose: $e');
-    }
-    try {
-      controller.clearSelectedSlots();
-      controller.userData.value = AppUser.User();
-    } catch (e) {
-      print('Error clearing controller on dispose: $e');
-    }
-
-    // Clear cart items when screen is disposed
-    cartController.clearCart();
-    controller.clearSelectedSlots();
-    controller.userData.value = AppUser.User();
+    
     super.dispose();
   }
   
@@ -576,6 +573,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         double memberPrice = 0.0;
                         bool membershipApplied = false;
                         grouped.forEach((court, slotGroups) {
+                          // Get the court ID from courtList
+                          final courtData = controller.courtList.firstWhere(
+                            (c) => c['name'] == court,
+                            orElse: () => <String, dynamic>{},
+                          );
+                          final courtId = courtData['id'] as String?;
+                          
                           for (final group in slotGroups) {
                             group.sort();
                             final start = group.first;
@@ -612,6 +616,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             bookings.add(
                               BookingInfo(
                                 courtName: court,
+                                courtId: courtId,
                                 selectedDateTime:
                                 selectedDateTime != null
                                     ? selectedDate
@@ -1552,6 +1557,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     void _clearMembershipData() {
       setState(() {
         hasMembership = false;
+        hasPendingMembership = false;
         memberPeakPrice = null;
         memberNonPeakPrice = null;
         membershipPlan = '';
@@ -1563,13 +1569,51 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       });
     }
 
-    void _updateUserData(Map<String, dynamic> userData) {
+    void _updateUserData(Map<String, dynamic> userData) async {
       nameController.text = userData['name'];
       mobileController.text = userData['mobile'];
+      
+      // Check membership_data table for pending membership
+      bool hasPendingMembership = false;
+      if (userData['id'] != null) {
+        final SharedPreferences preferences = await SharedPreferences.getInstance();
+        String? centerSlug = preferences.getString('centerSlug');
+        
+        try {
+          final membershipDataCheck = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('membership_data')
+              .select('id, status')
+              .eq('customer_id', userData['id'])
+              .maybeSingle();
+              
+          if (membershipDataCheck != null) {
+            if (membershipDataCheck['status'] == false) {
+              hasPendingMembership = true;
+              print('⚠️ Customer has pending membership payment');
+            } else if (membershipDataCheck['status'] == true) {
+              // Customer has active membership in membership_data table
+              // This should be treated as having membership
+              hasPendingMembership = false;
+              print('✅ Customer has active membership in membership_data');
+              // We'll let the main logic below handle setting hasMembership = true
+            }
+          }
+        } catch (e) {
+          print('Error checking membership_data: $e');
+        }
+      }
+      
       setState(() {
-        hasMembership = (userData['membershipplan_id'] != null &&
-        userData['membershipplan_id'].toString().isNotEmpty);
-        if (hasMembership) {
+        // Update pending membership status
+        this.hasPendingMembership = hasPendingMembership;
+        
+        // Only set hasMembership to true if there's NO pending membership
+        hasMembership = !hasPendingMembership && 
+                       (userData['membershipplan_id'] != null &&
+                        userData['membershipplan_id'].toString().isNotEmpty);
+                        
+        if (hasMembership && !hasPendingMembership) {
           memberPeakPrice = double.tryParse(userData['peak_price']?.toString() ?? '0');
           memberNonPeakPrice = double.tryParse(userData['non_peak_price']?.toString() ?? '0');
           membershipPlan = userData['membership_plan'];
@@ -1640,6 +1684,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                         (sum, b) =>
                             sum +
                             b.subSlots.fold(0.0, (subSum, subSlot) {
+                              // Always use regular price - let checkout handle membership discounts
+                              double price = (subSlot.price is num) ? subSlot.price.toDouble() : 0.0;
+                              return subSum + price;
+                              
+                              /* Don't apply membership prices here - moved to checkout
                               double price;
                               if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
                                 final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
@@ -1651,7 +1700,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               } else {
                                 price = (subSlot.price is num) ? subSlot.price.toDouble() : 0.0;
                               }
-                              return subSum + price;
+                              */
                             }),
                       );
                     });
@@ -2023,7 +2072,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                             );
                                           },
-                                          onSelected: (suggestion) {
+                                          onSelected: (suggestion) async {
                                             mobileController.text = suggestion['mobile'];
                                             nameController.text = suggestion['name'];
                                             if(suggestion['already_in_cart']==true) {
@@ -2032,14 +2081,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
-                                            setState(() {
-                                              hasMembership = (suggestion['membershipplan_id'] != null && suggestion['membershipplan_id'].toString().isNotEmpty);
-                                              memberPeakPrice = hasMembership ? double.tryParse(suggestion['peak_price']?.toString() ?? '0',) : null;
-                                              memberNonPeakPrice = hasMembership ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0',) : null;
-                                              membershipPlan = hasMembership ? suggestion['membership_plan'] : '';
-                                              membershipValidityDate = hasMembership ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '',) : null;
-                                              updateCourtPrice();
-                                            });
+                                            
+                                            // Use _updateUserData to handle membership check properly
+                                            _updateUserData(suggestion);
                                           },
                                         ),
                                       ),
@@ -2129,16 +2173,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                         flex: 2,
                                                         child: Text(
                                                           "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
-                                                            if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-                                                              final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
-                                                              if(isMembershipExpired) {
-                                                                return sum + subSlot.price;
-                                                              } else {
-                                                                return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
-                                                              }
-                                                            } else {
-                                                              return sum + subSlot.price;
-                                                            }
+                                                            // Always show regular price - membership discount shown in checkout
+                                                            return sum + subSlot.price;
                                                           }).toStringAsFixed(2)}",
                                                           textAlign: TextAlign.right,
                                                           style: GoogleFonts.inter(
@@ -2711,7 +2747,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 //   ),
                                 // ]
                                 //else ...[
-                                if (!membershipInCart && !hasMembership || (membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays <= 0)) ...[
+                                if (!membershipInCart && !hasMembership && !hasPendingMembership || (membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays <= 0)) ...[
                                   Expanded(
                                     child: ElevatedButton(
                                       onPressed:
@@ -2860,18 +2896,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         bookings.map((booking) {
           return BookingInfo(
             courtName: booking.courtName,
+            courtId: booking.courtId,
             selectedDateTime: booking.selectedDateTime,
             selectedDays: booking.selectedDays,
             subSlots:
                 booking.subSlots.map((subSlot) {
-                  // Apply membership pricing if applicable
+                  // Don't apply membership pricing here - let checkout handle it
                   double updatedPrice = subSlot.price;
-                  if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-                    final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
-                    if(!isMembershipExpired) {
-                      updatedPrice = subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
-                    }
-                  }
                   return BookingSubSlotInfo(
                     startTime: subSlot.startTime,
                     endTime: subSlot.endTime,
@@ -3102,16 +3133,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           flex: 2,
                                           child: Text(
                                             "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
-                                              if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-                                                final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
-                                                if(isMembershipExpired) {
-                                                  return sum + subSlot.price;
-                                                } else {
-                                                  return sum + (subSlot.isPeak ? memberPeakPrice! : memberNonPeakPrice!);
-                                                }
-                                              } else {
-                                                return sum + subSlot.price;
-                                              }
+                                              // Always show regular price - membership discount shown in checkout
+                                              return sum + subSlot.price;
                                             }).toStringAsFixed(2)}",
                                             textAlign: TextAlign.right,
                                             style: GoogleFonts.inter(
@@ -3484,16 +3507,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
         // Apply membership pricing if available
         double finalPrice;
-        if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
-          final isMembershipExpired = membershipValidityDate != null && membershipValidityDate!.isBefore(DateTime.now());
-          if(isMembershipExpired) {
-            finalPrice = subSlotInfo.price;
-          } else {
-            finalPrice = subSlotInfo.isPeak ? memberPeakPrice! : memberNonPeakPrice!;
-          }
-        } else {
-          finalPrice = subSlotInfo.price;
-        }
+        // Always use regular price - let checkout handle membership discounts
+        finalPrice = subSlotInfo.price;
 
         print('selectedDateTime: ${selectedDateTime}');
         final individualSlot = BookingSlot(
@@ -3855,6 +3870,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     controller.selectedCourtSlots.forEach((court, slots) {
       for (String slot in slots) {
         final slotData = slotInfoMap[slot];
+        // Always use regular price - let checkout handle membership discounts
+        double price = slotData?['price'] ?? 0.0;
+        total += price;
+        
+        /* Don't apply membership prices here - moved to checkout
         final isPeak = slotData?['isPeak'] ?? false;
         double price;
         if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
@@ -3867,7 +3887,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         } else {
           price = slotData?['price'] ?? 0.0;
         }
-        total += price;
+        */
       }
     });
     setState(() {

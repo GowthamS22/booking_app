@@ -43,46 +43,112 @@ Color textPrimary = Color(0xFF111111);
 Color textSecondary = Color(0xFF3A3cd3);
 
 void showCustomSnackbar(String title, String message, Color color) {
+  // Determine toast type and icon based on color
+  ToastificationType type;
+  IconData iconData;
+  
+  if (color == Colors.green || color == Colors.green.shade600) {
+    type = ToastificationType.success;
+    iconData = Icons.check_circle;
+  } else if (color == Colors.red || color == Colors.red.shade600) {
+    type = ToastificationType.error;
+    iconData = Icons.error;
+  } else if (color == Colors.orange || color == Colors.orange.shade600) {
+    type = ToastificationType.warning;
+    iconData = Icons.warning;
+  } else if (color == Colors.blue || color == Colors.blue.shade600) {
+    type = ToastificationType.info;
+    iconData = Icons.info;
+  } else {
+    type = ToastificationType.info;
+    iconData = Icons.notifications;
+  }
+  
   toastification.show(
-    type: ToastificationType.success,
-    style: ToastificationStyle.flatColored,
-    autoCloseDuration: const Duration(seconds: 2),
-    title: Text('${title}', style: TextStyle(fontSize: 22, color: Colors.black87)),
-    description: RichText(text: TextSpan(text: '${message}', style: TextStyle(fontSize: 20, color: Colors.black87))),
+    type: type,
+    style: ToastificationStyle.fillColored,
+    autoCloseDuration: const Duration(seconds: 4),
+    title: Text(
+      title,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+      ),
+    ),
+    description: Text(
+      message,
+      style: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w400,
+        color: Colors.white.withOpacity(0.95),
+      ),
+    ),
     alignment: Alignment.topRight,
     direction: TextDirection.ltr,
-    animationDuration: const Duration(milliseconds: 300),
+    animationDuration: const Duration(milliseconds: 400),
     animationBuilder: (context, animation, alignment, child) {
-      return FadeTransition(
-        opacity: AlwaysStoppedAnimation(10),
-        child: child,
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1.0, 0.0),
+          end: Offset.zero,
+        ).animate(CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+        )),
+        child: FadeTransition(
+          opacity: animation,
+          child: child,
+        ),
       );
     },
-    icon: const Icon(Icons.check, size: 40, color: Colors.black87,),
-    showIcon: true, // show or hide the icon
+    icon: Icon(
+      iconData,
+      size: 28,
+      color: Colors.white,
+    ),
+    showIcon: true,
     primaryColor: color,
     backgroundColor: color,
-    foregroundColor: color,
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 20),
-    margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+    margin: const EdgeInsets.only(top: 20, right: 20),
     borderRadius: BorderRadius.circular(12),
-    boxShadow: const [
+    boxShadow: [
       BoxShadow(
-        color: Color(0x07000000),
-        blurRadius: 16,
-        offset: Offset(0, 16),
+        color: color.withOpacity(0.4),
+        blurRadius: 20,
+        offset: const Offset(0, 8),
         spreadRadius: 0,
-      )
+      ),
+      BoxShadow(
+        color: color.withOpacity(0.2),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+        spreadRadius: 0,
+      ),
     ],
     showProgressBar: true,
-    progressBarTheme: ProgressIndicatorThemeData(color: Colors.black26),
+    progressBarTheme: ProgressIndicatorThemeData(
+      color: Colors.white.withOpacity(0.3),
+      linearTrackColor: Colors.white.withOpacity(0.1),
+    ),
     closeButton: ToastCloseButton(
-      showType: CloseButtonShowType.onHover,
+      showType: CloseButtonShowType.always,
       buttonBuilder: (context, onClose) {
-        return OutlinedButton.icon(
-          onPressed: onClose,
-          icon: const Icon(Icons.close, size: 20),
-          label: const Text('Close'),
+        return Container(
+          margin: const EdgeInsets.only(left: 8),
+          child: IconButton(
+            onPressed: onClose,
+            icon: Icon(
+              Icons.close,
+              size: 20,
+              color: Colors.white.withOpacity(0.8),
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            splashRadius: 20,
+          ),
         );
       },
     ),

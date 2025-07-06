@@ -296,6 +296,7 @@ class upComingBooking {
 
 class BookingInfo {
   final String courtName;
+  final String? courtId;
   final DateTime selectedDateTime;
   List<String> selectedDays;
   DateTime? repeatUntil;
@@ -306,6 +307,7 @@ class BookingInfo {
 
   BookingInfo({
     required this.courtName,
+    this.courtId,
     required this.selectedDateTime,
     this.selectedDays = const [],
     this.repeatUntil,
@@ -318,6 +320,7 @@ class BookingInfo {
   factory BookingInfo.fromJson(Map<String, dynamic> json) {
     return BookingInfo(
       courtName: json['courtName'],
+      courtId: json['courtId'],
       selectedDateTime: DateTime.parse(json['selectedDateTime']),
       selectedDays: List<String>.from(json['selectedDays'] ?? []),
       repeatUntil: json['repeatUntil'] != null ? DateTime.parse(json['repeatUntil']) : null,
@@ -332,6 +335,7 @@ class BookingInfo {
 
   Map<String, dynamic> toJson() => {
     'courtName': courtName,
+    'courtId': courtId,
     'selectedDateTime': selectedDateTime.toIso8601String(),
     'selectedDays': selectedDays,
     'repeatUntil': repeatUntil?.toIso8601String(),
