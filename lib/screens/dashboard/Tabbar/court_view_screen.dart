@@ -95,7 +95,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     } catch (e) {
       print('Error clearing cart: $e');
     }
-    
+
+    controller.clearSelectedSlots();
+    controller.userData.value = AppUser.User();
+    cartController.clearCart();
     
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
@@ -160,6 +163,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     } catch (e) {
       print('Error clearing controller on dispose: $e');
     }
+
+    // Clear cart items when screen is disposed
+    cartController.clearCart();
+    controller.clearSelectedSlots();
+    controller.userData.value = AppUser.User();
     super.dispose();
   }
   
@@ -447,7 +455,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   ),
                 ),
               ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 20),
             // DEBUG: Temporary button to clean up orphaned membership records
             GestureDetector(
               onTap: () => _showDebugCleanupDialog(),
@@ -461,7 +469,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 child: Icon(Icons.cleaning_services, size: 35, color: Colors.orange),
               ),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 20),
             GestureDetector(
               onTap: () {
                 setState(() {
@@ -480,7 +488,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                 child: Icon(Icons.date_range_sharp, size: 35),
               ),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 20),
             Row(
               children:
                   controller.serviceList.take(2).map((item) {
@@ -524,8 +532,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 }
                               },
                       child: Container(
-                        margin: EdgeInsets.only(right: 12),
-                        padding: EdgeInsets.all(16),
+                        margin: EdgeInsets.only(right: 20),
+                        padding: EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color:
                               isSelected
@@ -535,16 +543,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           border: Border.all(
                             color:
                                 isSelected
-                                    ? Colors.grey.shade200
+                                    ? Palette.newColor
                                     : Palette.newColor,
                           ),
                         ),
                         child: Image.asset(
                           item['name'] == 'Badminton'
-                              ? 'assets/images/icons/badminton.png'
-                              : 'assets/images/icons/tennis.png',
-                          width: 32,
-                          height: 32,
+                              ? 'assets/images/icons/sports-1.png'
+                              : 'assets/images/icons/sports-3.png',
+                          width: 50,
+                          height: 50,
                           fit: BoxFit.fill,
                           color: isSelected ? Colors.white : Colors.grey,
                         ),
@@ -553,128 +561,134 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   }).toList(),
             ),
 
-            const SizedBox(width: 10),
-            if (controller.selectedCourtSlots.isNotEmpty) ...[
-              GestureDetector(
-                onTap: () {
-                  final grouped = controller.groupSelectedSlots(
-                    controller.selectedCourtSlots,
-                  );
-                  List<BookingInfo> bookings = [];
-                  String membershipPlan = '';
-                  double memberPrice = 0.0;
-                  bool membershipApplied = false;
-                  grouped.forEach((court, slotGroups) {
-                    for (final group in slotGroups) {
-                      group.sort();
-                      final start = group.first;
-                      final lastSlotData = slotInfoMap[group.last];
-                      final end =
-                      lastSlotData != null
-                          ? calculateEndTime(group.last)
-                          : calculateEndTime(
-                        group.last,
-                      ); // fallback, but ideally use slotInfoMap
-                      List<BookingSubSlotInfo> subSlots = [];
-                      for (String slot in group) {
-                        final slotData = slotInfoMap[slot];
-                        if (slotData != null) {
-                          final subStartTime =
-                              slot; // Slot is already in HH:mm format
-                          final subEndTime = calculateEndTime(
-                            slot,
-                          ); // Calculate end time for this 30-min slot
-                          final subPrice =
-                          (slotData['price'] ?? 0.0).toDouble();
-                          final subIsPeak = slotData['isPeak'] ?? false;
-                          subSlots.add(
-                            BookingSubSlotInfo(
-                              startTime: subStartTime,
-                              endTime: subEndTime,
-                              price: subPrice,
-                              isPeak: subIsPeak,
-                            ),
-                          );
-                        }
-                      }
+            Obx(() {
+              final hasSelectedSlots = controller.selectedCourtSlots.values.any((slots) => slots.isNotEmpty);
+              return Row(
+                children: [
+                  if (hasSelectedSlots) ...[
+                    GestureDetector(
+                      onTap: () {
+                        final grouped = controller.groupSelectedSlots(
+                          controller.selectedCourtSlots,
+                        );
+                        List<BookingInfo> bookings = [];
+                        String membershipPlan = '';
+                        double memberPrice = 0.0;
+                        bool membershipApplied = false;
+                        grouped.forEach((court, slotGroups) {
+                          for (final group in slotGroups) {
+                            group.sort();
+                            final start = group.first;
+                            final lastSlotData = slotInfoMap[group.last];
+                            final end =
+                            lastSlotData != null
+                                ? calculateEndTime(group.last)
+                                : calculateEndTime(
+                              group.last,
+                            ); // fallback, but ideally use slotInfoMap
+                            List<BookingSubSlotInfo> subSlots = [];
+                            for (String slot in group) {
+                              final slotData = slotInfoMap[slot];
+                              if (slotData != null) {
+                                final subStartTime =
+                                    slot; // Slot is already in HH:mm format
+                                final subEndTime = calculateEndTime(
+                                  slot,
+                                ); // Calculate end time for this 30-min slot
+                                final subPrice =
+                                (slotData['price'] ?? 0.0).toDouble();
+                                final subIsPeak = slotData['isPeak'] ?? false;
+                                subSlots.add(
+                                  BookingSubSlotInfo(
+                                    startTime: subStartTime,
+                                    endTime: subEndTime,
+                                    price: subPrice,
+                                    isPeak: subIsPeak,
+                                  ),
+                                );
+                              }
+                            }
 
-                      bookings.add(
-                        BookingInfo(
-                          courtName: court,
-                          selectedDateTime:
-                          selectedDateTime != null
-                              ? selectedDate
-                              : DateTime.now(),
-                          selectedDays: [],
-                          subSlots: subSlots,
-                          bookingId: controller.bookingId,
+                            bookings.add(
+                              BookingInfo(
+                                courtName: court,
+                                selectedDateTime:
+                                selectedDateTime != null
+                                    ? selectedDate
+                                    : DateTime.now(),
+                                selectedDays: [],
+                                subSlots: subSlots,
+                                bookingId: controller.bookingId,
+                              ),
+                            );
+                          }
+                        });
+                        openBookingRightDrawer(
+                          context,
+                          membershipPlan,
+                          memberPrice,
+                          membershipApplied,
+                          (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                          bookings,
+                          onCancel: () {
+                            setState(
+                                  () {},
+                            ); // This will force the parent to rebuild and reflect cleared state
+                          },
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 30,
+                          vertical: 17,
                         ),
-                      );
-                    }
-                  });
-                  openBookingRightDrawer(
-                    context,
-                    membershipPlan,
-                    memberPrice,
-                    membershipApplied,
-                    (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                    bookings,
-                    onCancel: () {
-                      setState(
-                            () {},
-                      ); // This will force the parent to rebuild and reflect cleared state
-                    },
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 30,
-                    vertical: 15,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.indigo.shade500,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  child: Text(
-                    'Book Now',
-                    style: GoogleFonts.inter(
-                      fontSize: 23,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 20),
-              GestureDetector(
-                onTap: () {
-                  controller.clearSelectedSlots();
-                  setState(() {});
-                  // Add this line to ensure UI updates properly
-                  controller.update();
-                },
-                child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 30,
-                      vertical: 15,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Palette.newColor),
-                    ),
-                    child: Text(
-                      'Clear Selection',
-                      style: GoogleFonts.inter(
-                        fontSize: 23,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade500,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey),
+                        ),
+                        child: Text(
+                          'Book Now',
+                          style: GoogleFonts.inter(
+                            fontSize: 23,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                    SizedBox(width: 20),
+                    GestureDetector(
+                      onTap: () {
+                        controller.clearSelectedSlots();
+                        setState(() {});
+                        // Add this line to ensure UI updates properly
+                        controller.update();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 30,
+                          vertical: 17,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Palette.newColor),
+                        ),
+                        child: Text(
+                          'Clear Selection',
+                          style: GoogleFonts.inter(
+                            fontSize: 23,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },),
           ],
         ),
 
@@ -922,10 +936,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               // Grid Content
                               ...sortedCourts.map((court) {
                                 final courtName = court['name'];
-                                final selectedSlots =
-                                    controller.selectedCourtSlots[courtName] ??
-                                    [];
-
+                                final selectedSlots = controller.selectedCourtSlots[courtName] ?? [];
                                 return Row(
                                   children: [
                                     ...List.generate(controller.timeSlots.length, (
@@ -933,11 +944,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ) {
                                       String slot = controller.timeSlots[index];
                                       final slotData = slotInfoMap[slot];
-                                      final isPeak =
-                                          slotData?['isPeak'] ?? false;
-                                      courtPrice =
-                                          (slotData?['price'] ?? 0.0)
-                                              .toDouble();
+                                      final isPeak   = slotData?['isPeak'] ?? false;
+                                      courtPrice     = (slotData?['price'] ?? 0.0).toDouble();
                                       bool isSelected = selectedSlots.contains(
                                         slot,
                                       );
@@ -1146,6 +1154,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           ),
                                         );
                                       }
+
                                       return GestureDetector(
                                         onTapDown: (TapDownDetails details) {
                                           if (isBooked || isPastSlot) return;
@@ -1726,10 +1735,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                           Form(
                             key: _formKey,
                             child: Row(
+                              spacing: 30,
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
 
-                                // Mobile Field
+                                //Mobile Field
                                 Flexible(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1754,30 +1764,57 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             if (textEditingValue.text.isEmpty) {
                                               return const Iterable<Map<String, dynamic>>.empty();
                                             }
-                                            final pattern = textEditingValue.text;
-                                            final suggestions = await controller.fetchUserSuggestions(pattern);
-                                            return suggestions.where((user) => 
-                                              user['mobile'].toString().contains(pattern)
-                                            );
+                                            return await controller.fetchUserSuggestions(textEditingValue.text);
                                           },
-                                          fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-                                            mobileController = textEditingController;
+                                          onSelected: (Map<String, dynamic> selection) {
+                                            _updateUserData(selection);
+                                            // Hide keyboard after selection
+                                            FocusScope.of(context).unfocus();
+                                          },
+                                          fieldViewBuilder: (BuildContext context,
+                                              TextEditingController fieldTextEditingController,
+                                              FocusNode fieldFocusNode,
+                                              VoidCallback onFieldSubmitted) {
+
+                                            if (mobileController.text != fieldTextEditingController.text) {
+                                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                fieldTextEditingController.text = mobileController.text;
+                                              });
+                                            }
+
                                             return TextFormField(
-                                              controller: textEditingController,
-                                              focusNode: focusNode,
+                                              controller: fieldTextEditingController,
+                                              focusNode: fieldFocusNode,
                                               keyboardType: TextInputType.phone,
+                                              textInputAction: TextInputAction.done, // Changed to 'done' for better UX
                                               inputFormatters: [
                                                 FilteringTextInputFormatter.digitsOnly,
                                                 MobileNumberFormatter(),
                                               ],
+                                              onChanged: (value) {
+                                                mobileController.text = value;
+                                                if (value.length < 12) { // Only clear if not a complete number
+                                                  _clearMembershipData();
+                                                }
+                                              },
+                                              onFieldSubmitted: (value) {
+                                                _validateAndFetchUserData(value);
+                                                // Hide keyboard after submission
+                                                FocusScope.of(context).unfocus();
+                                              },
+                                              onEditingComplete: () {
+                                                final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
+                                                if (digitsOnly.length == 10) {
+                                                  _validateAndFetchUserData(mobileController.text);
+                                                } else {
+                                                  _clearMembershipData();
+                                                }
+                                                FocusScope.of(context).unfocus();
+                                              },
                                               validator: (value) {
-                                                if (value == null || value.trim().isEmpty) {
-                                                  return 'Mobile number is required';
-                                                }
-                                                final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
-                                                if (digitsOnly.length != 10) {
-                                                  return 'Enter a valid 10-digit number';
-                                                }
+                                                final digitsOnly = value?.replaceAll(RegExp(r'\D'), '') ?? '';
+                                                if (digitsOnly.isEmpty) return 'Mobile number is required';
+                                                if (digitsOnly.length != 10) return 'Enter a valid 10-digit number';
                                                 return null;
                                               },
                                               style: GoogleFonts.inter(
@@ -1788,7 +1825,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               decoration: InputDecoration(
                                                 isDense: true,
                                                 contentPadding: const EdgeInsets.symmetric(
-                                                  vertical: 15,
+                                                  vertical: 12,
                                                   horizontal: 12,
                                                 ),
                                                 border: OutlineInputBorder(
@@ -1800,43 +1837,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                             );
                                           },
-                                          onSelected: (Map<String, dynamic> suggestion) {
-                                            mobileController.text = suggestion['mobile'];
-                                            nameController.text = suggestion['name'];
-                                            print('Selected customer data: $suggestion');
-                                            if(suggestion['already_in_cart']==true) {
-                                              membershipInCart = true;
-                                            }
-                                            setState(() {
-                                              hasMembership = (suggestion['membershipplan_id'] != null && 
-                                                  suggestion['membershipplan_id'].toString().isNotEmpty);
-                                              memberPeakPrice = hasMembership 
-                                                  ? double.tryParse(suggestion['peak_price']?.toString() ?? '0') 
-                                                  : null;
-                                              memberNonPeakPrice = hasMembership 
-                                                  ? double.tryParse(suggestion['non_peak_price']?.toString() ?? '0') 
-                                                  : null;
-                                              membershipPlan = hasMembership 
-                                                  ? suggestion['membership_plan'] 
-                                                  : '';
-                                              membershipValidityDate = hasMembership 
-                                                  ? DateTime.tryParse(suggestion['validity_end']?.toString() ?? '') 
-                                                  : null;
-                                              updateCourtPrice();
-                                            });
-                                            // Hide keyboard after selection
-                                            FocusScope.of(context).unfocus();
-                                          },
-                                          optionsViewBuilder: (context, onSelected, options) {
+                                          optionsViewBuilder: (BuildContext context,
+                                              AutocompleteOnSelected<Map<String, dynamic>> onSelected,
+                                              Iterable<Map<String, dynamic>> options) {
                                             return Align(
                                               alignment: Alignment.topLeft,
                                               child: Material(
                                                 elevation: 4.0,
-                                                child: Container(
-                                                  constraints: const BoxConstraints(maxHeight: 200),
+                                                child: SizedBox(
+                                                  height: 200,
                                                   child: ListView.builder(
                                                     padding: EdgeInsets.zero,
-                                                    shrinkWrap: true,
                                                     itemCount: options.length,
                                                     itemBuilder: (BuildContext context, int index) {
                                                       final Map<String, dynamic> option = options.elementAt(index);
@@ -1866,163 +1877,17 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 16),
-
-                                // Mobile Field
-                                // Flexible(
-                                //   child: Column(
-                                //     crossAxisAlignment:
-                                //         CrossAxisAlignment.start,
-                                //     children: [
-                                //       Text(
-                                //         'Mobile',
-                                //         style: GoogleFonts.inter(
-                                //           fontSize: 22,
-                                //           color: Colors.grey.shade900,
-                                //           fontWeight: FontWeight.w500,
-                                //         ),
-                                //       ),
-                                //       const SizedBox(height: 4),
-                                //       ConstrainedBox(
-                                //         constraints: BoxConstraints(
-                                //           minWidth: 200,
-                                //           maxWidth:
-                                //               MediaQuery.of(
-                                //                 context,
-                                //               ).size.width *
-                                //               0.50,
-                                //         ),
-                                //         child: TypeAheadField<
-                                //           Map<String, dynamic>
-                                //         >(
-                                //           controller: mobileController,
-                                //           suggestionsCallback: (pattern) async {
-                                //             return await controller
-                                //                 .fetchUserSuggestions(pattern);
-                                //           },
-                                //           // suggestionsCallback: (pattern) {
-                                //           //   if (pattern.isEmpty) return [];
-                                //           //   return controller.userList.where((
-                                //           //       user,
-                                //           //       ) {
-                                //           //     return user['mobile']!
-                                //           //         .toLowerCase()
-                                //           //         .contains(
-                                //           //       pattern.toLowerCase(),
-                                //           //     );
-                                //           //   }).toList();
-                                //           // },
-                                //           builder: (context, _, focusNode) {
-                                //             return TextFormField(
-                                //               controller: mobileController,
-                                //               focusNode: focusNode,
-                                //               keyboardType: TextInputType.phone,
-                                //               validator: (value) {
-                                //                 if (value == null ||
-                                //                     value.trim().isEmpty) {
-                                //                   return 'Mobile number is required';
-                                //                 }
-                                //                 if (!RegExp(
-                                //                   r'^[0-9]{10}$',
-                                //                 ).hasMatch(value)) {
-                                //                   return 'Enter a valid 10-digit number';
-                                //                 }
-                                //                 return null;
-                                //               },
-                                //               style: GoogleFonts.inter(
-                                //                 fontSize: 22,
-                                //                 color: Colors.grey.shade800,
-                                //                 fontWeight: FontWeight.w500,
-                                //               ),
-                                //               decoration: InputDecoration(
-                                //                 isDense: true,
-                                //                 contentPadding:
-                                //                     const EdgeInsets.symmetric(
-                                //                       vertical: 12,
-                                //                       horizontal: 12,
-                                //                     ),
-                                //                 border: OutlineInputBorder(
-                                //                   borderRadius:
-                                //                       BorderRadius.circular(8),
-                                //                   borderSide: BorderSide(
-                                //                     color: Colors.grey.shade300,
-                                //                   ),
-                                //                 ),
-                                //               ),
-                                //             );
-                                //           },
-                                //           itemBuilder: (context, suggestion) {
-                                //             return ListTile(
-                                //               title: Text(
-                                //                 suggestion['name'],
-                                //                 style: TextStyle(fontSize: 22),
-                                //               ),
-                                //               subtitle: Text(
-                                //                 suggestion['mobile'],
-                                //                 style: TextStyle(fontSize: 22),
-                                //               ),
-                                //             );
-                                //           },
-                                //           onSelected: (suggestion) {
-                                //             nameController.text =
-                                //                 suggestion['name'];
-                                //             mobileController.text =
-                                //                 suggestion['mobile'];
-                                //             setState(() {
-                                //               hasMembership =
-                                //                   (suggestion['membershipplan_id'] !=
-                                //                           null &&
-                                //                       suggestion['membershipplan_id']
-                                //                           .toString()
-                                //                           .isNotEmpty);
-                                //               memberPeakPrice =
-                                //                   hasMembership
-                                //                       ? double.tryParse(
-                                //                         suggestion['peak_price']
-                                //                                 ?.toString() ??
-                                //                             '0',
-                                //                       )
-                                //                       : null;
-                                //               memberNonPeakPrice =
-                                //                   hasMembership
-                                //                       ? double.tryParse(
-                                //                         suggestion['non_peak_price']
-                                //                                 ?.toString() ??
-                                //                             '0',
-                                //                       )
-                                //                       : null;
-                                //               membershipPlan =
-                                //                   hasMembership
-                                //                       ? suggestion['membership_plan']
-                                //                       : null;
-                                //
-                                //               membershipValidityDate =
-                                //                   hasMembership
-                                //                       ? DateTime.tryParse(
-                                //                         suggestion['validity_end']
-                                //                                 ?.toString() ??
-                                //                             '',
-                                //                       )
-                                //                       : null;
-                                //               updateCourtPrice();
-                                //             });
-                                //           },
-                                //         ),
-                                //       ),
-                                //     ],
-                                //   ),
-                                // ),
 
                                 // Name Field
                                 Flexible(
                                   child: Column(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
                                       Row(
                                         mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                                        MainAxisAlignment.spaceBetween,
 
                                         children: [
                                           Text(
@@ -2038,14 +1903,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           if (hasMembership) ...[
                                             Container(
                                               padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
                                               decoration: BoxDecoration(
                                                 color: backgroundColor,
                                                 borderRadius:
-                                                    BorderRadius.circular(6),
+                                                BorderRadius.circular(6),
                                                 border: Border.all(
                                                   color: borderColor!,
                                                 ),
@@ -2089,19 +1954,29 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         constraints: BoxConstraints(
                                           minWidth: 200,
                                           maxWidth:
-                                              MediaQuery.of(
-                                                context,
-                                              ).size.width *
+                                          MediaQuery.of(
+                                            context,
+                                          ).size.width *
                                               0.50,
                                         ),
                                         child: TypeAheadField<
-                                          Map<String, dynamic>
+                                            Map<String, dynamic>
                                         >(
                                           controller: nameController,
                                           suggestionsCallback: (pattern) async {
                                             return await controller
                                                 .fetchUserSuggestions(pattern);
                                           },
+                                          // suggestionsCallback: (pattern) {
+                                          //   if (pattern.isEmpty) return [];
+                                          //   return controller.userList.where((user,) {
+                                          //     return user['name']!
+                                          //         .toLowerCase()
+                                          //         .contains(
+                                          //       pattern.toLowerCase(),
+                                          //     );
+                                          //   }).toList();
+                                          // },
                                           builder: (context, _, focusNode) {
                                             return TextFormField(
                                               controller: nameController,
@@ -2122,13 +1997,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               decoration: InputDecoration(
                                                 isDense: true,
                                                 contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      vertical: 15,
-                                                      horizontal: 12,
-                                                    ),
+                                                const EdgeInsets.symmetric(
+                                                  vertical: 15,
+                                                  horizontal: 12,
+                                                ),
                                                 border: OutlineInputBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(8),
+                                                  BorderRadius.circular(8),
                                                   borderSide: BorderSide(
                                                     color: Colors.grey.shade300,
                                                   ),
@@ -2151,6 +2026,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           onSelected: (suggestion) {
                                             mobileController.text = suggestion['mobile'];
                                             nameController.text = suggestion['name'];
+                                            if(suggestion['already_in_cart']==true) {
+                                              membershipInCart = true;
+                                            }
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
@@ -3426,7 +3304,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   );
                                 } else {
                                   // Create new user and then create booking with pending payment
-                                  await controller.registerUser(
+                                    await controller.registerUser(
                                     mobile: mobile,
                                     firstName: customerName.toString(),
                                   );
@@ -3465,22 +3343,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 }
                                 
                                 // Show success message
-                                Get.snackbar(
-                                  'Success',
-                                  'Booking created successfully with pending payment',
-                                  backgroundColor: Colors.green,
-                                  colorText: Colors.white,
-                                  snackPosition: SnackPosition.BOTTOM,
-                                );
+                                showCustomSnackbar('Success', 'Booking created successfully with pending payment',Colors.green);
                               } catch (e) {
                                 print('Error in pay later: $e');
-                                Get.snackbar(
-                                  'Error',
-                                  'Failed to create booking: ${e.toString()}',
-                                  backgroundColor: Colors.red,
-                                  colorText: Colors.white,
-                                  snackPosition: SnackPosition.BOTTOM,
-                                );
+                                showCustomSnackbar('Success', 'Failed to create booking: ${e.toString()}',Colors.red);
                               }
                             },
                             style: OutlinedButton.styleFrom(

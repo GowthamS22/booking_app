@@ -67,7 +67,7 @@ print(response);
     String? localIp = await info.getWifiIP();
 
     if (localIp == null) {
-      Get.snackbar('Error', 'Failed to get local IP. Connect to Wi-Fi.');
+      showCustomSnackbar('Error', 'Failed to get local IP. Connect to Wi-Fi.', Colors.redAccent);
       return;
     }
 
@@ -76,7 +76,8 @@ print(response);
     availablePrinters.clear();
     isScanning.value = true;
 
-    Get.snackbar('Progress', 'Scanning for printers on network...');
+    showCustomSnackbar('Progress', 'Scanning for printers on network...', Colors.orangeAccent);
+
 
     // Use Future.wait to run multiple checks in parallel
     List<Future<void>> futures = [];
@@ -89,7 +90,7 @@ print(response);
     await Future.wait(futures);
 
     if (availablePrinters.isEmpty) {
-      Get.snackbar('Warning', 'No printers found on the network.');
+      showCustomSnackbar('Warning', 'No printers found on the network.', Colors.orangeAccent);
     }
 
     print(availablePrinters);
@@ -135,7 +136,7 @@ print(response);
       selectedPrinter.value = null;
       Navigator.pop(context); // 👈 Close the drawer here
     } else {
-      Get.snackbar('Warning', 'Please select the Printer');
+      showCustomSnackbar('Warning', 'Please select the Printer', Colors.orangeAccent);
     }
   }
 
@@ -227,7 +228,7 @@ print(response);
 
   Future<void> testPrintOnAllPrinters() async {
     if (pairedPrinters.isEmpty) {
-      Get.snackbar('Warning', 'No printers are paired');
+      showCustomSnackbar('Warning', 'No printers are paired', Colors.orangeAccent);
       return;
     }
     for (var printer in pairedPrinters) {
@@ -237,9 +238,9 @@ print(response);
           printerPort: int.parse(printer['port']),
           printerName: printer['name'],
         );
-        Get.snackbar('Success', 'Test sent to ${printer['name']}');
+        showCustomSnackbar('Success', 'Test sent to ${printer['name']}', Colors.green);
       } catch (e) {
-        Get.snackbar('Error', 'Failed to print on ${printer['name']}: $e');
+        showCustomSnackbar('Error', 'Failed to print on ${printer['name']}: $e', Colors.redAccent);
       }
     }
   }
@@ -478,6 +479,15 @@ print(response);
       print('Error during printing: $e');
     }
 
+  }
+
+  void addPrinterManually(String name, String ip, String port) {
+    pairedPrinters.add({
+      'name': name,
+      'ip': ip,
+      'port': port,
+      'isEditing': false.obs,
+    });
   }
 
 }
