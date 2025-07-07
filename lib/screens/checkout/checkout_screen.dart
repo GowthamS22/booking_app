@@ -1577,11 +1577,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             });
                             membershipController.fetchMembershipPlanDetails();
                           },
-                          icon: Icon(Icons.card_membership, size: 24),
+                          icon: Icon(Icons.card_membership, size: 30, color: Colors.white,),
                           label: Text(
                             'Add Membership',
                             style: GoogleFonts.inter(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1814,6 +1814,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   final controllerItem = cartController.cartItems.firstWhere(
                                                     (controllerCartItem) => controllerCartItem.product.id == item.product.id,
                                                   );
+                                                  print(controllerItem);
                                                   cartController.removeItem(controllerItem);
                                                   
                                                   // Remove item from cart and recalculate totals
@@ -1851,8 +1852,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   if (cartItems.isEmpty && widget.bookings.isEmpty) {
                                                     Navigator.pop(context);
                                                   }
-
-                                                  print(cartController.cartItems);
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor: Colors.red.shade600,
@@ -2669,7 +2668,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Bill Amount',
                   style: GoogleFonts.inter(
-                    fontSize: 22,
+                    fontSize: 25,
                     fontWeight: FontWeight.w400,
                     color: Colors.grey.shade600,
                     letterSpacing: 0.3,
@@ -2708,7 +2707,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Total Paid',
                   style: GoogleFonts.inter(
-                    fontSize: 22,
+                    fontSize: 25,
                     fontWeight: FontWeight.w400,
                     color: Colors.grey.shade600,
                     letterSpacing: 0.3,
@@ -2747,7 +2746,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Balance',
                   style: GoogleFonts.inter(
-                    fontSize: 22,
+                    fontSize: 25,
                     fontWeight: FontWeight.w400,
                     color: Colors.grey.shade600,
                     letterSpacing: 0.3,
@@ -2838,7 +2837,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           child: Text(
                             'Custom',
                             style: GoogleFonts.inter(
-                              fontSize: 18,
+                              fontSize: 22,
                               fontWeight: FontWeight.w600,
                               color: selectedAmount == 'custom'
                                 ? const Color(0xFF6366F1)
@@ -2874,7 +2873,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           child: Text(
                             'Clear',
                             style: GoogleFonts.inter(
-                              fontSize: 18,
+                              fontSize: 22,
                               fontWeight: FontWeight.w600,
                               color: Colors.red.shade700,
                             ),
@@ -2934,7 +2933,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: Text(
               label,
               style: GoogleFonts.inter(
-                fontSize: 18,
+                fontSize: 22,
                 fontWeight: FontWeight.w600,
                 color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade700,
               ),
@@ -3479,33 +3478,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          plan['name'] ?? 'N/A',
-                          style: GoogleFonts.inter(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          spacing: 20,
+                          children: [
+                            Text(
+                              plan['name'] ?? 'N/A',
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              'Price: \$${(plan['price'] ?? 0.0).toStringAsFixed(2)}',
+                              style: GoogleFonts.inter(fontSize: 22),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Price: \$${(plan['price'] ?? 0.0).toStringAsFixed(2)}',
-                          style: GoogleFonts.inter(fontSize: 18),
-                        ),
+                        SizedBox(height: 10,),
                         if (plan['peak_price'] != null || plan['non_peak_price'] != null) ...[
-                          Text(
-                            'Member Rates:',
-                            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                          if (plan['peak_price'] != null)
-                            Text(
-                              'Peak: \$${plan['peak_price']}',
-                              style: GoogleFonts.inter(fontSize: 16),
-                            ),
-                          if (plan['non_peak_price'] != null)
-                            Text(
-                              'Off-Peak: \$${plan['non_peak_price']}',
-                              style: GoogleFonts.inter(fontSize: 16),
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                'Member Rates:',
+                                style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600),
+                              ),
+                              Column(
+                                children: [
+                                  if (plan['peak_price'] != null)
+                                    Text(
+                                      'Peak: \$${plan['peak_price']}',
+                                      style: GoogleFonts.inter(fontSize: 20),
+                                    ),
+                                  if (plan['non_peak_price'] != null)
+                                    Text(
+                                      'Off-Peak: \$${plan['non_peak_price']}',
+                                      style: GoogleFonts.inter(fontSize: 20),
+                                    ),
+                                ],
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                              )
+                            ],
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          )
                         ] else ...[
                           Text(
                             'Discount: ${plan['discount_value'] ?? 0}${plan['discount_type'] == 'percentage' ? '%' : ''} ${plan['discount_type'] ?? ''}',
@@ -3533,7 +3548,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               _isMembershipPanelOpen = false;
                             });
                           },
-                          child: Text('Select Plan'),
+                          child: Text('Select Plan', style: TextStyle(fontSize: 22, color: Palette.newColor),),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Palette.newColorbg,
+                            minimumSize: const Size(double.infinity, 30),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              side: BorderSide(color: Palette.newColor),
+                            ),
+                          ),
                         ),
                       ],
                     ),

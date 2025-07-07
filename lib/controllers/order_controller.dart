@@ -628,10 +628,10 @@ class OrderController extends GetxController {
       // ✅ STEP 4: Format & map to model
       final result = filteredMerged
           .map((e) {
-        e['start_time_formatted'] = format12Hour(e['start_time']);
-        e['end_time_formatted'] = format12Hour(e['end_time']);
-        return BookingModel.fromJson(e);
-      })
+            e['start_time_formatted'] = format12Hour(e['start_time']);
+            e['end_time_formatted'] = format12Hour(e['end_time']);
+            return BookingModel.fromJson(e);
+          })
           .toList();
 
       bookings.value = result;
@@ -695,13 +695,20 @@ class OrderController extends GetxController {
           .maybeSingle();
 
       // Fetch related order
-      final orderResponse = await supabase
+        final orderResponse = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('orders')
+            .select('*')
+            .eq('order_status','Pending')
+            .eq('booking_id', bookingId)
+            .maybeSingle();
+
+      final ordersResponse = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('orders')
           .select('*')
           .eq('order_status','Pending')
-          .eq('booking_id', bookingId)
-          .maybeSingle();
+          .eq('booking_id', bookingId);
 
       // Check for active membership first
       var membershipDataResponse = await supabase
@@ -742,6 +749,7 @@ class OrderController extends GetxController {
       return {
         'booking': updatedBookingResponse,
         'order': orderResponse,
+        'orders': ordersResponse,
         'customer': userResponse,
         'membership_data': membershipDataResponse
       };

@@ -624,11 +624,12 @@ class _PendingPaymentState extends State<PendingPayment> {
     try {
       // Check if this booking has multiple courts OR has membership
       final bool hasMultipleCourts = await _checkIfBookingHasMultipleCourts(booking);
-      final bool hasMembership = await _checkIfBookingHasMembership(booking);
-      
+      final bool hasMembership     = await _checkIfBookingHasMembership(booking);
+      final bool hasOrder          = await _checkIfBookingHasOrder(booking);
+
       print('🔍 Payment action check - Multiple courts: $hasMultipleCourts, Has membership: $hasMembership');
-      
-      if (hasMultipleCourts || hasMembership) {
+
+      if (hasMultipleCourts || hasMembership || hasOrder) {
         // Show dialog for payment options
         _showPaymentOptionsDialog(booking);
       } else {
@@ -646,38 +647,38 @@ class _PendingPaymentState extends State<PendingPayment> {
     try {
       // Get the full booking information to check court count
       final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
-      
+
       if (bookingInfo == null) {
         print('Could not retrieve booking info for ${booking.bookingNo}');
         return false; // Default to single court if we can't determine
       }
-      
+
       // Parse the booking cart items to count unique courts
       final bookingData = bookingInfo['booking'];
       final cartItems = bookingData['bcart_items'];
-      
+
       if (cartItems == null || cartItems.isEmpty) {
         print('No cart items found for booking ${booking.bookingNo}');
         return false;
       }
-      
+
       // Parse the cart items JSON and count unique courts
       final List<dynamic> jsonList = jsonDecode(cartItems);
       final Set<String> uniqueCourts = <String>{};
-      
+
       for (final item in jsonList) {
         final courtName = item['courtName'];
         if (courtName != null) {
           uniqueCourts.add(courtName.toString());
         }
       }
-      
+
       final courtCount = uniqueCourts.length;
       print('🏟️ Booking ${booking.bookingNo} has $courtCount unique courts: ${uniqueCourts.join(', ')}');
-      
+
       // Return true if more than 1 court
       return courtCount > 1;
-      
+
     } catch (e) {
       print('Error checking court count for booking ${booking.bookingNo}: $e');
       return false; // Default to single court if error occurs
@@ -712,9 +713,32 @@ class _PendingPaymentState extends State<PendingPayment> {
     }
   }
 
+  Future<bool> _checkIfBookingHasOrder(BookingModel booking) async {
+    try {
+      // Get the full booking information to check for membership
+      final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
+
+      if (bookingInfo == null) {
+        print('Could not retrieve booking info for ${booking.bookingNo}');
+        return false;
+      }
+
+      // Check if membership_data exists and is not null
+      final hasOrder = bookingInfo['orders'] != null;
+
+      return hasOrder;
+
+    } catch (e) {
+      print('Error checking membership for booking ${booking.bookingNo}: $e');
+      return false;
+    }
+  }
+
   void _showPaymentOptionsDialog(BookingModel booking) async {
+
     // Check if membership is included
     final bool hasMembership = await _checkIfBookingHasMembership(booking);
+    final bool hasOrder      = await _checkIfBookingHasOrder(booking);
     
     if (!mounted) return;
     
@@ -800,10 +824,27 @@ class _PendingPaymentState extends State<PendingPayment> {
                     ],
                   ),
                 ],
+                if (hasOrder) ...[
+                  const SizedBox(height: 15),
+                  Row(
+                    children: [
+                      Icon(LucideIcons.shoppingCart, color: Colors.amber, size: 35,),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Order included',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  spacing: 30,
+                  spacing: 20,
                   children: [
                     TextButton(
                       onPressed: () {

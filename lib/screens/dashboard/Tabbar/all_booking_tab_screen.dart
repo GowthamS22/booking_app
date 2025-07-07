@@ -1,4 +1,6 @@
 import 'package:booking_app/config/palette.dart';
+import 'package:booking_app/models/booking_model.dart';
+import 'package:booking_app/models/order.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -638,6 +640,8 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
   Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo) async {
 
     final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
+    List<BookingSlot> bookedSlots = [];
+
 
     await showGeneralDialog(
       context: context,
@@ -656,7 +660,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
           child: Align(
             alignment: Alignment.centerRight,
             child: FractionallySizedBox(
-              widthFactor: 0.4,
+              widthFactor: 0.5,
               child: Material(
                 color: Colors.white,
                 child: StatefulBuilder(
@@ -669,7 +673,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: SizedBox(
-                          width: MediaQuery.of(context).size.width / 2.5,
+                          width: MediaQuery.of(context).size.width,
                           child: Material(
                             color: Colors.white,
                             child: Container(
@@ -728,50 +732,155 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "Booking ${bookingInfo?['booking']['booking_no']}",
-                                          style: GoogleFonts.inter(
-                                            fontSize: 22,
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        Row(
-                                          spacing: 150,
-                                          children: [
-                                            Column(
-                                              spacing: 20,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
 
-                                              ]
-                                            ),
-                                            Column(
-                                              spacing: 20,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 10),
-
-                                      ],
-                                    ),
-                                  ),
 
                                   const SizedBox(height: 20),
+
+                                  if(bookingInfo?['order']!=null) ...[
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  "Purchase Details",
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 23,
+                                                    color: Colors.black,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "Current purchase items information",
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 18,
+                                                    color: Colors.black54,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              children: [
+                                                Text(
+                                                  "Order ID : ${bookingInfo?['order']['token_number']}",
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 23,
+                                                    color: Colors.black,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "Created by : Manager",
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 18,
+                                                    color: Colors.black54,
+                                                    fontWeight: FontWeight.w400,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          ],
+                                        ),
+                                        const SizedBox(height: 20),
+                                        Obx(() {
+                                          final Rx<Orders?> order = Rx<Orders?>(null);
+                                          order.value = Orders.fromJson(bookingInfo?['order']);
+                                          final cartItems = order.value?.cartItems ?? [];
+
+                                          // Calculate total
+                                          double total = cartItems.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+
+                                          return Column(
+                                            children: [
+                                              ListView.builder(
+                                                shrinkWrap: true,
+                                                physics: const NeverScrollableScrollPhysics(),
+                                                itemCount: cartItems.length,
+                                                itemBuilder: (_, index) {
+                                                  final item = cartItems[index];
+                                                  return Padding(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      vertical: 8.0,
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          child: Text(
+                                                            item.product.name,
+                                                            style: const TextStyle(
+                                                              fontSize: 22,
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                        Container(
+                                                          width: 150,
+                                                          child: Text(
+                                                            'x${item.quantity}',
+                                                            style: const TextStyle(fontSize: 22),
+                                                            textAlign: TextAlign.right,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 10),
+                                                        Container(
+                                                          width: 150,
+                                                          child: Text(
+                                                            '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                            style: const TextStyle(
+                                                              fontSize: 22,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                            textAlign: TextAlign.right,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              // Add total row
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        'Total:',
+                                                        style: const TextStyle(
+                                                          fontSize: 22,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Container(
+                                                      width: 150,
+                                                      child: Text(
+                                                        '\$${total.toStringAsFixed(2)}',
+                                                        style: const TextStyle(
+                                                          fontSize: 22,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.green, // You can customize this
+                                                        ),
+                                                        textAlign: TextAlign.right,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }),
+                                      ],
+                                    )
+                                  ]
+
                                 ],
                               ),
                             ),
@@ -786,6 +895,39 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget bookingDetailRow(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
+      spacing: 10,
+      children: [
+        Icon(icon, size: 50, color: Colors.grey[600]),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 22,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 22,
+                color: Colors.black,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

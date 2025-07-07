@@ -1865,7 +1865,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               decoration: InputDecoration(
                                                 isDense: true,
                                                 contentPadding: const EdgeInsets.symmetric(
-                                                  vertical: 12,
+                                                  vertical: 15,
                                                   horizontal: 12,
                                                 ),
                                                 border: OutlineInputBorder(
@@ -1922,14 +1922,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 // Name Field
                                 Flexible(
                                   child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             'Name',
@@ -1940,18 +1937,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             ),
                                           ),
                                           const SizedBox(width: 6),
-
                                           if (hasMembership) ...[
                                             Container(
-                                              padding:
-                                              const EdgeInsets.symmetric(
+                                              padding: const EdgeInsets.symmetric(
                                                 horizontal: 6,
                                                 vertical: 2,
                                               ),
                                               decoration: BoxDecoration(
                                                 color: backgroundColor,
-                                                borderRadius:
-                                                BorderRadius.circular(6),
+                                                borderRadius: BorderRadius.circular(6),
                                                 border: Border.all(
                                                   color: borderColor!,
                                                 ),
@@ -1961,7 +1955,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   if (membershipValidityDate == null) {
                                                     return '$membershipPlan : (No Validity Info)';
                                                   }
-
                                                   final now = DateTime.now();
                                                   final today = DateTime(now.year, now.month, now.day);
                                                   final expiry = DateTime(
@@ -1969,9 +1962,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                     membershipValidityDate!.month,
                                                     membershipValidityDate!.day,
                                                   );
-
                                                   final difference = expiry.difference(today).inDays;
-
                                                   if (difference > 0) {
                                                     return '$membershipPlan : (Valid for $difference days)';
                                                   } else if (difference == 0) {
@@ -1990,45 +1981,35 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 4),
-
                                       ConstrainedBox(
                                         constraints: BoxConstraints(
                                           minWidth: 200,
-                                          maxWidth:
-                                          MediaQuery.of(
-                                            context,
-                                          ).size.width *
-                                              0.50,
+                                          maxWidth: MediaQuery.of(context).size.width * 0.50,
                                         ),
-                                        child: TypeAheadField<
-                                            Map<String, dynamic>
-                                        >(
+                                        child: TypeAheadField<Map<String, dynamic>>(
                                           controller: nameController,
                                           suggestionsCallback: (pattern) async {
-                                            return await controller
-                                                .fetchUserSuggestions(pattern);
+                                            if (pattern.isEmpty) return [];
+                                            await Future.delayed(Duration(milliseconds: 300)); // Debounce
+                                            return await controller.fetchUserSuggestions(pattern);
                                           },
-                                          // suggestionsCallback: (pattern) {
-                                          //   if (pattern.isEmpty) return [];
-                                          //   return controller.userList.where((user,) {
-                                          //     return user['name']!
-                                          //         .toLowerCase()
-                                          //         .contains(
-                                          //       pattern.toLowerCase(),
-                                          //     );
-                                          //   }).toList();
-                                          // },
                                           builder: (context, _, focusNode) {
                                             return TextFormField(
                                               controller: nameController,
                                               focusNode: focusNode,
                                               keyboardType: TextInputType.name,
                                               validator: (value) {
-                                                if (value == null ||
-                                                    value.trim().isEmpty) {
+                                                if (value == null || value.trim().isEmpty) {
                                                   return 'Name is required';
                                                 }
                                                 return null;
+                                              },
+                                              onFieldSubmitted: (value) async {
+                                                final suggestions = await controller.fetchUserSuggestions(value);
+                                                if (suggestions.isNotEmpty) {
+                                                  _updateUserData(suggestions.first);
+                                                  FocusScope.of(context).unfocus();
+                                                }
                                               },
                                               style: GoogleFonts.inter(
                                                 fontSize: 22,
@@ -2037,14 +2018,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               ),
                                               decoration: InputDecoration(
                                                 isDense: true,
-                                                contentPadding:
-                                                const EdgeInsets.symmetric(
+                                                contentPadding: const EdgeInsets.symmetric(
                                                   vertical: 15,
                                                   horizontal: 12,
                                                 ),
                                                 border: OutlineInputBorder(
-                                                  borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  borderRadius: BorderRadius.circular(8),
                                                   borderSide: BorderSide(
                                                     color: Colors.grey.shade300,
                                                   ),
@@ -2065,13 +2044,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             );
                                           },
                                           onSelected: (suggestion) async {
-                                            print(
-                                              'Selected customer data: $suggestion',
-                                            );
-
-                                            // Use _updateUserData to handle everything including setting text fields
+                                            print('Selected customer data: $suggestion');
+                                            FocusScope.of(context).unfocus();
                                             _updateUserData(suggestion);
-
                                             if(suggestion['already_in_cart']==true) {
                                               membershipInCart = true;
                                             }
@@ -3362,7 +3337,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         membershipPrice: memberPrice,
                                         forpayment: 'new-booking-payment',
                                       ),
-                                    )?.then((_) {
+                                    );
+                                        //?.then((_) {
                                       // Always refresh when returning from checkout
                                       // if (mounted) {
                                       //   print('🔙 Returned from checkout, refreshing court view...');
@@ -3384,7 +3360,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       //     }
                                       //   });
                                       // }
-                                    });
+                                    //});
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
