@@ -37,6 +37,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   bool _isCustomerPanelOpen = false;
   Map<String, dynamic>? _selectedCustomer;
   Map<String, dynamic>? _customerDetails;
+  bool _isLoadingCustomerDetails = false;
 
   @override
   void initState() {
@@ -60,34 +61,132 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Future<void> _fetchCustomerDetails(String customerId) async {
+    setState(() {
+      _isLoadingCustomerDetails = true;
+    });
+    
     try {
       // Get customer details directly from database
       final prefs = await SharedPreferences.getInstance();
       final centerSlug = prefs.getString('centerSlug');
       
-      final response = await Supabase.instance.client
+      // Fetch customer with related data
+      final customerResponse = await Supabase.instance.client
           .schema('${centerSlug}_prod_schema')
           .from('customers')
-          .select('*')
+          .select('''
+            *,
+            membershipplan (
+              id,
+              name,
+              price
+            )
+          ''')
           .eq('id', customerId)
           .maybeSingle();
       
-      final customerData = response;
-
-      if (customerData == null) {
+      if (customerResponse == null) {
         setState(() {
           _customerDetails = null;
+          _isLoadingCustomerDetails = false;
         });
         return;
       }
 
+      // Fetch recent bookings
+      final bookingsResponse = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('''
+            *,
+            booking_slots (
+              *,
+              platform_status!booking_slots_court_id_fkey (
+                platform_id,
+                sports (
+                  sport_name
+                )
+              )
+            )
+          ''')
+          .eq('customer_id', customerId)
+          .eq('is_cancelled', false)
+          .eq('is_showoff', false)
+          .order('created_at', ascending: false)
+          .limit(5);
+
+      final bookings = (bookingsResponse as List?) ?? [];
+
+      // Calculate spending
+      double lifetimeSpent = 0.0;
+      double monthlySpent = 0.0;
+      final now = DateTime.now();
+      final startOfMonth = DateTime(now.year, now.month, 1);
+
+      // Calculate from bookings
+      for (final booking in bookings) {
+        final grandTotal = (booking['grand_total'] as num?)?.toDouble() ?? 0.0;
+        lifetimeSpent += grandTotal;
+        
+        final createdAt = DateTime.tryParse(booking['created_at'] ?? '');
+        if (createdAt != null && createdAt.isAfter(startOfMonth)) {
+          monthlySpent += grandTotal;
+        }
+      }
+
+      // Fetch orders
+      final ordersResponse = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('total, created_at')
+          .eq('customer_id', customerId)
+          .eq('order_status', 'completed');
+
+      final orders = (ordersResponse as List?) ?? [];
+      
+      for (final order in orders) {
+        final total = (order['total'] as num?)?.toDouble() ?? 0.0;
+        lifetimeSpent += total;
+        
+        final createdAt = DateTime.tryParse(order['created_at'] ?? '');
+        if (createdAt != null && createdAt.isAfter(startOfMonth)) {
+          monthlySpent += total;
+        }
+      }
+
+      // Fetch membership payments
+      final membershipPaymentsResponse = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('membershippayment')
+          .select('total, createdat')
+          .eq('customers_id', customerId);
+
+      final membershipPayments = (membershipPaymentsResponse as List?) ?? [];
+      
+      for (final payment in membershipPayments) {
+        final total = (payment['total'] as num?)?.toDouble() ?? 0.0;
+        lifetimeSpent += total;
+        
+        final createdAt = DateTime.tryParse(payment['createdat'] ?? '');
+        if (createdAt != null && createdAt.isAfter(startOfMonth)) {
+          monthlySpent += total;
+        }
+      }
+
       setState(() {
-        _customerDetails = customerData;
+        _customerDetails = {
+          'customer': customerResponse,
+          'recentBookings': bookings,
+          'lifetimeSpent': lifetimeSpent,
+          'monthlySpent': monthlySpent,
+        };
+        _isLoadingCustomerDetails = false;
       });
     } catch (e) {
       print('Error fetching customer details: $e');
       setState(() {
         _customerDetails = null;
+        _isLoadingCustomerDetails = false;
       });
       showCustomSnackbar('Error', 'Failed to load customer details', Colors.red);
     }
@@ -592,7 +691,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   }
 
   Widget _buildCustomerDetailPanel() {
-    if (_selectedCustomer == null || _customerDetails == null) {
+    if (_selectedCustomer == null || _isLoadingCustomerDetails) {
       return Positioned(
         right: 0,
         top: 0,
@@ -604,11 +703,46 @@ class _MembershipScreenState extends State<MembershipScreen> {
         ),
       );
     }
+    
+    if (_customerDetails == null) {
+      return Positioned(
+        right: 0,
+        top: 0,
+        bottom: 0,
+        width: MediaQuery.of(context).size.width * 0.4,
+        child: Container(
+          color: Colors.white,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load customer details',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  if (_selectedCustomer != null) {
+                    _fetchCustomerDetails(_selectedCustomer!['id']);
+                  }
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final customer = _customerDetails!['customer'];
-    final recentBookings = _customerDetails!['recentBookings'] as List;
-    final lifetimeSpent = _customerDetails!['lifetimeSpent'] as double;
-    final monthlySpent = _customerDetails!['monthlySpent'] as double;
+    final recentBookings = (_customerDetails!['recentBookings'] as List?) ?? [];
+    final lifetimeSpent = (_customerDetails!['lifetimeSpent'] as num?)?.toDouble() ?? 0.0;
+    final monthlySpent = (_customerDetails!['monthlySpent'] as num?)?.toDouble() ?? 0.0;
 
     // Determine VIP status based on monthly spending
     final isVIP = monthlySpent > 500; // You can adjust this threshold
@@ -714,6 +848,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                         _isCustomerPanelOpen = false;
                         _selectedCustomer = null;
                         _customerDetails = null;
+                        _isLoadingCustomerDetails = false;
                       });
                     },
                   ),
@@ -764,8 +899,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                       icon: Icons.analytics,
                       child: Column(
                         children: [
-                          _buildDetailRow('Monthly Spending', '\${monthlySpent.toStringAsFixed(2)}'),
-                          _buildDetailRow('Lifetime Spending', '\${lifetimeSpent.toStringAsFixed(2)}'),
+                          _buildDetailRow('Monthly Spending', '\$${monthlySpent.toStringAsFixed(2)}'),
+                          _buildDetailRow('Lifetime Spending', '\$${lifetimeSpent.toStringAsFixed(2)}'),
                         ],
                       ),
                     ),
