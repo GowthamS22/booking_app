@@ -56,7 +56,7 @@ class CartItems extends StatelessWidget {
                                 onPressed: () => cartController.decrementQty(item),
                                 icon: const Icon(Icons.remove, size: 25),
                               ),
-                              Obx(() => Text('${item.quantity.value}', style: const TextStyle(fontSize: 25))),
+                              Text('${item.quantity}', style: const TextStyle(fontSize: 25)),
                               IconButton(
                                 onPressed: () => cartController.incrementQty(item),
                                 icon: const Icon(Icons.add, size: 25),
@@ -69,16 +69,16 @@ class CartItems extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              Obx(() => Padding(
+                              Padding(
                                 padding: const EdgeInsets.only(left: 8.0),
                                 child: Text(
-                                  '\$${item.appliedPrice.value.toStringAsFixed(2)}',
+                                  '\$${item.appliedPrice.toStringAsFixed(2)}',
                                   style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 25
                                   ),
                                 ),
-                              ))
+                              )
                             ],
                           ),
                         ),

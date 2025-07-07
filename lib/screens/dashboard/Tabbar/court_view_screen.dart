@@ -1570,8 +1570,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     }
 
     void _updateUserData(Map<String, dynamic> userData) async {
-      nameController.text = userData['name'];
-      mobileController.text = userData['mobile'];
+      // Use a small delay to ensure UI is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          nameController.text = userData['name'] ?? '';
+          mobileController.text = userData['mobile'] ?? '';
+        });
+      });
       
       // Check membership_data table for pending membership
       bool hasPendingMembership = false;
@@ -2073,17 +2078,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             );
                                           },
                                           onSelected: (suggestion) async {
-                                            mobileController.text = suggestion['mobile'];
-                                            nameController.text = suggestion['name'];
-                                            if(suggestion['already_in_cart']==true) {
-                                              membershipInCart = true;
-                                            }
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
                                             
-                                            // Use _updateUserData to handle membership check properly
+                                            // Use _updateUserData to handle everything including setting text fields
                                             _updateUserData(suggestion);
+                                            
+                                            if(suggestion['already_in_cart']==true) {
+                                              membershipInCart = true;
+                                            }
                                           },
                                         ),
                                       ),
@@ -2364,14 +2368,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                             size: 25,
                                                           ),
                                                         ),
-                                                        Obx(
-                                                          () => Text(
-                                                            '${item.quantity.value}',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 22,
-                                                                ),
-                                                          ),
+                                                        Text(
+                                                          '${item.quantity}',
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 22,
+                                                              ),
                                                         ),
                                                         IconButton(
                                                           onPressed:
@@ -2400,7 +2402,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                                   left: 8.0,
                                                                 ),
                                                             child: Text(
-                                                              '\$${item.appliedPrice.value.toStringAsFixed(2)}',
+                                                              '\$${item.appliedPrice.toStringAsFixed(2)}',
                                                               style: const TextStyle(
                                                                 fontWeight:
                                                                     FontWeight
@@ -2924,6 +2926,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           );
     });
 
+    // Store controller values before showing dialog to avoid disposed controller access
+    final bookingIdValue = controller.bookingId;
+    final selectedServiceIdValue = controller.selectedServiceId.value;
+    final serviceListValue = List.from(controller.serviceList);
+    final userDataValue = controller.userData.value;
+    final nameControllerText = controller.nameController.text;
+    final mobileControllerText = controller.mobileNumberController.text;
+    
     await showDialog(
       context: parentContext,
       barrierDismissible: false, // Prevent closing by tapping outside
@@ -2958,7 +2968,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      controller.bookingId,
+                      bookingIdValue,
                       style: GoogleFonts.inter(
                         fontSize: 23,
                         fontWeight: FontWeight.w600,
@@ -2997,8 +3007,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 Icon(LucideIcons.gamepad2, size: 18),
                                 const SizedBox(width: 4),
                                 Text(
-                                  controller.serviceList.firstWhere(
-                                    (e) => e['id'].toString() == controller.selectedServiceId.toString(),
+                                  serviceListValue.firstWhere(
+                                    (e) => e['id'].toString() == selectedServiceIdValue,
                                     orElse: () => {'name': 'Sport'},
                                   )['name'] ?? 'Sport',
                                   style: GoogleFonts.inter(
@@ -3218,12 +3228,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Obx(
-                                          () => Text(
-                                            '${item.quantity.value}',
-                                            style: const TextStyle(
-                                              fontSize: 22,
-                                            ),
+                                        Text(
+                                          '${item.quantity}',
+                                          style: const TextStyle(
+                                            fontSize: 22,
                                           ),
                                         ),
                                       ],
@@ -3234,17 +3242,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        Obx(
-                                          () => Padding(
-                                            padding: const EdgeInsets.only(
-                                              left: 8.0,
-                                            ),
-                                            child: Text(
-                                              '\$${item.appliedPrice.value.toStringAsFixed(2)}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 22,
-                                              ),
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            left: 8.0,
+                                          ),
+                                          child: Text(
+                                            '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 22,
                                             ),
                                           ),
                                         ),
@@ -3309,14 +3315,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               await Future.delayed(Duration(milliseconds: 100));
                               
                               try {
-                                if (controller.userData.value.id != null) {
+                                if (userDataValue.id != null) {
                                   // User exists, create booking with pending payment
                                   populateCartWithSubSlots(bookings);
                                   await controller.processCheckout(
-                                    name: controller.nameController.text,
-                                    email: controller.userData.value.email,
-                                    mobile: controller.userData.value.mobile,
-                                    bookingId: controller.bookingId,
+                                    name: nameControllerText,
+                                    email: userDataValue.email,
+                                    mobile: userDataValue.mobile,
+                                    bookingId: bookingIdValue,
                                     paymentType: 'Pending', // Set payment type as Pending
                                     promoCode: '',
                                     notes: 'Payment pending - Pay Later option selected',
@@ -3335,13 +3341,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   // Create booking with pending payment
                                   populateCartWithSubSlots(bookings);
                                   await controller.processCheckout(
-                                    name: controller.nameController.text,
-                                    email: controller.userData.value.email,
-                                    mobile: controller.userData.value.mobile,
+                                    name: nameControllerText,
+                                    email: userDataValue.email,
+                                    mobile: userDataValue.mobile,
                                     paymentType: 'Pending', // Set payment type as Pending
                                     promoCode: '',
                                     notes: 'Payment pending - Pay Later option selected',
-                                    bookingId: controller.bookingId,
+                                    bookingId: bookingIdValue,
                                     bookings: updatedBookings,
                                     membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
                                     membershipName: selectedMembershipPlan,

@@ -538,20 +538,22 @@ class _PendingPaymentState extends State<PendingPayment> {
                                         Expanded(
                                           child: Align(
                                             alignment: Alignment.center,
-                                            child: SizedBox(
-                                              width: 120,
-                                              height: 40,
-                                              child: ElevatedButton(
-                                                onPressed: () => _handlePaymentAction(booking),
-                                                child: Text('Pay', style: TextStyle(fontSize: 22, color: Colors.white)),
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.green.shade500,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(20),
+                                            child: booking.paymentStatus?.toLowerCase() == 'paid' 
+                                              ? SizedBox.shrink() // Hide button for paid bookings
+                                              : SizedBox(
+                                                  width: 120,
+                                                  height: 40,
+                                                  child: ElevatedButton(
+                                                    onPressed: () => _handlePaymentAction(booking),
+                                                    child: Text('Pay', style: TextStyle(fontSize: 22, color: Colors.white)),
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.green.shade500,
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(20),
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            ),
                                           ),
                                         ),
                                       ],

@@ -1246,8 +1246,17 @@ class CheckoutController extends GetxController {
     return totalAmount - (totalAmount / 11);
   }
 
+  Future<void> printBookingReceiptWithCart({
+    required String bookingId,
+    List<dynamic>? cartItems,
+  }) async {
+    // Call the original method and pass cart items
+    return printBookingReceipt(bookingId: bookingId, cartItems: cartItems);
+  }
+
   Future<void> printBookingReceipt({
     required String bookingId,
+    List<dynamic>? cartItems,
   }) async {
 
     SharedPreferences prefs               = await SharedPreferences.getInstance();
@@ -1281,7 +1290,7 @@ class CheckoutController extends GetxController {
     final response = await supabase
         .schema('${centerSlug}_prod_schema')
         .from('bookings')
-        .select('*, customers(*, membership_data(*)), booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
+        .select('*, customers(*, membership_data!membership_data_customer_id_fkey(*)), booking_slots(*, platform_status!booking_slots_court_id_fkey(*, sports(sport_name))), booking_payments(*), booking_slots_payments(*)')
         .eq('id', bookingId)
         .single();
 
@@ -1337,6 +1346,50 @@ class CheckoutController extends GetxController {
           );
         }
         
+        // Print cart items if they exist
+        print('📦 Cart items parameter: ${cartItems?.length ?? 0} items');
+        if (cartItems != null && cartItems.isNotEmpty) {
+          print('📦 Printing ${cartItems.length} cart items in receipt');
+          printer.text(''); // Add spacing
+          printer.text('Shop Items', styles: PosStyles(align: PosAlign.left, bold: true));
+          printer.text('--------------------------------------------');
+          
+          for (var item in cartItems) {
+            print('Processing cart item: ${item.runtimeType}');
+            // Handle different types of cart items (could be Map or CartItem object)
+            String itemName = '';
+            int quantity = 1;
+            double price = 0.0;
+            
+            if (item is Map) {
+              print('  Item is Map: $item');
+              itemName = item['product']?['name'] ?? 'Unknown Item';
+              quantity = item['quantity'] ?? 1;
+              price = double.tryParse(item['product']?['price']?.toString() ?? '0') ?? 0.0;
+              print('  Parsed from Map - Name: $itemName, Qty: $quantity, Price: $price');
+            } else {
+              // Assuming it's a CartItem object
+              try {
+                print('  Item is CartItem object');
+                itemName = item.product.name;
+                quantity = item.quantity;
+                price = double.parse(item.product.price);
+                print('  Parsed from CartItem - Name: $itemName, Qty: $quantity, Price: $price');
+              } catch (e) {
+                print('Error parsing cart item: $e');
+                continue;
+              }
+            }
+            
+            final shopItemName = itemName.padRight(20);
+            final shopItemQuantity = quantity.toString().padLeft(4);
+            final shopItemPrice = '\$${price.toStringAsFixed(2)}'.padLeft(7);
+            final shopItemTotal = '\$${(price * quantity).toStringAsFixed(2)}'.padLeft(8);
+            
+            printer.text('$shopItemName $shopItemQuantity $shopItemPrice $shopItemTotal');
+          }
+        }
+        
         // Check if there's a membership payment with this booking
         bool hasMembershipPayment = false;
         double membershipAmount = 0.0;
@@ -1347,24 +1400,37 @@ class CheckoutController extends GetxController {
           final membershipPaymentResponse = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('membershippayment')
-              .select('*, membership_data(*)')
+              .select('*')
               .eq('notes', 'Membership payment processed with booking $bookingId')
               .maybeSingle();
               
-          if (membershipPaymentResponse != null && membershipPaymentResponse['membership_data'] != null) {
-            hasMembershipPayment = true;
-            final membershipData = membershipPaymentResponse['membership_data'];
-            membershipAmount = double.tryParse(membershipData['price']?.toString() ?? '0') ?? 0.0;
-            membershipName = membershipData['name'] ?? 'Membership';
-            
-            // Print membership line item
-            final membershipItemName = membershipName.padRight(20);
-            final membershipQuantity = '1'.padLeft(4);
-            final membershipPrice = '\$${membershipAmount.toStringAsFixed(2)}'.padLeft(7);
-            final membershipTotal = '\$${membershipAmount.toStringAsFixed(2)}'.padLeft(8);
-            
-            printer.text('$membershipItemName $membershipQuantity $membershipPrice $membershipTotal');
-            printer.text('Membership payment', styles: PosStyles(align: PosAlign.left));
+          if (membershipPaymentResponse != null && membershipPaymentResponse['membershipid'] != null) {
+            // Get membership_data using the membershipid
+            try {
+              final membershipDataResponse = await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('membership_data')
+                  .select('*')
+                  .eq('id', membershipPaymentResponse['membershipid'])
+                  .maybeSingle();
+                  
+              if (membershipDataResponse != null) {
+                hasMembershipPayment = true;
+                membershipAmount = double.tryParse(membershipDataResponse['price']?.toString() ?? '0') ?? 0.0;
+                membershipName = membershipDataResponse['name'] ?? 'Membership';
+                
+                // Print membership line item
+                final membershipItemName = membershipName.padRight(20);
+                final membershipQuantity = '1'.padLeft(4);
+                final membershipPrice = '\$${membershipAmount.toStringAsFixed(2)}'.padLeft(7);
+                final membershipTotal = '\$${membershipAmount.toStringAsFixed(2)}'.padLeft(8);
+                
+                printer.text('$membershipItemName $membershipQuantity $membershipPrice $membershipTotal');
+                printer.text('Membership payment', styles: PosStyles(align: PosAlign.left));
+              }
+            } catch (e) {
+              print('Could not get membership data: $e');
+            }
           }
         } catch (e) {
           print('Could not check membership payment: $e');
@@ -1372,8 +1438,26 @@ class CheckoutController extends GetxController {
 
         printer.text('--------------------------------------------');
 
+        // Calculate cart items total
+        double cartItemsTotal = 0.0;
+        if (cartItems != null && cartItems.isNotEmpty) {
+          for (var item in cartItems) {
+            if (item is Map) {
+              int quantity = item['quantity'] ?? 1;
+              double price = double.tryParse(item['product']?['price']?.toString() ?? '0') ?? 0.0;
+              cartItemsTotal += price * quantity;
+            } else {
+              try {
+                cartItemsTotal += double.parse(item.product.price) * item.quantity;
+              } catch (e) {
+                print('Error calculating cart item total: $e');
+              }
+            }
+          }
+        }
+
         // Calculate GST correctly for receipt (GST inclusive pricing)
-        final totalWithMembership = (booking.grandTotal ?? 0) + membershipAmount;
+        final totalWithMembership = (booking.grandTotal ?? 0) + membershipAmount + cartItemsTotal;
         final correctGST = totalWithMembership / 11;
         final subTotal = totalWithMembership - correctGST;
         

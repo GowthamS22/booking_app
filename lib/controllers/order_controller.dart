@@ -112,7 +112,7 @@ class OrderController extends GetxController {
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
-            .not('bookings.payment_status', 'in', ['Paid', 'paid'])
+            .eq('bookings.payment_status', 'Pending')
             .gte('start_time', todayStart.toIso8601String())
             .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'paid') {
@@ -408,7 +408,7 @@ class OrderController extends GetxController {
             .eq('bookings.is_cancelled', false)
             .eq('bookings.is_showoff', false)
             .eq('bookings.closed', false)
-            .not('bookings.payment_status', 'in', ['Paid', 'paid'])
+            .eq('bookings.payment_status', 'Pending')
             .gte('start_time', todayStart.toIso8601String())
             .lte('end_time', todayEnd.toIso8601String());
       } else if (filterType == 'paid') {

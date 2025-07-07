@@ -36,7 +36,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
   Widget build(BuildContext context) {
     bool hasFetchedBookingData = false;
 
-    return GetBuilder(
+    return GetBuilder<NewBookingController>(
       init: NewBookingController(),
       builder: (controller) {
         if (widget.type == 'New') {
@@ -65,14 +65,14 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
           backgroundColor: Palette.white,
           body: Container(
             padding: EdgeInsets.all(30),
-            child: Column(children: [buildBody(controller)]),
+            child: buildBody(controller),
           ),
         );
       },
     );
   }
 
-  buildBody(NewBookingController controller) {
+  Widget buildBody(NewBookingController controller) {
     DateFormat formatter = DateFormat('dd-MM-yyyy');
     String formattedDate = formatter.format(DateTime.now());
     controller.bookingdateController.text = formattedDate;
@@ -120,47 +120,34 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
 
     List<String> items = List.generate(20, (index) => 'Item ${index + 1}');
 
-    if (controller.mobileNumberController.text.length >= 10) {
-      if (controller.userData.value.id != null) {
-        if (controller.userData.value.mobile !=
-            controller.mobileNumberController.text) {
-          controller.userData.value.id = null;
-          controller.getUserDatabyMobile(
-            controller.mobileNumberController.text,
-          );
-        }
-      } else {
-        controller.getUserDatabyMobile(controller.mobileNumberController.text);
-      }
-    }
-    if (controller.userData.value.id != null) {
-      controller.nameController.text = controller.userData.value.firstName!;
-    }
+    // Move reactive property access to where it's needed
+    // This logic should be in the controller or wrapped in Obx
 
     Widget confirmBtn = Obx(
-      () =>
-          controller.confirmBtn.value == false
-              ? ElevatedButton(
-                onPressed:
-                    controller.cartItems.length > 0
-                        ? () {
-                          if (controller.nameController.text != '' &&
-                              controller.mobileNumberController.text != '') {
-                            buildConfirmPopup(controller);
-                          } else {
-                            validationDialog(controller);
-                          }
+      () {
+        final hasCartItems = controller.cartItems.length > 0;
+        return controller.confirmBtn.value == false
+            ? ElevatedButton(
+              onPressed:
+                  hasCartItems
+                      ? () {
+                        if (controller.nameController.text != '' &&
+                            controller.mobileNumberController.text != '') {
+                          buildConfirmPopup(controller);
+                        } else {
+                          validationDialog(controller);
                         }
-                        : null,
-                style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(
-                    controller.cartItems.length > 0
-                        ? Palette.primaryColor
-                        : Palette.secondaryColor,
-                  ),
-                  shape: WidgetStatePropertyAll(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(50),
+                      }
+                      : null,
+              style: ButtonStyle(
+                backgroundColor: WidgetStatePropertyAll(
+                  hasCartItems
+                      ? Palette.primaryColor
+                      : Palette.secondaryColor,
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
                     ),
                   ),
                   padding: WidgetStatePropertyAll(
@@ -191,28 +178,30 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                     ),
                   ),
                 ),
-              ),
+              );
+      }
     );
 
     Widget updateBtn = Obx(
-      () =>
-          controller.confirmBtn.value == false
-              ? ElevatedButton(
-                onPressed:
-                    controller.cartItems.length > 0
-                        ? () {
-                          buildConfirmPopup(controller);
-                        }
-                        : null,
-                style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(
-                    controller.cartItems.length > 0
-                        ? Palette.primaryColor
-                        : Palette.secondaryColor,
-                  ),
-                  shape: WidgetStatePropertyAll(
-                    RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(50),
+      () {
+        final hasCartItems = controller.cartItems.length > 0;
+        return controller.confirmBtn.value == false
+            ? ElevatedButton(
+              onPressed:
+                  hasCartItems
+                      ? () {
+                        buildConfirmPopup(controller);
+                      }
+                      : null,
+              style: ButtonStyle(
+                backgroundColor: WidgetStatePropertyAll(
+                  hasCartItems
+                      ? Palette.primaryColor
+                      : Palette.secondaryColor,
+                ),
+                shape: WidgetStatePropertyAll(
+                  RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
                     ),
                   ),
                   padding: WidgetStatePropertyAll(
@@ -243,7 +232,8 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                     ),
                   ),
                 ),
-              ),
+              );
+      }
     );
 
     List<BookingSlot> cartItems = [];
@@ -274,9 +264,8 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
 
     List<TimeSlot> timeSlots = generateTimeSlots(30);
 
-    return Expanded(
-      child: ListView(
-        children: [
+    return ListView(
+      children: [
           Column(
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,9 +285,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                   ),
                   Row(
                     children: [
-                      (widget.selectedBSlots!.length <= 0)
-                          ? Row(
-                            children: [
+                      if (widget.selectedBSlots!.length <= 0) ...[
                               ElevatedButton(
                                 onPressed:
                                     controller.cartItems.length > 0
@@ -349,9 +336,8 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                               ),
                               SizedBox(width: 50),
                               confirmBtn,
-                            ],
-                          )
-                          : updateBtn,
+                            ] else
+                        updateBtn,
                       SizedBox(width: 50),
                       ElevatedButton(
                         onPressed: () {
@@ -389,8 +375,10 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
               SizedBox(height: 30),
               Form(
                 key: _formKey,
-                child: Row(
-                  children: [
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
                     Row(
                       children: [
                         Text(
@@ -597,7 +585,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                         SizedBox(width: 10),
                         SizedBox(
                           width: MediaQuery.of(context).size.width / 6.5,
-                          child: DropdownButtonFormField<String>(
+                          child: Obx(() => DropdownButtonFormField<String>(
                             value:
                                 (controller.selectedServiceId.value.isNotEmpty)
                                     ? controller.selectedServiceId.value
@@ -655,7 +643,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                               }
                             },
                             onSaved: (value) {},
-                          ),
+                          )),
                         ),
                       ],
                     ),
@@ -691,6 +679,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                       ],
                     ),
                   ],
+                  ),
                 ),
               ),
               Divider(height: 40 * ffem, color: Palette.darkGrey, thickness: 2),
@@ -769,8 +758,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                   : cartItem.price;
                           if (cartItem.slotType != 'Repeat-Item') {
                             return Container(
-                              width: double.infinity,
-                              margin: EdgeInsets.symmetric(vertical: 5),
+                                    margin: EdgeInsets.symmetric(vertical: 5),
                               padding: EdgeInsets.symmetric(
                                 vertical: 7,
                                 horizontal: 10,
@@ -1080,7 +1068,6 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                         },
                       )
                       : Container(
-                        width: double.infinity,
                         margin: EdgeInsets.symmetric(vertical: 10),
                         padding: EdgeInsets.all(10),
                         decoration: BoxDecoration(
@@ -1548,6 +1535,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                                               .value !=
                                                           '') {
                                                         courtChangeDialog(
+                                                          context,
                                                           controller,
                                                           controller
                                                               .selectedBookingId
@@ -1693,11 +1681,10 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
             ],
           ),
         ],
-      ),
     );
   }
 
-  buildRepeatDialog(
+  Future<void> buildRepeatDialog(
     NewBookingController controller,
     DateTime? startTime,
     DateTime? endTime,
@@ -2008,7 +1995,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
     );
   }
 
-  Future buildConfirmPopup(NewBookingController controller) {
+  Future<void> buildConfirmPopup(NewBookingController controller) {
     Widget confirmationBtn = Obx(
       () =>
           controller.confirmBtn.value == false
@@ -2147,6 +2134,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           content: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(height: 40),
               Text(
@@ -2190,6 +2178,10 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                        TableRow(
+                          children: [
                             TableCell(
                               child: Padding(
                                 padding: EdgeInsets.all(
@@ -2230,11 +2222,9 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
               ),
               SizedBox(height: 40),
               Expanded(
-                child: SizedBox(
-                  width: double.maxFinite,
-                  child: ListView.builder(
-                    itemCount: mergedSlots.length,
-                    itemBuilder: (context, index) {
+                child: ListView.builder(
+                  itemCount: mergedSlots.length,
+                  itemBuilder: (context, index) {
                       BookingSlot cartItem = mergedSlots[index];
 
                       String fmtdStartTime =
@@ -2256,7 +2246,6 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                               : cartItem.price;
 
                       return Container(
-                        width: double.infinity,
                         margin: EdgeInsets.symmetric(vertical: 5),
                         padding: EdgeInsets.symmetric(
                           vertical: 7,
@@ -2464,7 +2453,6 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                         ),
                       );
                     },
-                  ),
                 ),
               ),
               SizedBox(height: 50),
@@ -2506,6 +2494,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
         );
       },
     );
+  }
 
     /*return Get.dialog(
         AlertDialog(
@@ -2528,7 +2517,6 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
                       var finalPrice = (cartItem.slotType=='Repeated') ? controller.calculateRepeatPrice(repeatGroupId: cartItem.repeatGroupId) : cartItem.price ;
 
                       return Container(
-                        width: double.infinity,
                         margin: EdgeInsets.symmetric(vertical: 5),
                         padding: EdgeInsets.symmetric(vertical: 7,horizontal: 10),
                         decoration: BoxDecoration(
@@ -2692,7 +2680,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
     );*/
   }
 
-  Future validationDialog(NewBookingController controller) {
+  Future<void> validationDialog(NewBookingController controller) {
     return Get.dialog(
       AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -2741,7 +2729,8 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
     );
   }
 
-  Future courtChangeDialog(
+  Future<void> courtChangeDialog(
+    BuildContext context,
     NewBookingController controller,
     String? selectedBookingId,
   ) {
@@ -2780,9 +2769,7 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
           controller.courtChangeBtn.value == false
               ? ElevatedButton(
                 onPressed: () {
-                  setState(() {
-                    controller.courtChangeBtn.value = true;
-                  });
+                  controller.courtChangeBtn.value = true;
                   controller.changeCourt(
                     subBookingId: selectedBookingId,
                     courtId: courtController.text,
@@ -3083,4 +3070,3 @@ class _NewBookingScreenState extends State<NewBookingScreen> {
       },
     );
   }
-}

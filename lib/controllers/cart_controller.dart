@@ -74,38 +74,8 @@
 
 import 'package:get/get.dart';
 import 'package:booking_app/models/products.dart';
-import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-
-class CartItem {
-  final Products product;
-  RxInt quantity;
-  RxDouble appliedPrice;
-
-  CartItem({
-    required this.product,
-    int? quantity,
-    double? appliedPrice,
-  })  : quantity = (quantity ?? 1).obs,
-        appliedPrice = (appliedPrice ?? double.parse(product.price)).obs;
-
-  void updateAppliedPrice() {
-    appliedPrice.value = double.parse(product.price) * quantity.value;
-  }
-
-  Map<String, dynamic> toJson() => {
-    'product': product.toJson(),
-    'quantity': quantity.value,
-    'appliedPrice': appliedPrice.value,
-  };
-
-  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
-    product: Products.fromJson(json['product']),
-    quantity: json['quantity'],
-    appliedPrice: json['appliedPrice'],
-  );
-}
 
 // controllers/cart_controller.dart
 
@@ -116,7 +86,7 @@ class CartController extends GetxController {
   final RxList<CartItem> _cartItems = <CartItem>[].obs;
 
   List<CartItem> get cartItems => _cartItems;
-  double get total => _cartItems.fold(0, (sum, item) => sum + item.appliedPrice.value);
+  double get total => _cartItems.fold(0, (sum, item) => sum + item.appliedPrice);
 
   @override
   void onInit() {
@@ -142,8 +112,9 @@ class CartController extends GetxController {
   void addToCart(Products product) {
     final index = _cartItems.indexWhere((e) => e.product.id == product.id);
     if (index != -1) {
-      _cartItems[index].quantity.value++;
+      _cartItems[index].quantity++;
       _cartItems[index].updateAppliedPrice();
+      _cartItems.refresh(); // Notify listeners
     } else {
       _cartItems.add(CartItem(product: product));
     }
@@ -151,15 +122,17 @@ class CartController extends GetxController {
   }
 
   void incrementQty(CartItem item) {
-    item.quantity.value++;
+    item.quantity++;
     item.updateAppliedPrice();
+    _cartItems.refresh(); // Notify listeners
     saveCartToPrefs();
   }
 
   void decrementQty(CartItem item) {
-    if (item.quantity.value > 1) {
-      item.quantity.value--;
+    if (item.quantity > 1) {
+      item.quantity--;
       item.updateAppliedPrice();
+      _cartItems.refresh(); // Notify listeners
     } else {
       _cartItems.remove(item);
     }

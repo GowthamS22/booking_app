@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:booking_app/controllers/cart_controller.dart';
 import 'package:booking_app/controllers/checkout_controller.dart';
+import 'package:booking_app/controllers/customer_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -2332,6 +2333,81 @@ class NewBookingController extends GetxController {
     String? centerSlug = preferences.getString('centerSlug');
 
     try {
+      // Check if customer exists, if not create new customer
+      if (userData.value.id == null || userData.value.id!.isEmpty) {
+        print('📍 Customer ID not set, checking if customer exists with mobile: $mobile');
+        
+        // First check if a customer with this mobile already exists
+        if (mobile != null && mobile.isNotEmpty) {
+          final existingCustomer = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .select('id, first_name, mobile, email, membershipplan_id')
+              .eq('mobile', mobile)
+              .eq('status', true)
+              .maybeSingle();
+              
+          if (existingCustomer != null) {
+            // Customer already exists, use existing customer
+            userData.value = User(
+              id: existingCustomer['id'].toString(),
+              firstName: existingCustomer['first_name'],
+              mobile: existingCustomer['mobile'],
+              email: existingCustomer['email'],
+            );
+            print('✅ Found existing customer with ID: ${userData.value.id}');
+          } else {
+            // Create new customer
+            print('📍 Creating new customer with name: $name, mobile: $mobile');
+            
+            // Try to find CustomerController, if not found, create it
+            CustomerController customerController;
+            try {
+              customerController = Get.find<CustomerController>();
+            } catch (e) {
+              customerController = Get.put(CustomerController());
+            }
+            
+            final newCustomerData = await customerController.addCustomer(
+              firstName: name ?? '',
+              mobile: mobile ?? '',
+              email: email ?? '',
+              membershipPlanId: null, // Will be updated later if membership is selected
+            );
+            
+            if (newCustomerData != null) {
+              // Update userData with the new customer details
+              userData.value = User(
+                id: newCustomerData['id'].toString(),
+                firstName: newCustomerData['first_name'],
+                mobile: newCustomerData['mobile'],
+                email: newCustomerData['email'],
+              );
+              print('✅ New customer created with ID: ${userData.value.id}');
+            } else {
+              showCustomSnackbar(
+                'Failed',
+                'Failed to create customer',
+                Colors.red,
+              );
+              confirmBtn.value = false;
+              isLoading.value = false;
+              update();
+              return;
+            }
+          }
+        } else {
+          showCustomSnackbar(
+            'Failed',
+            'Mobile number is required to create booking',
+            Colors.red,
+          );
+          confirmBtn.value = false;
+          isLoading.value = false;
+          update();
+          return;
+        }
+      }
       // If bookings are passed from checkout screen, populate cartItems
       if (bookings != null && bookings.isNotEmpty && cartItems.isEmpty) {
         print('📍 Populating cartItems from bookings parameter');
@@ -2383,49 +2459,71 @@ class NewBookingController extends GetxController {
       }
 
       if(membershipID!=null && membershipID!='') {
-        // First check if customer already has a pending membership
-        final existingPendingMembership = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membership_data')
-            .select('id, status')
-            .eq('customer_id', userData.value.id.toString())
-            .eq('status', false)
-            .maybeSingle();
-            
-        if (existingPendingMembership != null) {
-          print('⚠️ Customer already has a pending membership: ${existingPendingMembership['id']} - not creating duplicate');
-          // Optionally, you might want to show a warning to the user
-          showCustomSnackbar('Warning', 'You already have a pending membership payment', Colors.orange);
-        } else {
-          final planDetails = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('membershipplan')
-              .select('*')
-              .eq('id', membershipID)
-              .single();
+        try {
+          // Ensure we have a valid customer ID
+          if (userData.value.id == null) {
+            print('⚠️ Cannot create membership - customer ID is null');
+            showCustomSnackbar('Error', 'Customer information is missing', Colors.red);
+          } else {
+            // First check if customer already has a pending membership
+            final existingPendingMembership = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('membership_data')
+                .select('id, status')
+                .eq('customer_id', userData.value.id.toString())
+                .eq('status', false)
+                .maybeSingle();
+                
+            if (existingPendingMembership != null) {
+              print('⚠️ Customer already has a pending membership: ${existingPendingMembership['id']} - not creating duplicate');
+              // Optionally, you might want to show a warning to the user
+              showCustomSnackbar('Warning', 'You already have a pending membership payment', Colors.orange);
+            } else {
+              // Fetch plan details with error handling
+              final planDetailsResponse = await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('membershipplan')
+                  .select('*')
+                  .eq('id', membershipID)
+                  .maybeSingle();
+                  
+              if (planDetailsResponse == null) {
+                print('❌ Membership plan not found for ID: $membershipID');
+                showCustomSnackbar('Error', 'Membership plan not found', Colors.red);
+                confirmBtn.value = false;
+                isLoading.value = false;
+                update();
+                return;
+              }
 
-          final membershipData = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membership_data')
-            .insert({
-              'membershipplan_id': membershipID,
-              'customer_id': userData.value.id.toString(),
-              'name': planDetails['name'],
-              'price': planDetails['price'],
-              'billing_cycle': planDetails['billing_cycle'],
-              'description': planDetails['description'],
-              'peak_price': planDetails['peak_price'],
-              'non_peak_price': planDetails['non_peak_price'],
-              'swap_time': planDetails['swap_time'],
-              'highlights': planDetails['highlights'],
-              'validity': planDetails['validity'],
-              'status': false, // Set to false (pending) - will be activated when payment is completed
-              'created_at': DateTime.now().toIso8601String(),
-            })
-            .select()
-            .single();
-            
-        print('🎫 Created pending membership_data record: ${membershipData['id']} for customer: ${userData.value.id}');
+              final membershipData = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('membership_data')
+                .insert({
+                  'membershipplan_id': membershipID,
+                  'customer_id': userData.value.id.toString(),
+                  'name': planDetailsResponse['name'] ?? membershipName ?? 'Membership',
+                  'price': planDetailsResponse['price'] ?? membershipPrice ?? 0,
+                  'billing_cycle': planDetailsResponse['billing_cycle'] ?? 'monthly',
+                  'description': planDetailsResponse['description'] ?? '',
+                  'peak_price': planDetailsResponse['peak_price'],
+                  'non_peak_price': planDetailsResponse['non_peak_price'],
+                  'swap_time': planDetailsResponse['swap_time'],
+                  'highlights': planDetailsResponse['highlights'],
+                  'validity': planDetailsResponse['validity'],
+                  'status': false, // Set to false (pending) - will be activated when payment is completed
+                  'created_at': DateTime.now().toIso8601String(),
+                })
+                .select()
+                .single();
+                
+              print('🎫 Created pending membership_data record: ${membershipData['id']} for customer: ${userData.value.id}');
+            }
+          }
+        } catch (e) {
+          print('❌ Error creating membership: $e');
+          showCustomSnackbar('Error', 'Failed to create membership: ${e.toString()}', Colors.red);
+          // Continue with booking creation even if membership fails
         }
       }
 

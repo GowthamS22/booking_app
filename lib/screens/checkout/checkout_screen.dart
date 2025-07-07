@@ -171,7 +171,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool userHasPendingMembership = false;
   String? pendingMembershipName;
 
-  double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + double.parse(item.product.price) * item.quantity,);
+  double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + item.appliedPrice,);
   
   // Calculate the actual total including bookings, cart items, and membership
   double get courtBookingTotal {
@@ -493,14 +493,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final cartJson = prefs.getString('shopping_cart');
+      print('📦 Loading cart items from SharedPreferences...');
+      print('📦 Cart JSON: $cartJson');
+      
       if (cartJson != null) {
         final List<dynamic> cartData = jsonDecode(cartJson);
+        print('📦 Decoded ${cartData.length} cart items');
+        
         setState(() {
           cartItems = cartData.map((json) => CartItem.fromJson(json)).toList();
         });
+        
+        print('📦 Successfully loaded ${cartItems.length} cart items');
+        for (var item in cartItems) {
+          print('  - ${item.product.name} x ${item.quantity}');
+        }
+      } else {
+        print('📦 No cart items found in SharedPreferences');
       }
     } catch (err) { // Renamed 'e' to 'err'
-      print('Error loading cart items: $err');
+      print('❌ Error loading cart items: $err');
+      print('Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -2573,12 +2586,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         );
                                       }
                                     } else {
-                                      // No Tyro config, fallback to manual
-                                      showCustomSnackbar(
-                                        'EFTPOS Not Configured',
-                                        'Processing as manual payment',
-                                        Colors.orange,
-                                      );
+                                      // No Tyro config, process as manual EFTPOS payment
                                       _handlePaymentSuccess();
                                     }
                                   } else {
@@ -4103,7 +4111,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }
           }
           
-          // Get customer ID
+          // Get or create customer ID
+          String customerId;
           final customerData = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('customers')
@@ -4113,10 +4122,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               .maybeSingle();
               
           if (customerData == null) {
-            throw Exception('Customer not found');
+            // Create new customer if not found
+            print('Customer not found, creating new customer...');
+            final nameParts = widget.customerName.split(' ');
+            final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
+            final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+            
+            final newCustomer = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('customers')
+                .insert({
+                  'first_name': firstName,
+                  'last_name': lastName,
+                  'mobile': widget.mobileno,
+                  'email': '', // Email not provided in widget
+                  'status': true,
+                })
+                .select()
+                .single();
+                
+            customerId = newCustomer['id'];
+            print('Created new customer with ID: $customerId');
+          } else {
+            customerId = customerData['id'];
           }
-          
-          final customerId = customerData['id'];
           
           // Get proper booking number
           final bookingNumberResponse = await supabase
@@ -4256,15 +4285,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         try {
           // Get the order controller and refresh the bookings
           final OrderController orderController = Get.find<OrderController>();
-          await orderController.fetchBookings('All');
+          await orderController.fetchBookings('unpaid');
           print('Refreshed pending payments list after successful payment');
         } catch (e) {
           print('Could not refresh pending payments: $e');
         }
       }
-      
-      // Show success dialog
-      newBookingController.showBookingSuccessAlert();
       
       // Mark that booking was just completed for court refresh
       newBookingController.bookingJustCompleted.value = true;
@@ -4275,11 +4301,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         newBookingController.paymentProcess.value = true;
       }
       
-      // Wait for dialog to be visible
-      await Future.delayed(const Duration(seconds: 2));
-      
-      // Navigate to dashboard - use Get navigation for consistency
-      Get.offAllNamed('/');
+      // Navigate based on where we came from
+      if (widget.type == 'ExistingBooking') {
+        // For payments from unpaid tab, show success and go back
+        showCustomSnackbar(
+          'Payment Successful',
+          'Payment has been processed successfully',
+          Colors.green,
+        );
+        
+        // Small delay to ensure the snackbar is visible
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Go back to preserve the tab state
+        Navigator.of(context).pop();
+      } else {
+        // For new bookings, show the success dialog and navigate
+        newBookingController.showBookingSuccessAlert();
+        
+        // Wait for dialog to be visible
+        await Future.delayed(const Duration(seconds: 2));
+        
+        // Close the dialog and navigate to dashboard
+        Get.back(); // Close the dialog
+        Get.offAllNamed('/');
+      }
     } catch (e) {
       setState(() {
         isLoading = false;
@@ -4487,8 +4533,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   
   Future<void> _printReceipt(String bookingId, double courtTotal, double discount) async {
     try {
-      // Call the checkout controller's printBookingReceipt method
-      await checkoutController.printBookingReceipt(bookingId: bookingId);
+      print('🖨️ _printReceipt called with bookingId: $bookingId');
+      
+      // Add a small delay to ensure cart items are loaded
+      await Future.delayed(Duration(milliseconds: 100));
+      
+      // Reload cart items from SharedPreferences to ensure we have the latest
+      await _loadCartItems();
+      
+      print('🛒 Cart items count: ${cartItems.length}');
+      for (var item in cartItems) {
+        print('Cart item: ${item.product.name}, quantity: ${item.quantity}');
+      }
+      
+      // Call the checkout controller's printBookingReceipt method with cart items
+      await checkoutController.printBookingReceiptWithCart(
+        bookingId: bookingId,
+        cartItems: cartItems, // Pass the local cart items
+      );
       print('Receipt printed successfully for booking: $bookingId');
     } catch (e) {
       print('Error printing receipt: $e');

@@ -24,16 +24,18 @@ class Products {
   });
 
   factory Products.fromJson(Map<String, dynamic> json) => Products(
-    id: json["id"],
-    categoryId: json["category_id"],
-    name: json["name"],
-    description: json["description"],
-    price: json["price"],
+    id: json["id"]?.toString() ?? '',
+    categoryId: json["category_id"]?.toString() ?? '',
+    name: json["name"]?.toString() ?? 'Unknown Product',
+    description: json["description"]?.toString() ?? '',
+    price: json["price"]?.toString() ?? '0',
     imageUrl: json["image_url"],
-    displayOrder: json["display_order"],
-    status: json["status"],
-    createdAt: DateTime.parse(json["created_at"]),
-    stock: json["stock"],
+    displayOrder: json["display_order"]?.toString() ?? '0',
+    status: json["status"] ?? true,
+    createdAt: json["created_at"] != null 
+        ? DateTime.parse(json["created_at"]) 
+        : DateTime.now(),
+    stock: json["stock"]?.toString() ?? '0',
   );
 
   Map<String, dynamic> toJson() => {
@@ -75,9 +77,16 @@ class CartItem {
   };
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
-    return CartItem(
-      product: Products.fromJson(json['product']),
-      quantity: json['quantity'],
-    )..appliedPrice = json['appliedPrice'];
+    final product = Products.fromJson(json['product']);
+    final quantity = json['quantity'] ?? 1;
+    final item = CartItem(
+      product: product,
+      quantity: quantity,
+    );
+    // If appliedPrice is stored in JSON, use it, otherwise calculate it
+    if (json.containsKey('appliedPrice') && json['appliedPrice'] != null) {
+      item.appliedPrice = (json['appliedPrice'] as num).toDouble();
+    }
+    return item;
   }
 }
