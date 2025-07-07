@@ -72,18 +72,18 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize text controllers
     nameController = TextEditingController();
     mobileController = TextEditingController();
     repeatUntilController = TextEditingController();
-    
+
     selectedSlots.clear();
     showTodayButton = false;
-    
+
     // Initialize selectedDateTime to today
     selectedDateTime = DateTime.now();
-    
+
     // Add listeners
     _vertical.addListener(() {
       if (_leftVerticalController.hasClients) {
@@ -95,13 +95,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         _headerHorizontalController.jumpTo(_horizontal.offset);
       }
     });
-    
+
     // Move all controller clearing operations to post-frame callback to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _clearControllersAndLoadData();
     });
   }
-  
+
   void _clearControllersAndLoadData() {
     // Safely clear controller data after the widget is built
     try {
@@ -111,14 +111,14 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     } catch (e) {
       print('Error clearing controller data: $e');
     }
-    
+
     // Safely clear cart
     try {
       cartController.clearCart();
     } catch (e) {
       print('Error clearing cart: $e');
     }
-    
+
     // Load initial data after clearing
     _loadInitialData();
   }
@@ -149,39 +149,39 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         print('Error clearing controllers on dispose: $e');
       }
     });
-    
+
     // Remove listeners before disposing
     _vertical.removeListener(() {});
     _horizontal.removeListener(() {});
-    
+
     // Dispose scroll controllers
     _vertical.dispose();
     _horizontal.dispose();
     _headerHorizontalController.dispose();
     _leftVerticalController.dispose();
-    
+
     // Dispose text controllers
     nameController.dispose();
     mobileController.dispose();
     repeatUntilController.dispose();
-    
+
     super.dispose();
   }
-  
+
   void _refreshCourtView() {
     // Clear all selections
     selectedSlots.clear();
     controller.clearSelectedSlots();
     controller.selectedCourtSlots.clear();
-    
+
     // Refresh data
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         try {
           print('🔄 Refreshing court view...');
-          
+
           // Ensure we have a selected service
-          if (controller.selectedServiceId.value == null || 
+          if (controller.selectedServiceId.value == null ||
               controller.selectedServiceId.value.isEmpty) {
             print('📋 No service selected, fetching service list...');
             await controller.fetchServiceList();
@@ -190,22 +190,22 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               print('✅ Service ID set: ${controller.selectedServiceId.value}');
             }
           }
-          
+
           // Ensure we have court list
           if (controller.courtList.isEmpty) {
             print('🏟️ No courts loaded, fetching court list...');
             await controller.fetchCourtList();
             print('✅ Courts loaded: ${controller.courtList.length}');
           }
-          
+
           // Fetch fresh booking data
           print('📅 Fetching booked slots...');
           await controller.fetchBookedSlots();
-          
+
           // Fetch slot info
           print('🎯 Fetching slot info...');
           await fetchSlotInfo();
-          
+
           // Update UI
           if (mounted) {
             setState(() {});
@@ -232,7 +232,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         print('Widget not mounted, skipping initial data load');
         return;
       }
-      
+
       controller.isLoading.value = true;
 
       // First fetch service list
@@ -241,7 +241,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       if (controller.serviceList.isNotEmpty) {
         // Set initial service ID
         controller.selectedServiceId.value = controller.serviceList[0]['id'];
-        
+
         // Fetch court list and booked slots
         await Future.wait([
           controller.fetchCourtList(),
@@ -268,7 +268,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     } catch (error, stackTrace) {
       print('Error loading initial data: $error');
       print('Stack trace: $stackTrace');
-      
+
       // Show user-friendly error message
       if (mounted) {
         showCustomSnackbar(
@@ -349,7 +349,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   @override
   Widget build(BuildContext context) {
     // Don't auto-refresh here - it interferes with slot selection
-    
+
     return Container(
       child: Column(
         children: [
@@ -452,20 +452,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                   ),
                 ),
               ),
-            const SizedBox(width: 20),
-            // DEBUG: Temporary button to clean up orphaned membership records
-            GestureDetector(
-              onTap: () => _showDebugCleanupDialog(),
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange),
-                ),
-                child: Icon(Icons.cleaning_services, size: 35, color: Colors.orange),
-              ),
-            ),
             const SizedBox(width: 20),
             GestureDetector(
               onTap: () {
@@ -579,7 +565,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                             orElse: () => <String, dynamic>{},
                           );
                           final courtId = courtData['id'] as String?;
-                          
+
                           for (final group in slotGroups) {
                             group.sort();
                             final start = group.first;
@@ -1577,13 +1563,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           mobileController.text = userData['mobile'] ?? '';
         });
       });
-      
+
       // Check membership_data table for pending membership
       bool hasPendingMembership = false;
       if (userData['id'] != null) {
         final SharedPreferences preferences = await SharedPreferences.getInstance();
         String? centerSlug = preferences.getString('centerSlug');
-        
+
         try {
           final membershipDataCheck = await supabase
               .schema('${centerSlug}_prod_schema')
@@ -1591,7 +1577,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               .select('id, status')
               .eq('customer_id', userData['id'])
               .maybeSingle();
-              
+
           if (membershipDataCheck != null) {
             if (membershipDataCheck['status'] == false) {
               hasPendingMembership = true;
@@ -1608,16 +1594,16 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           print('Error checking membership_data: $e');
         }
       }
-      
+
       setState(() {
         // Update pending membership status
         this.hasPendingMembership = hasPendingMembership;
-        
+
         // Only set hasMembership to true if there's NO pending membership
-        hasMembership = !hasPendingMembership && 
+        hasMembership = !hasPendingMembership &&
                        (userData['membershipplan_id'] != null &&
                         userData['membershipplan_id'].toString().isNotEmpty);
-                        
+
         if (hasMembership && !hasPendingMembership) {
           memberPeakPrice = double.tryParse(userData['peak_price']?.toString() ?? '0');
           memberNonPeakPrice = double.tryParse(userData['non_peak_price']?.toString() ?? '0');
@@ -1692,7 +1678,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               // Always use regular price - let checkout handle membership discounts
                               double price = (subSlot.price is num) ? subSlot.price.toDouble() : 0.0;
                               return subSum + price;
-                              
+
                               /* Don't apply membership prices here - moved to checkout
                               double price;
                               if (hasMembership && memberPeakPrice != null && memberNonPeakPrice != null) {
@@ -1899,6 +1885,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                               child: Material(
                                                 elevation: 4.0,
                                                 child: SizedBox(
+                                                  width: 350,
                                                   height: 200,
                                                   child: ListView.builder(
                                                     padding: EdgeInsets.zero,
@@ -2081,10 +2068,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             print(
                                               'Selected customer data: $suggestion',
                                             );
-                                            
+
                                             // Use _updateUserData to handle everything including setting text fields
                                             _updateUserData(suggestion);
-                                            
+
                                             if(suggestion['already_in_cart']==true) {
                                               membershipInCart = true;
                                             }
@@ -2282,26 +2269,20 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         );
                                       }),
                                     ),
-                                    Obx(
-                                      () => ListView.builder(
+                                    Obx(() {
+                                      return ListView.builder(
                                         shrinkWrap: true,
                                         physics: NeverScrollableScrollPhysics(),
-                                        itemCount:
-                                            cartController.cartItems.length,
+                                        itemCount: cartController.cartItems.length,
                                         itemBuilder: (_, index) {
-                                          final item =
-                                              cartController.cartItems[index];
+                                          final item = cartController.cartItems[index];
                                           return Dismissible(
                                             key: ValueKey(item.product.id),
-                                            direction:
-                                                DismissDirection.endToStart,
+                                            direction: DismissDirection.endToStart,
                                             background: Container(
                                               color: Colors.red,
                                               alignment: Alignment.centerRight,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 20,
-                                                  ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 20,),
                                               child: const Text(
                                                 'Delete',
                                                 style: TextStyle(
@@ -2311,15 +2292,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 ),
                                               ),
                                             ),
-                                            onDismissed:
-                                                (_) => cartController
-                                                    .removeItem(item),
+                                            onDismissed: (_) => cartController.removeItem(item),
                                             child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 15,
-                                                    vertical: 10,
-                                                  ),
+                                              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10,),
                                               child: Row(
                                                 children: [
                                                   Expanded(
@@ -2327,42 +2302,24 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                       item.product.name,
                                                       style: const TextStyle(
                                                         fontSize: 22,
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                                        fontWeight: FontWeight.bold,
                                                       ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
+                                                      overflow: TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                   Container(
-                                                    width:
-                                                        MediaQuery.of(
-                                                          context,
-                                                        ).size.width /
-                                                        14,
+                                                    width: MediaQuery.of(context,).size.width / 14,
                                                     decoration: BoxDecoration(
                                                       border: Border.all(
-                                                        color:
-                                                            Colors
-                                                                .grey
-                                                                .shade400,
+                                                        color: Colors.grey.shade400,
                                                       ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
+                                                      borderRadius: BorderRadius.circular(8,),
                                                     ),
                                                     child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
+                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                       children: [
                                                         IconButton(
-                                                          onPressed:
-                                                              () => cartController
-                                                                  .decrementQty(
-                                                                    item,
-                                                                  ),
+                                                          onPressed: () => cartController.decrementQty(item,),
                                                           icon: const Icon(
                                                             Icons.remove,
                                                             size: 25,
@@ -2370,17 +2327,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                         ),
                                                         Text(
                                                           '${item.quantity}',
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 22,
-                                                              ),
+                                                          style: const TextStyle(fontSize: 22,),
                                                         ),
                                                         IconButton(
-                                                          onPressed:
-                                                              () => cartController
-                                                                  .incrementQty(
-                                                                    item,
-                                                                  ),
+                                                          onPressed: () => cartController.incrementQty(item,),
                                                           icon: const Icon(
                                                             Icons.add,
                                                             size: 25,
@@ -2392,24 +2342,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   Container(
                                                     width: 110,
                                                     child: Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment.end,
+                                                      mainAxisAlignment: MainAxisAlignment.end,
                                                       children: [
-                                                        Obx(
-                                                          () => Padding(
-                                                            padding:
-                                                                const EdgeInsets.only(
-                                                                  left: 8.0,
-                                                                ),
-                                                            child: Text(
-                                                              '\$${item.appliedPrice.toStringAsFixed(2)}',
-                                                              style: const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .bold,
-                                                                fontSize: 22,
-                                                              ),
-                                                            ),
+                                                        Text(
+                                                          '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                          style: const TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 22,
                                                           ),
                                                         ),
                                                       ],
@@ -2420,8 +2359,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             ),
                                           );
                                         },
-                                      ),
-                                    ),
+                                      );
+                                    },),
                                   ],
                                 ),
                               ),
@@ -2765,7 +2704,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 if (digitsOnly.length == 10) {
                                                   await controller.getUserDatabyMobile(digitsOnly);
                                                 }
-                                                
+
                                                 // Check for pending membership payment
                                                 final hasPending = await checkPendingMembershipPayment();
                                                 if (hasPending) {
@@ -2776,7 +2715,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   );
                                                   return;
                                                 }
-                                                
+
                                                 Navigator.pop(context);
                                                 openMembershipDrawer(
                                                   context,
@@ -2933,7 +2872,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     final userDataValue = controller.userData.value;
     final nameControllerText = controller.nameController.text;
     final mobileControllerText = controller.mobileNumberController.text;
-    
+
     await showDialog(
       context: parentContext,
       barrierDismissible: false, // Prevent closing by tapping outside
@@ -2941,7 +2880,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           (dialogContext) => WillPopScope(
             onWillPop: () async {
               // Clear cart when dialog is closed
-              cartController.clearCart();
+              //cartController.clearCart();
               return true;
             },
             child: Dialog(
@@ -2952,523 +2891,525 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               child: Stack(
                 children: [
                   Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "Booking Confirmation",
-                      style: GoogleFonts.inter(
-                        fontSize: 25,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      bookingIdValue,
-                      style: GoogleFonts.inter(
-                        fontSize: 23,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              customerName.toString(),
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 25,
-                                color: Colors.black,
-                              ),
+                    padding: const EdgeInsets.all(16.0),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Booking Confirmation",
+                            style: GoogleFonts.inter(
+                              fontSize: 25,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
                             ),
-                            Text(
-                              mobile,
-                              style: GoogleFonts.inter(
-                                color: Colors.grey.shade800,
-                                fontSize: 25,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(LucideIcons.gamepad2, size: 18),
-                                const SizedBox(width: 4),
-                                Text(
-                                  serviceListValue.firstWhere(
-                                    (e) => e['id'].toString() == selectedServiceIdValue,
-                                    orElse: () => {'name': 'Sport'},
-                                  )['name'] ?? 'Sport',
-                                  style: GoogleFonts.inter(
-                                    color: Colors.grey.shade800,
-                                    fontSize: 25,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Text(
-                              game,
-                              style: GoogleFonts.inter(
-                                fontSize: 25,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Align(
-                      alignment: Alignment.center,
-                      child: Text(
-                        "Court Information",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 22,
-                          color: Colors.black,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Booking Details List
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.grey.shade400,
-                            ), // outer border
-                            borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Column(
-                            children: List.generate(bookings.length, (index) {
-                              final booking = bookings[index];
-                              final isLast = index == bookings.length - 1;
-
-                              return Column(
+                          const SizedBox(height: 4),
+                          Text(
+                            bookingIdValue,
+                            style: GoogleFonts.inter(
+                              fontSize: 23,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8.0,
-                                      vertical: 12,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            booking.courtName,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                        if (booking.subSlots.any(
-                                          (subSlot) => subSlot.isPeak,
-                                        )) ...[
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text.rich(
-                                              TextSpan(
-                                                children: [
-                                                  TextSpan(
-                                                    text:
-                                                        "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 22,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color:
-                                                          Colors.green.shade600,
-                                                    ),
-                                                  ),
-                                                  TextSpan(
-                                                    text:
-                                                        "(${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 22,
-                                                      fontWeight:
-                                                          FontWeight.w500,
-                                                      color:
-                                                          Colors
-                                                              .orange
-                                                              .shade700,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ] else ...[
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text(
-                                              "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
-                                              style: GoogleFonts.inter(
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.green.shade600,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            "${booking.subSlots.length * 30}mins",
-                                            style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.indigo.shade600,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
-                                              // Always show regular price - membership discount shown in checkout
-                                              return sum + subSlot.price;
-                                            }).toStringAsFixed(2)}",
-                                            textAlign: TextAlign.right,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey.shade900,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                  Text(
+                                    customerName.toString(),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 25,
+                                      color: Colors.black,
                                     ),
                                   ),
-                                  if (!isLast)
-                                    Divider(
-                                      height: 2,
-                                      color: Colors.grey.shade400,
-                                    ), // bottom line for each row
+                                  Text(
+                                    mobile,
+                                    style: GoogleFonts.inter(
+                                      color: Colors.grey.shade800,
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ],
-                              );
-                            }),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Obx(
-                      () => ListView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemCount: cartController.cartItems.length,
-                        itemBuilder: (_, index) {
-                          final item = cartController.cartItems[index];
-                          return Dismissible(
-                            key: ValueKey(item.product.id),
-                            direction: DismissDirection.none,
-                            confirmDismiss:
-                                (_) async => false, // ❗ Disables dismiss swipe
-                            background: Container(
-                              color: Colors.red,
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
                               ),
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(LucideIcons.gamepad2, size: 18),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        serviceListValue.firstWhere(
+                                          (e) => e['id'].toString() == selectedServiceIdValue,
+                                          orElse: () => {'name': 'Sport'},
+                                        )['name'] ?? 'Sport',
+                                        style: GoogleFonts.inter(
+                                          color: Colors.grey.shade800,
+                                          fontSize: 25,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    game,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 25,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Align(
+                            alignment: Alignment.center,
+                            child: Text(
+                              "Court Information",
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 22,
+                                color: Colors.black,
                               ),
                             ),
-                            onDismissed: (_) => cartController.removeItem(item),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      item.product.name,
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  Container(
-                                    width:
-                                        MediaQuery.of(context).size.width / 14,
-                                    padding: EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: Colors.grey.shade400,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          '${item.quantity}',
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 110,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
+                          ),
+                          const SizedBox(height: 12),
+                          // Booking Details List
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Colors.grey.shade400,
+                                  ), // outer border
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Column(
+                                  children: List.generate(bookings.length, (index) {
+                                    final booking = bookings[index];
+                                    final isLast = index == bookings.length - 1;
+
+                                    return Column(
                                       children: [
                                         Padding(
-                                          padding: const EdgeInsets.only(
-                                            left: 8.0,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8.0,
+                                            vertical: 12,
                                           ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  booking.courtName,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (booking.subSlots.any(
+                                                (subSlot) => subSlot.isPeak,
+                                              )) ...[
+                                                Expanded(
+                                                  flex: 4,
+                                                  child: Text.rich(
+                                                    TextSpan(
+                                                      children: [
+                                                        TextSpan(
+                                                          text:
+                                                              "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 22,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color:
+                                                                Colors.green.shade600,
+                                                          ),
+                                                        ),
+                                                        TextSpan(
+                                                          text:
+                                                              "(${booking.subSlots.fold(0, (sum, subSlot) => sum + (subSlot.isPeak ? 30 : 0))} mins peak)",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 22,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color:
+                                                                Colors
+                                                                    .orange
+                                                                    .shade700,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ] else ...[
+                                                Expanded(
+                                                  flex: 4,
+                                                  child: Text(
+                                                    "${booking.subSlots.first.startTime} - ${booking.subSlots.last.endTime}",
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 22,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.green.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  "${booking.subSlots.length * 30}mins",
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.indigo.shade600,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  "\$${booking.subSlots.fold(0.0, (sum, subSlot) {
+                                                    // Always show regular price - membership discount shown in checkout
+                                                    return sum + subSlot.price;
+                                                  }).toStringAsFixed(2)}",
+                                                  textAlign: TextAlign.right,
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.grey.shade900,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (!isLast)
+                                          Divider(
+                                            height: 2,
+                                            color: Colors.grey.shade400,
+                                          ), // bottom line for each row
+                                      ],
+                                    );
+                                  }),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Obx(
+                            () => ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: cartController.cartItems.length,
+                              itemBuilder: (_, index) {
+                                final item = cartController.cartItems[index];
+                                return Dismissible(
+                                  key: ValueKey(item.product.id),
+                                  direction: DismissDirection.none,
+                                  confirmDismiss:
+                                      (_) async => false, // ❗ Disables dismiss swipe
+                                  background: Container(
+                                    color: Colors.red,
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                    child: const Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        fontSize: 22,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  onDismissed: (_) => cartController.removeItem(item),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 10,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
                                           child: Text(
-                                            '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                            item.product.name,
                                             style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
                                               fontSize: 22,
+                                              fontWeight: FontWeight.bold,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Container(
+                                          width:
+                                              MediaQuery.of(context).size.width / 14,
+                                          padding: EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(
+                                              color: Colors.grey.shade400,
+                                            ),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                '${item.quantity}',
+                                                style: const TextStyle(
+                                                  fontSize: 22,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Container(
+                                          width: 110,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            children: [
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 8.0,
+                                                ),
+                                                child: Text(
+                                                  '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 22,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                          ),
 
-                    if (isMembershipApplied) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: MediaQuery.of(context).size.width / 2.4,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          if (isMembershipApplied) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
                               children: [
-                                Text(
-                                  '$selectedMembershipPlan Membership',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 23,
-                                    color: Palette.newColor,
-                                    fontWeight: FontWeight.w600,
+                                Container(
+                                  width: MediaQuery.of(context).size.width / 2.4,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
                                   ),
-                                ),
-                                Text(
-                                  '\$ ${membershipPrice.toStringAsFixed(2)}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 23,
-                                    color: Palette.newColor,
-                                    fontWeight: FontWeight.w600,
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '$selectedMembershipPlan Membership',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 23,
+                                          color: Palette.newColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        '\$ ${membershipPrice.toStringAsFixed(2)}',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 23,
+                                          color: Palette.newColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
+                            SizedBox(height: 20),
+                          ],
+
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () async {
+                                    // Close dialog first to prevent TypeAhead widget disposal issues
+                                    Navigator.pop(context);
+
+                                    // Add a small delay to ensure dialog is fully closed
+                                    await Future.delayed(Duration(milliseconds: 100));
+
+                                    try {
+                                      if (userDataValue.id != null) {
+
+                                        // User exists, create booking with pending payment
+                                        populateCartWithSubSlots(bookings);
+                                        await controller.processCheckout(
+                                          name: nameControllerText,
+                                          email: userDataValue.email,
+                                          mobile: userDataValue.mobile,
+                                          bookingId: bookingIdValue,
+                                          paymentType: 'Pending', // Set payment type as Pending
+                                          promoCode: '',
+                                          notes: 'Payment pending - Pay Later option selected',
+                                          bookings: updatedBookings,
+                                          membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                                          membershipName: selectedMembershipPlan,
+                                          membershipPrice: memberPrice,
+                                        );
+
+                                      } else {
+                                        // Create new user and then create booking with pending payment
+                                          await controller.registerUser(
+                                            mobile: mobile,
+                                            firstName: customerName.toString(),
+                                          );
+
+                                          // Create booking with pending payment
+                                          populateCartWithSubSlots(bookings);
+                                          await controller.processCheckout(
+                                            name: nameControllerText,
+                                            email: userDataValue.email,
+                                            mobile: userDataValue.mobile,
+                                            paymentType: 'Pending', // Set payment type as Pending
+                                            promoCode: '',
+                                            notes: 'Payment pending - Pay Later option selected',
+                                            bookingId: bookingIdValue,
+                                            bookings: updatedBookings,
+                                            membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                                            membershipName: selectedMembershipPlan,
+                                            membershipPrice: memberPrice,
+                                          );
+                                      }
+
+                                      // After booking, clear slots and reset form
+                                      controller.clearSelectedSlots();
+                                      nameController.clear();
+                                      mobileController.clear();
+                                      hasMembership = false;
+                                      isMembershipApplied = false;
+                                      membershipPrice = 0.0;
+                                      selectedMembershipId = null;
+                                      selectedSlots.clear();
+                                      cartController.clearCart();
+
+                                      // Refresh court view to show the new booking
+                                      if (mounted) {
+                                        _refreshCourtView();
+                                      }
+
+                                      // Show success message
+                                      showCustomSnackbar('Success', 'Booking created successfully with pending payment',Colors.green);
+                                    } catch (e) {
+                                      print('Error in pay later: $e');
+                                      showCustomSnackbar('Success', 'Failed to create booking: ${e.toString()}',Colors.red);
+                                    }
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.black,
+                                    minimumSize: Size.fromHeight(50),
+                                    side: BorderSide(color: Colors.grey.shade400),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    "Pay Later",
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w400,
+                                      fontSize: 23,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    Navigator.of(
+                                      dialogContext,
+                                    ).pop(); // Close the dialog first
+
+                                    //await Future.delayed(Duration(seconds: 1));
+                                    //print(updatedBookings[0].subSlots[0].price);
+                                    Get.to(
+                                      //Checkout(),
+                                      CheckoutScreen(
+                                        type: 'New',
+                                        customerName: customerName,
+                                        mobileno: mobile,
+                                        selectedDateTime: selectedDateTime,
+                                        billAmount: billAmount + cartController.total,
+                                        bookings: updatedBookings,
+                                        membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
+                                        membershipName: selectedMembershipPlan,
+                                        isMembershipApplied: isMembershipApplied,
+                                        membershipPrice: memberPrice,
+                                        forpayment: 'new-booking-payment',
+                                      ),
+                                    )?.then((_) {
+                                      // Always refresh when returning from checkout
+                                      // if (mounted) {
+                                      //   print('🔙 Returned from checkout, refreshing court view...');
+                                      //
+                                      //   // Force clear cart items and selected slots
+                                      //   controller.cartItems.clear();
+                                      //   cartController.clearCart();
+                                      //
+                                      //   // Reset local state immediately
+                                      //   setState(() {
+                                      //     selectedSlots.clear();
+                                      //   });
+                                      //
+                                      //   // Add a small delay to ensure checkout state is fully cleared
+                                      //   Future.delayed(Duration(milliseconds: 500), () {
+                                      //     if (mounted) {
+                                      //       print('🔄 Starting delayed refresh...');
+                                      //       _refreshCourtView();
+                                      //     }
+                                      //   });
+                                      // }
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: Size.fromHeight(50),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    "Pay Now",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 23,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      SizedBox(height: 20),
-                    ],
-
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              // Close dialog first to prevent TypeAhead widget disposal issues
-                              Navigator.pop(context);
-                              
-                              // Add a small delay to ensure dialog is fully closed
-                              await Future.delayed(Duration(milliseconds: 100));
-                              
-                              try {
-                                if (userDataValue.id != null) {
-                                  // User exists, create booking with pending payment
-                                  populateCartWithSubSlots(bookings);
-                                  await controller.processCheckout(
-                                    name: nameControllerText,
-                                    email: userDataValue.email,
-                                    mobile: userDataValue.mobile,
-                                    bookingId: bookingIdValue,
-                                    paymentType: 'Pending', // Set payment type as Pending
-                                    promoCode: '',
-                                    notes: 'Payment pending - Pay Later option selected',
-                                    bookings: updatedBookings,
-                                    membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                    membershipName: selectedMembershipPlan,
-                                    membershipPrice: memberPrice,
-                                  );
-                                } else {
-                                  // Create new user and then create booking with pending payment
-                                    await controller.registerUser(
-                                    mobile: mobile,
-                                    firstName: customerName.toString(),
-                                  );
-                                  
-                                  // Create booking with pending payment
-                                  populateCartWithSubSlots(bookings);
-                                  await controller.processCheckout(
-                                    name: nameControllerText,
-                                    email: userDataValue.email,
-                                    mobile: userDataValue.mobile,
-                                    paymentType: 'Pending', // Set payment type as Pending
-                                    promoCode: '',
-                                    notes: 'Payment pending - Pay Later option selected',
-                                    bookingId: bookingIdValue,
-                                    bookings: updatedBookings,
-                                    membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                    membershipName: selectedMembershipPlan,
-                                    membershipPrice: memberPrice,
-                                  );
-                                }
-                                
-                                // After booking, clear slots and reset form
-                                controller.clearSelectedSlots();
-                                nameController.clear();
-                                mobileController.clear();
-                                hasMembership = false;
-                                isMembershipApplied = false;
-                                membershipPrice = 0.0;
-                                selectedMembershipId = null;
-                                selectedSlots.clear();
-                                cartController.clearCart();
-                                
-                                // Refresh court view to show the new booking
-                                if (mounted) {
-                                  _refreshCourtView();
-                                }
-                                
-                                // Show success message
-                                showCustomSnackbar('Success', 'Booking created successfully with pending payment',Colors.green);
-                              } catch (e) {
-                                print('Error in pay later: $e');
-                                showCustomSnackbar('Success', 'Failed to create booking: ${e.toString()}',Colors.red);
-                              }
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.black,
-                              minimumSize: Size.fromHeight(50),
-                              side: BorderSide(color: Colors.grey.shade400),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text(
-                              "Pay Later",
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w400,
-                                fontSize: 23,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              Navigator.of(
-                                dialogContext,
-                              ).pop(); // Close the dialog first
-
-                              //await Future.delayed(Duration(seconds: 1));
-                              //print(updatedBookings[0].subSlots[0].price);
-                              Get.to(
-                                //Checkout(),
-                                CheckoutScreen(
-                                  type: 'New',
-                                  customerName: customerName,
-                                  mobileno: mobile,
-                                  selectedDateTime: selectedDateTime,
-                                  billAmount: billAmount + cartController.total,
-                                  bookings: updatedBookings,
-                                  membershipID: (selectedMembershipId != null && selectedMembershipId!.isNotEmpty) ? selectedMembershipId : null,
-                                  membershipName: selectedMembershipPlan,
-                                  isMembershipApplied: isMembershipApplied,
-                                  membershipPrice: memberPrice,
-                                  forpayment: 'new-booking-payment',
-                                ),
-                              )?.then((_) {
-                                // Always refresh when returning from checkout
-                                if (mounted) {
-                                  print('🔙 Returned from checkout, refreshing court view...');
-                                  
-                                  // Force clear cart items and selected slots
-                                  controller.cartItems.clear();
-                                  cartController.clearCart();
-                                  
-                                  // Reset local state immediately
-                                  setState(() {
-                                    selectedSlots.clear();
-                                  });
-                                  
-                                  // Add a small delay to ensure checkout state is fully cleared
-                                  Future.delayed(Duration(milliseconds: 500), () {
-                                    if (mounted) {
-                                      print('🔄 Starting delayed refresh...');
-                                      _refreshCourtView();
-                                    }
-                                  });
-                                }
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              minimumSize: Size.fromHeight(50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: Text(
-                              "Pay Now",
-                              style: GoogleFonts.inter(
-                                fontSize: 23,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
-                  ],
-                ),
-              ),
-            ),
+                  ),
                   // Add close button
                   Positioned(
                     top: 8,
@@ -3476,7 +3417,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                     child: IconButton(
                       icon: Icon(Icons.close, color: Colors.grey),
                       onPressed: () {
-                        cartController.clearCart();
+                        //cartController.clearCart();
                         Navigator.of(dialogContext).pop();
                       },
                     ),
@@ -3818,7 +3759,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         // Store current values before reopening drawer
                                         final currentName = nameController.text;
                                         final currentMobile = mobileController.text;
-                                        
+
                                         openBookingRightDrawer(
                                           context,
                                           planName,
@@ -3829,7 +3770,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           onCancel:
                                               null, // No setState or UI logic here
                                         );
-                                        
+
                                         // Restore values after drawer opens
                                         WidgetsBinding.instance.addPostFrameCallback((_) {
                                           nameController.text = currentName;
@@ -3879,7 +3820,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         // Always use regular price - let checkout handle membership discounts
         double price = slotData?['price'] ?? 0.0;
         total += price;
-        
+
         /* Don't apply membership prices here - moved to checkout
         final isPeak = slotData?['isPeak'] ?? false;
         double price;
@@ -3904,10 +3845,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   Future<bool> checkPendingMembershipPayment() async {
     if (controller.userData.value.id == null) return false;
-    
+
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     String? centerSlug = preferences.getString('centerSlug');
-    
+
     try {
       // Check if customer has any bookings with pending membership payments
       final response = await supabase
@@ -3918,11 +3859,11 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           .not('membership_id', 'is', null)
           .eq('paymentstatus', 'Pending')
           .limit(1);
-      
+
       if (response.isNotEmpty) {
         return true;
       }
-      
+
       // Also check membershippayment table if it exists
       final membershipResponse = await supabase
           .schema('${centerSlug}_prod_schema')
@@ -3931,7 +3872,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           .eq('customers_id', controller.userData.value.id!)
           .eq('status', false)
           .limit(1);
-      
+
       return membershipResponse.isNotEmpty;
     } catch (e) {
       print('Error checking pending membership payment: $e');
@@ -3942,7 +3883,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   // DEBUG: Show cleanup dialog for orphaned membership records
   void _showDebugCleanupDialog() {
     final TextEditingController customerIdController = TextEditingController();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -3994,21 +3935,21 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   Future<void> _debugCleanupMembership(String customerId) async {
     try {
       print('🧹 Starting debug cleanup for customer: $customerId');
-      
+
       // Add delay to ensure UI is stable
       await Future.delayed(Duration(milliseconds: 300));
-      
-      // Perform cleanup without showing additional loading dialog 
+
+      // Perform cleanup without showing additional loading dialog
       // (the flutter_typeahead widget conflicts with dialogs)
       showCustomSnackbar('Info', 'Cleaning up membership records...', Colors.blue);
-      
+
       final success = await checkoutController.debugCleanupCustomerMembership(
         customerId: customerId,
       );
-      
+
       // Add delay before showing results
       await Future.delayed(Duration(milliseconds: 300));
-      
+
       if (mounted) {  // Check if widget is still mounted
         if (success) {
           showCustomSnackbar('Success', 'Membership records cleaned up! Try booking again.', Colors.green);
@@ -4016,10 +3957,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           showCustomSnackbar('Error', 'Failed to clean up membership records', Colors.red);
         }
       }
-      
+
     } catch (e) {
       print('❌ Debug cleanup error: $e');
-      
+
       if (mounted) {  // Check if widget is still mounted
         showCustomSnackbar('Error', 'Cleanup failed: $e', Colors.red);
       }

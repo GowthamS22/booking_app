@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:booking_app/config/constants.dart';
+import 'package:booking_app/config/palette.dart';
 import 'package:booking_app/controllers/checkout_controller.dart';
 import 'package:booking_app/controllers/new_booking_controller.dart';
 import 'package:booking_app/controllers/order_controller.dart';
@@ -542,7 +543,7 @@ class _PendingPaymentState extends State<PendingPayment> {
                                               ? SizedBox.shrink() // Hide button for paid bookings
                                               : SizedBox(
                                                   width: 120,
-                                                  height: 40,
+                                                  height: 50,
                                                   child: ElevatedButton(
                                                     onPressed: () => _handlePaymentAction(booking),
                                                     child: Text('Pay', style: TextStyle(fontSize: 22, color: Colors.white)),
@@ -721,119 +722,135 @@ class _PendingPaymentState extends State<PendingPayment> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(
-            'Payment Options',
-            style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Choose how you would like to pay:',
-                style: GoogleFonts.inter(fontSize: 16),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Icon(Icons.sports_tennis, color: Colors.blue),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${booking.sportname} - ${booking.courtName}${booking.platformId}',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+          backgroundColor: Colors.white,
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.40, // 85% of screen width
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Payment Options',
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.access_time, color: Colors.grey.shade600),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
-                    style: GoogleFonts.inter(fontSize: 14),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.attach_money, color: Colors.green),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Court Amount: \$${booking.grandTotal!.toStringAsFixed(2)}',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-                ],
-              ),
-              if (hasMembership) ...[
-                const SizedBox(height: 8),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Choose how you would like to pay:',
+                  style: GoogleFonts.inter(fontSize: 22),
+                ),
+                const SizedBox(height: 20),
                 Row(
                   children: [
-                    Icon(LucideIcons.crown, color: Colors.amber),
+                    Icon(Icons.sports_tennis, color: Colors.blue, size: 35,),
                     const SizedBox(width: 8),
-                    Text(
-                      'Membership included',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.amber.shade700,
+                    Expanded(
+                      child: Text(
+                        '${booking.sportname} - ${booking.courtName}${booking.platformId}',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Icon(Icons.access_time, color: Colors.grey.shade600, size: 35,),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
+                      style: GoogleFonts.inter(fontSize: 22),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 15),
+                Row(
+                  children: [
+                    Icon(Icons.attach_money, color: Colors.green, size: 35,),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Court Amount: \$${booking.grandTotal!.toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                if (hasMembership) ...[
+                  const SizedBox(height: 15),
+                  Row(
+                    children: [
+                      Icon(LucideIcons.crown, color: Colors.amber, size: 35,),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Membership included',
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.amber.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: 30,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 22),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Palette.newColorbg,
+                        minimumSize: const Size(200, 55),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _processIndividualCourtPayment(booking);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade500,
+                        minimumSize: const Size(200, 55),
+                      ),
+                      child: Text(
+                        'Pay This Court Only',
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 22),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _processFullBookingPayment(booking);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade500,
+                        minimumSize: const Size(200, 55),
+                      ),
+                      child: Text(
+                        'Pay Full Booking',
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 22),
+                      ),
+                    ),
+                  ],
+                )
               ],
-            ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text(
-                'Cancel',
-                style: GoogleFonts.inter(color: Colors.grey.shade600),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _processIndividualCourtPayment(booking);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade500,
-              ),
-              child: Text(
-                'Pay This Court Only',
-                style: GoogleFonts.inter(color: Colors.white),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _processFullBookingPayment(booking);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade500,
-              ),
-              child: Text(
-                'Pay Full Booking',
-                style: GoogleFonts.inter(color: Colors.white),
-              ),
-            ),
-          ],
         );
       },
     );

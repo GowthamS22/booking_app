@@ -958,7 +958,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                       onPressed: () {
                         // Clear cart when going back
-                        cartController.clearCart();
+                        //cartController.clearCart();
                         Get.back(result: true);
                       },
                     ),
@@ -1851,6 +1851,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                   if (cartItems.isEmpty && widget.bookings.isEmpty) {
                                                     Navigator.pop(context);
                                                   }
+
+                                                  print(cartController.cartItems);
                                                 },
                                                 style: ElevatedButton.styleFrom(
                                                   backgroundColor: Colors.red.shade600,
@@ -2667,7 +2669,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Bill Amount',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 22,
                     fontWeight: FontWeight.w400,
                     color: Colors.grey.shade600,
                     letterSpacing: 0.3,
@@ -2706,7 +2708,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Total Paid',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 22,
                     fontWeight: FontWeight.w400,
                     color: Colors.grey.shade600,
                     letterSpacing: 0.3,
@@ -2745,7 +2747,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Balance',
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: 22,
                     fontWeight: FontWeight.w400,
                     color: Colors.grey.shade600,
                     letterSpacing: 0.3,

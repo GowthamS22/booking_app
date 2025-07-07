@@ -1,3 +1,4 @@
+import 'package:booking_app/config/palette.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -366,6 +367,18 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                               ),
                             ),
                           ),
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                'Action',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -578,6 +591,26 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                             ),
                                           ),
                                         ),
+
+                                        Expanded(
+                                          child: Align(
+                                            alignment: Alignment.center,
+                                            child: ElevatedButton(
+                                              child: Text('View', style: TextStyle(color: Palette.newColor, fontSize: 22),),
+                                              onPressed: () {
+                                                openBookingDetailsDrawer(context, b.bookingNo);
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Palette.newColorbg,
+                                                minimumSize: const Size(100, 50),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(50),
+                                                  side: BorderSide(color: Palette.newColor)
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
                                       ],
                                     ),
                                   ),
@@ -599,6 +632,160 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
         );
       },
     ),
+    );
+  }
+
+  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo) async {
+
+    final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Customer Add',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(anim1),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FractionallySizedBox(
+              widthFactor: 0.4,
+              child: Material(
+                color: Colors.white,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    return SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(1, 0),
+                        end: Offset.zero,
+                      ).animate(anim1),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width / 2.5,
+                          child: Material(
+                            color: Colors.white,
+                            child: Container(
+                              color: Colors.white,
+                              height: MediaQuery.of(context).size.height,
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  /// Header
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            bookingInfo?['customer']['first_name'],
+                                            style: GoogleFonts.inter(
+                                              fontSize: 23,
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          Text(
+                                            bookingInfo?['customer']['mobile'],
+                                            style: GoogleFonts.inter(
+                                              fontSize: 22,
+                                              color: Colors.grey.shade500,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const Divider(height: 32),
+
+                                  /// Booking Details
+                                  Text(
+                                    "Booking Details",
+                                    //"Booking Details : ${booking.id}",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Current booking informations",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "Booking ${bookingInfo?['booking']['booking_no']}",
+                                          style: GoogleFonts.inter(
+                                            fontSize: 22,
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 20),
+                                        Row(
+                                          spacing: 150,
+                                          children: [
+                                            Column(
+                                              spacing: 20,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+
+                                              ]
+                                            ),
+                                            Column(
+                                              spacing: 20,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 10),
+
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
