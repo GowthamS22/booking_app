@@ -2038,8 +2038,14 @@ class CheckoutController extends GetxController {
         updateData['customer_id'] = customerId;
       }
 
-      // Update the Page
-      isLoading.value = false;
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .update(updateData)
+          .eq('id', order_id!)
+          .select('*')
+          .single();
+
       update();
 
     } catch (e) {
