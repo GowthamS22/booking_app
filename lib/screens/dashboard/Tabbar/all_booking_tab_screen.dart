@@ -1,4 +1,5 @@
 import 'package:booking_app/config/palette.dart';
+import 'package:booking_app/models/booking_with_all.dart';
 import 'package:booking_app/models/order.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -599,7 +600,13 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                             child: ElevatedButton(
                                               child: Text('View', style: TextStyle(color: Palette.newColor, fontSize: 22),),
                                               onPressed: () {
-                                                openBookingDetailsDrawer(context, b.bookingNo);
+                                                openBookingDetailsDrawer(
+                                                    context,
+                                                    b.bookingNo,
+                                                    '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
+                                                    booking.sportname,
+                                                    '${booking.courtName}${booking.platformId}',
+                                                );
                                               },
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: Palette.newColorbg,
@@ -636,9 +643,11 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
     );
   }
 
-  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo) async {
+  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo, timing, sportName, courtName) async {
 
     final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
+    final booking     = BookingWithAll.fromJson(bookingInfo?['booking']);
+    print(bookingInfo?['customer']);
 
     await showGeneralDialog(
       context: context,
@@ -657,7 +666,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
           child: Align(
             alignment: Alignment.centerRight,
             child: FractionallySizedBox(
-              widthFactor: 0.5,
+              widthFactor: 0.4,
               child: Material(
                 color: Colors.white,
                 child: StatefulBuilder(
@@ -728,153 +737,322 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                       fontWeight: FontWeight.w400,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
-
 
                                   const SizedBox(height: 20),
 
-                                  if(bookingInfo?['order']!=null) ...[
-                                    Column(
+                                  Container(
+                                    padding: const EdgeInsets.all(15),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey.shade300),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
+                                        Text(
+                                          "Booking ${booking.bookingNo ?? 'N/A'}",
+                                          style: GoogleFonts.inter(
+                                            fontSize: 22,
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 20),
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          spacing: 150,
                                           children: [
                                             Column(
+                                              spacing: 20,
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  "Purchase Details",
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 23,
-                                                    color: Colors.black,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
+                                                bookingDetailRow(
+                                                  LucideIcons.gamepad2,
+                                                  "Sport",
+                                                  sportName ?? 'N/A',
                                                 ),
-                                                Text(
-                                                  "Current purchase items information",
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 18,
-                                                    color: Colors.black54,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
+                                                bookingDetailRow(
+                                                  LucideIcons.clock,
+                                                  "Time",
+                                                  '${timing}',
                                                 ),
                                               ],
                                             ),
                                             Column(
-                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              spacing: 20,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  "Order ID : ${bookingInfo?['order']['token_number']}",
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 23,
-                                                    color: Colors.black,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
+                                                bookingDetailRow(
+                                                  LucideIcons.scanLine,
+                                                  "Court",
+                                                  courtName,
                                                 ),
-                                                Text(
-                                                  "Created by : Manager",
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 18,
-                                                    color: Colors.black54,
-                                                    fontWeight: FontWeight.w400,
-                                                  ),
+                                                bookingDetailRow(
+                                                  LucideIcons.timer,
+                                                  "Duration",
+                                                  '',
                                                 ),
                                               ],
-                                            )
+                                            ),
                                           ],
                                         ),
-                                        const SizedBox(height: 20),
-                                        Obx(() {
-                                          final Rx<Orders?> order = Rx<Orders?>(null);
-                                          order.value = Orders.fromJson(bookingInfo?['order']);
-                                          final cartItems = order.value?.cartItems ?? [];
-
-                                          // Calculate total
-                                          double total = cartItems.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
-
-                                          return Column(
+                                        const SizedBox(height: 10),
+                                        Divider(color: Colors.grey.shade300, thickness: 2, height: 20,),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Row(
                                             children: [
-                                              ListView.builder(
-                                                shrinkWrap: true,
-                                                physics: const NeverScrollableScrollPhysics(),
-                                                itemCount: cartItems.length,
-                                                itemBuilder: (_, index) {
-                                                  final item = cartItems[index];
-                                                  return Padding(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      vertical: 8.0,
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(
-                                                            item.product.name,
-                                                            style: const TextStyle(
-                                                              fontSize: 22,
-                                                              fontWeight: FontWeight.w500,
-                                                            ),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                        Container(
-                                                          width: 150,
-                                                          child: Text(
-                                                            'x${item.quantity}',
-                                                            style: const TextStyle(fontSize: 22),
-                                                            textAlign: TextAlign.right,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 10),
-                                                        Container(
-                                                          width: 150,
-                                                          child: Text(
-                                                            '\$${item.appliedPrice.toStringAsFixed(2)}',
-                                                            style: const TextStyle(
-                                                              fontSize: 22,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                            textAlign: TextAlign.right,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                },
+                                              Expanded(
+                                                child: Text(
+                                                  'Total:',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                ),
                                               ),
-                                              // Add total row
-                                              Padding(
-                                                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        'Total:',
-                                                        style: const TextStyle(
-                                                          fontSize: 22,
-                                                          fontWeight: FontWeight.bold,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Container(
-                                                      width: 150,
-                                                      child: Text(
-                                                        '\$${total.toStringAsFixed(2)}',
-                                                        style: const TextStyle(
-                                                          fontSize: 22,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.green, // You can customize this
-                                                        ),
-                                                        textAlign: TextAlign.right,
-                                                      ),
-                                                    ),
-                                                  ],
+                                              Container(
+                                                width: 150,
+                                                child: Text(
+                                                  '\$${booking.total?.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                  textAlign: TextAlign.right,
                                                 ),
                                               ),
                                             ],
-                                          );
-                                        }),
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  'Sub Total:',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                width: 150,
+                                                child: Text(
+                                                  '\$${booking.subTotal?.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                  textAlign: TextAlign.right,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  'Discount:',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                width: 150,
+                                                child: Text(
+                                                  '\$${booking.discount?.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                  textAlign: TextAlign.right,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  'Grand Total:',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                width: 150,
+                                                child: Text(
+                                                  '\$${booking.grandTotal?.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                    color: Colors.green
+                                                  ),
+                                                  textAlign: TextAlign.right,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 20),
+
+                                  if(bookingInfo?['order']!=null) ...[
+                                    Container(
+                                      padding: const EdgeInsets.all(15),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey.shade300),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    "Purchase Details",
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 23,
+                                                      color: Colors.black,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    "Current purchase items information",
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 18,
+                                                      color: Colors.black54,
+                                                      fontWeight: FontWeight.w400,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.end,
+                                                children: [
+                                                  Text(
+                                                    "Order ID : ${bookingInfo?['order']['token_number']}",
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 23,
+                                                      color: Colors.black,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    "Created by : Manager",
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 18,
+                                                      color: Colors.black54,
+                                                      fontWeight: FontWeight.w400,
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            ],
+                                          ),
+                                          const SizedBox(height: 20),
+                                          Obx(() {
+                                            final Rx<Orders?> order = Rx<Orders?>(null);
+                                            order.value = Orders.fromJson(bookingInfo?['order']);
+                                            final cartItems = order.value?.cartItems ?? [];
+
+                                            // Calculate total
+                                            double total = cartItems.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+
+                                            return Column(
+                                              children: [
+                                                ListView.builder(
+                                                  shrinkWrap: true,
+                                                  physics: const NeverScrollableScrollPhysics(),
+                                                  itemCount: cartItems.length,
+                                                  itemBuilder: (_, index) {
+                                                    final item = cartItems[index];
+                                                    return Padding(
+                                                      padding: const EdgeInsets.symmetric(
+                                                        vertical: 8.0,
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Text(
+                                                              item.product.name,
+                                                              style: const TextStyle(
+                                                                fontSize: 22,
+                                                                fontWeight: FontWeight.w500,
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                          Container(
+                                                            width: 150,
+                                                            child: Text(
+                                                              'x${item.quantity}',
+                                                              style: const TextStyle(fontSize: 22),
+                                                              textAlign: TextAlign.right,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 10),
+                                                          Container(
+                                                            width: 150,
+                                                            child: Text(
+                                                              '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                              style: const TextStyle(
+                                                                fontSize: 22,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                              textAlign: TextAlign.right,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                                // Add total row
+                                                Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          'Total:',
+                                                          style: const TextStyle(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Container(
+                                                        width: 150,
+                                                        child: Text(
+                                                          '\$${total.toStringAsFixed(2)}',
+                                                          style: const TextStyle(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Colors.green, // You can customize this
+                                                          ),
+                                                          textAlign: TextAlign.right,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            );
+                                          }),
+                                        ],
+                                      ),
                                     )
                                   ]
 

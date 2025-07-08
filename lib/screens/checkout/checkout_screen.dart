@@ -1696,9 +1696,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ],
 
                     // Add Membership button when no membership is applied AND user doesn't have existing membership AND no pending membership
-                    if (!isMembershipApplied &&
-                        !userHasExistingMembership &&
-                        userHasPendingMembership == false) ...[
+                    if (!isMembershipApplied && !userHasExistingMembership && userHasPendingMembership == false && 1==11) ...[
                       const SizedBox(height: 8),
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
@@ -2713,16 +2711,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
-                              final totalAmount =
-                                  actualTotal -
-                                  membershipDiscountAmount -
-                                  manualDiscountAmount;
+                              final totalAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
 
                               print('🔍 Payment calculation:');
                               print('  Actual total: $actualTotal');
-                              print(
-                                '  Membership discount: $membershipDiscountAmount',
-                              );
+                              print('  Membership discount: $membershipDiscountAmount',);
                               print('  Manual discount: $manualDiscountAmount');
                               print('  Total amount to pay: $totalAmount');
                               print('  Total paid: $totalPaid');
@@ -2735,13 +2728,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               if (totalAmount <= 0) {
                                 // 100% discount - process as fully discounted payment
                                 setState(() {
-                                  checkoutController.checkoutPayBtn.value =
-                                      true;
+                                  checkoutController.checkoutPayBtn.value = true;
                                 });
 
                                 // Handle as a fully discounted payment
-                                selectedMethod =
-                                    'On Account/Void'; // Set payment method for 100% discount
+                                selectedMethod = 'On Account/Void'; // Set payment method for 100% discount
                                 totalPaid = 0.0; // No payment required
                                 _handlePaymentSuccess();
                                 return;
@@ -2765,62 +2756,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               if (selectedMethod == 'EFTPOS') {
                                 // For EFTPOS, process through Tyro
                                 try {
-                                  final prefs =
-                                      await SharedPreferences.getInstance();
-                                  final storeDetailsJson = prefs.getString(
-                                    'storeDetails',
-                                  );
+                                  final prefs = await SharedPreferences.getInstance();
+                                  final storeDetailsJson = prefs.getString('storeDetails',);
 
                                   if (storeDetailsJson != null) {
-                                    final storeDetails = jsonDecode(
-                                      storeDetailsJson,
-                                    );
-                                    final tyroConfig =
-                                        storeDetails['tyro'] ?? {};
+                                    final storeDetails = jsonDecode(storeDetailsJson,);
+                                    final tyroConfig = storeDetails['tyro'] ?? {};
 
                                     if (tyroConfig['apiKey'] != null) {
                                       // Process EFTPOS payment
-                                      final paymentAmount =
-                                          actualTotal -
-                                          membershipDiscountAmount -
-                                          manualDiscountAmount;
-                                      totalPaid =
-                                          paymentAmount; // Ensure totalPaid is set correctly
+                                      final paymentAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+                                      totalPaid = paymentAmount; // Ensure totalPaid is set correctly
 
                                       final paymentResult =
                                           await paymentController.processPayment(
                                             context: context,
                                             amount: paymentAmount,
-                                            reference:
-                                                widget.exbookingId ??
-                                                'NEW-${DateTime.now().millisecondsSinceEpoch}',
+                                            reference: widget.exbookingId ?? 'NEW-${DateTime.now().millisecondsSinceEpoch}',
                                             apiKey: tyroConfig['apiKey'],
-                                            merchantId:
-                                                tyroConfig['merchantId'] ?? '',
-                                            terminalId:
-                                                tyroConfig['terminalId'] ?? '',
-                                            integrationKey:
-                                                tyroConfig['integrationKey'] ??
-                                                '',
-                                            posProductVendor:
-                                                tyroConfig['posProductVendor'] ??
-                                                'Solution22',
-                                            posProductName:
-                                                tyroConfig['posProductName'] ??
-                                                'DropIn Booking',
-                                            posProductVersion:
-                                                tyroConfig['posProductVersion'] ??
-                                                '1.0',
+                                            merchantId: tyroConfig['merchantId'] ?? '',
+                                            terminalId: tyroConfig['terminalId'] ?? '',
+                                            integrationKey: tyroConfig['integrationKey'] ?? '',
+                                            posProductVendor: tyroConfig['posProductVendor'] ?? 'Solution22',
+                                            posProductName: tyroConfig['posProductName'] ?? 'DropIn Booking',
+                                            posProductVersion: tyroConfig['posProductVersion'] ?? '1.0',
                                           );
 
-                                      if (paymentResult['status'] ==
-                                          'completed') {
+                                      if (paymentResult['status'] == 'completed') {
                                         _handlePaymentSuccess();
                                       } else {
                                         setState(() {
-                                          checkoutController
-                                              .checkoutPayBtn
-                                              .value = false;
+                                          checkoutController.checkoutPayBtn.value = false;
                                         });
                                         showCustomSnackbar(
                                           'Payment Failed',
@@ -2838,8 +2804,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   }
                                 } catch (e) {
                                   setState(() {
-                                    checkoutController.checkoutPayBtn.value =
-                                        false;
+                                    checkoutController.checkoutPayBtn.value = false;
                                   });
                                   print('EFTPOS payment error: $e');
                                   showCustomSnackbar(
@@ -2852,10 +2817,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 // For Cash and On Account/Void
                                 if (selectedMethod == 'CASH') {
                                   // Ensure totalPaid is set correctly for cash payments
-                                  totalPaid =
-                                      actualTotal -
-                                      membershipDiscountAmount -
-                                      manualDiscountAmount;
+                                  totalPaid = actualTotal - membershipDiscountAmount - manualDiscountAmount;
                                 }
                                 _handlePaymentSuccess();
                               }
@@ -2867,25 +2829,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: Obx(
-                              () =>
-                                  checkoutController.checkoutPayBtn.value
-                                      ? const SizedBox(
-                                        height: 30,
-                                        width: 30,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 3,
-                                        ),
-                                      )
-                                      : Text(
-                                        'Pay Now',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 25,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white,
-                                        ),
-                                      ),
+                            child: Obx(() => checkoutController.checkoutPayBtn.value ?
+                            const SizedBox(
+                              height: 30,
+                              width: 30,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 3,
+                              ),
+                            ) : Text(
+                                'Pay Now',
+                                style: GoogleFonts.inter(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -4242,9 +4201,137 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         isLoading = true;
       });
 
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug = preferences.getString('centerSlug');
+
+      if(widget.type=='Product') {
+
+        final prefs = await SharedPreferences.getInstance();
+        String? paymentDevices = prefs.getString('paymentDevices');
+        final Map<String, dynamic> paymentDeviceData = jsonDecode(paymentDevices!,);
+
+        checkoutController.createTempOrder(total:(widget.billAmount - manualDiscountAmount),).then((value) async {
+          final orderId = value['id'];
+          final total = value['total'];
+          if (selectedMethod == 'EFTPOS') {
+            try {
+              // print(orderId);
+              // print(total);
+              // print(paymentDeviceData);
+              await paymentController.processPayment(
+                context: context,
+                amount: total.toDouble(),
+                reference: orderId,
+                apiKey: paymentDeviceData['api_key'], // Get from secure storage
+                merchantId: paymentDeviceData['merchant_id'],
+                terminalId: paymentDeviceData['terminal_id'],
+                integrationKey: paymentDeviceData['integration_key'],
+                posProductVendor: paymentDeviceData['product_vendor'],
+                posProductName: paymentDeviceData['product_name'],
+                posProductVersion: paymentDeviceData['product_version'],
+              ).then((value) async {
+
+                if(widget.exuserId!=null && widget.exuserId!='') {
+
+                  checkoutController.productsPayment(
+                    order_id: orderId,
+                    price: widget.billAmount,
+                    taxes: (widget.billAmount - manualDiscountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
+                    surcharge: 0,
+                    discount: manualDiscountAmount,
+                    billAmount: widget.billAmount - manualDiscountAmount,
+                    paidAmount: totalPaid,
+                    balanceAmount: double.parse(balanceAmountController.text,),
+                    paymentType: selectedMethod,
+                    paymentNotes: notesController.text,
+                    paymentResponse: value.toString(),
+                    receiptToggle: receiptToggle,
+                    customerId: widget.exuserId,
+                  );
+
+                } else {
+                  await checkoutController.registerUser(
+                    mobile: widget.mobileno,
+                    firstName: widget.customerName,
+                  ).then((userInfo) {
+
+                    checkoutController.productsPayment(
+                      order_id: orderId,
+                      price: widget.billAmount,
+                      taxes: (widget.billAmount - manualDiscountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
+                      surcharge: 0,
+                      discount: manualDiscountAmount,
+                      billAmount: widget.billAmount - manualDiscountAmount,
+                      paidAmount: totalPaid,
+                      balanceAmount: double.parse(balanceAmountController.text,),
+                      paymentType: selectedMethod,
+                      paymentNotes: notesController.text,
+                      paymentResponse: value.toString(),
+                      receiptToggle: receiptToggle,
+                      customerId: checkoutController.userData.value.id,
+                    );
+
+                  });
+                }
+
+              });
+
+              if (paymentController.paymentStatus.value == 'Payment successful') {
+                print(
+                  'Payment Successful via Tyro',
+                );
+              }
+            } catch (e) {
+              Get.snackbar(
+                'Error',
+                paymentController.paymentError.value,
+                backgroundColor: Colors.red,
+              );
+            }
+          } else {
+            if(widget.exuserId!=null && widget.exuserId!='') {
+              checkoutController.productsPayment(
+                order_id: orderId,
+                price: widget.billAmount,
+                taxes: (widget.billAmount - manualDiscountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
+                surcharge: 0,
+                discount: manualDiscountAmount,
+                billAmount: widget.billAmount - manualDiscountAmount,
+                paidAmount: totalPaid,
+                balanceAmount: double.parse(balanceAmountController.text,),
+                paymentType: selectedMethod,
+                paymentNotes: notesController.text,
+                receiptToggle: receiptToggle,
+                customerId: widget.exuserId,
+              );
+            } else {
+              await checkoutController.registerUser(
+                mobile: widget.mobileno,
+                firstName: widget.customerName,
+              ).then((userInfo) {
+
+                checkoutController.productsPayment(
+                  order_id: orderId,
+                  price: widget.billAmount,
+                  taxes: (widget.billAmount - manualDiscountAmount) / 11, // Fix: GST is 1/11th of GST-inclusive price
+                  surcharge: 0,
+                  discount: manualDiscountAmount,
+                  billAmount: widget.billAmount - manualDiscountAmount,
+                  paidAmount: totalPaid,
+                  balanceAmount: double.parse(balanceAmountController.text,),
+                  paymentType: selectedMethod,
+                  paymentNotes: notesController.text,
+                  receiptToggle: receiptToggle,
+                  customerId: checkoutController.userData.value.id,
+                );
+
+              });
+            }
+
+          }
+        });
+
+      }
 
       // New Booking
       // If this is a new booking (not from pending payment)
@@ -4261,8 +4348,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           // Get or create customer ID
           String customerId;
-          final customerData =
-              await supabase
+          final customerData = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('customers')
                   .select('id')
@@ -4278,8 +4364,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             final lastName =
                 nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-            final newCustomer =
-                await supabase
+            final newCustomer = await supabase
                     .schema('${centerSlug}_prod_schema')
                     .from('customers')
                     .insert({
@@ -4299,8 +4384,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
 
           // Get proper booking number
-          final bookingNumberResponse =
-              await supabase
+          final bookingNumberResponse = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .rpc('increment_booking_counter')
                   .select()
@@ -4316,18 +4400,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'customer_id': customerId,
             'sub_total': courtTotal,
             'surcharge': 0.0,
-            'grand_total':
-                courtTotal - membershipDiscountAmount - manualDiscountAmount,
-            'notes':
-                notesController.text.isNotEmpty
-                    ? notesController.text
-                    : (manualDiscountAmount > 0
-                        ? 'Manual Discount Applied'
-                        : 'Membership Discount Applied'),
+            'grand_total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'notes': notesController.text.isNotEmpty ? notesController.text : (manualDiscountAmount > 0 ? 'Manual Discount Applied' : 'Membership Discount Applied'),
             'discount': membershipDiscountAmount + manualDiscountAmount,
             'gst': 0.0, // GST is included in the price
-            'total':
-                courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
             'payment_type': selectedMethod,
             'payment_status': 'Paid', // 100% discount means paid
             'status': 'Booked',
@@ -4337,8 +4414,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'updated_at': DateTime.now().toIso8601String(),
           };
 
-          final bookingResponse =
-              await supabase
+          final bookingResponse = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('bookings')
                   .insert(bookingData)
@@ -4415,8 +4491,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'updated_at': DateTime.now().toIso8601String(),
               };
               //Insert booking slot payments
-              final bookingSlotsresponse =
-                  await supabase
+              final bookingSlotsresponse = await supabase
                       .schema('${centerSlug}_prod_schema')
                       .from('booking_slots')
                       .insert(slotData)
@@ -4534,8 +4609,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Create a booking payment record
         try {
           // Get booking details first
-          final bookingData =
-              await supabase
+          final bookingData = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('bookings')
                   .select('customer_id, grand_total')
@@ -4547,8 +4621,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             print('Booking data: $bookingData');
             print('Total paid: $totalPaid, Payment method: $selectedMethod');
 
-            final paymentRecord =
-                await supabase
+            final paymentRecord = await supabase
                     .schema('${centerSlug}_prod_schema')
                     .from('booking_payments')
                     .insert({
@@ -4559,17 +4632,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       'payment_type': selectedMethod,
                       'payment_via': selectedMethod,
                       'status': 'completed',
-                      'notes':
-                          notesController.text.isNotEmpty
-                              ? notesController.text
-                              : null,
+                      'notes': notesController.text.isNotEmpty ? notesController.text : null,
                       'created_by': authController.userId.value,
                     })
                     .select();
 
-            print(
-              'Created booking payment record for booking ${widget.exbookingId}',
-            );
+            print('Created booking payment record for booking ${widget.exbookingId}',);
             print('Payment record: $paymentRecord');
           } else {
             print('ERROR: bookingData is null, cannot create payment record');
@@ -4588,16 +4656,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'updated_at': DateTime.now().toIso8601String(),
               })
               .eq('booking_id', widget.exbookingId!);
-          print(
-            'Updated booking slots payment status for booking ${widget.exbookingId}',
-          );
+          print('Updated booking slots payment status for booking ${widget.exbookingId}',);
         } catch (e) {
           print('Warning: Could not update booking_slots: $e');
         }
 
         // If there's a membership associated with this booking, update its status
-        final bookingData =
-            await supabase
+        final bookingData = await supabase
                 .schema('${centerSlug}_prod_schema')
                 .from('bookings')
                 .select('customer_id')
@@ -4606,8 +4671,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         if (bookingData != null && bookingData['customer_id'] != null) {
           // Check if customer has a pending membership in membership_data
-          final membershipData =
-              await supabase
+          final membershipData = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('membership_data')
                   .select('*')
@@ -4622,8 +4686,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               );
 
               // Update membership status to active
-              final updateResult =
-                  await supabase
+              final updateResult = await supabase
                       .schema('${centerSlug}_prod_schema')
                       .from('membership_data')
                       .update({
@@ -4633,9 +4696,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       .eq('id', membershipData['id'])
                       .select();
 
-              print(
-                'Updated membership_data ${membershipData['id']} to active',
-              );
+              print('Updated membership_data ${membershipData['id']} to active',);
               print('Update result: $updateResult');
 
               // Update customer's membership_data_id if needed
@@ -4665,36 +4726,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     .insert({
                       'membershipid': membershipData['id'],
                       'paymenttype': selectedMethod,
-                      'total':
-                          double.tryParse(membershipData['price'] ?? '0') ??
-                          0.0,
-                      'paidamount':
-                          double.tryParse(membershipData['price'] ?? '0') ??
-                          0.0,
+                      'total': double.tryParse(membershipData['price'] ?? '0') ?? 0.0,
+                      'paidamount': double.tryParse(membershipData['price'] ?? '0') ?? 0.0,
                       'status': true,
-                      'notes':
-                          'Membership payment processed with booking ${widget.exbookingId}',
+                      'notes': 'Membership payment processed with booking ${widget.exbookingId}',
                     });
-                print(
-                  'Created membership payment record for membership ${membershipData['id']}',
-                );
+
+                print('Created membership payment record for membership ${membershipData['id']}',);
 
                 // Verify the membership is now active
-                final verifyMembership =
-                    await supabase
+                final verifyMembership = await supabase
                         .schema('${centerSlug}_prod_schema')
                         .from('membership_data')
                         .select('status')
                         .eq('id', membershipData['id'])
                         .single();
 
-                print(
-                  'Verification - membership_data status is now: ${verifyMembership['status']}',
-                );
+                print('Verification - membership_data status is now: ${verifyMembership['status']}',);
               } catch (e) {
-                print(
-                  'Warning: Could not create membership payment record: $e',
-                );
+                print('Warning: Could not create membership payment record: $e',);
               }
             } catch (e) {
               print('ERROR: Failed to update membership_data: $e');
@@ -4703,9 +4753,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               print('customer_id: ${bookingData['customer_id']}');
             }
           } else {
-            print(
-              'No pending membership found for customer ${bookingData['customer_id']}',
-            );
+            print('No pending membership found for customer ${bookingData['customer_id']}',);
           }
         }
 
@@ -4725,9 +4773,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               await checkoutController.productsPaymentOnly(
                 order_id: orderId,
                 price: order['total'].toDouble(),
-                taxes:
-                    ((order['total'] ?? 0) / 11)
-                        .toDouble(), // GST is 1/11th of inclusive price
+                taxes: ((order['total'] ?? 0) / 11).toDouble(), // GST is 1/11th of inclusive price
                 surcharge: 0.00,
                 discount: discountAmount.toDouble(),
                 billAmount: order['total'].toDouble(),
@@ -4803,19 +4849,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
 
       // Handle membership-only purchase (no bookings/orders)
-      if ((widget.bookings.isEmpty &&
-              widget.exbookingId == null &&
-              widget.exorderId == null) &&
-          isMembershipApplied == true &&
-          selectedMembershipId != null &&
-          selectedMembershipName != null &&
-          selectedMembershipPrice != null) {
+      if ((widget.bookings.isEmpty && widget.exbookingId == null && widget.exorderId == null) && isMembershipApplied == true && selectedMembershipId != null && selectedMembershipName != null && selectedMembershipPrice != null) {
         print('Processing membership-only purchase...');
 
         // Get or create customer ID
         String customerId;
-        final customerData =
-            await supabase
+        final customerData = await supabase
                 .schema('${centerSlug}_prod_schema')
                 .from('customers')
                 .select('id')
@@ -4828,11 +4867,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           print('Customer not found, creating new customer...');
           final nameParts = widget.customerName.split(' ');
           final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
-          final lastName =
-              nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+          final lastName  = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-          final newCustomer =
-              await supabase
+          final newCustomer = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('customers')
                   .insert({

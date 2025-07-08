@@ -1165,7 +1165,42 @@ class _PendingPaymentState extends State<PendingPayment> {
         }
         
         // Create BookingInfo for this court
-        final courtName = booking.courtName ?? 'Court ${booking.platformId}';
+
+        String? courtName = '';
+        final SharedPreferences preferences = await SharedPreferences.getInstance();
+        final sportsList = jsonDecode(preferences.getString('sportsWithPlatforms') ?? '[]');
+
+        Map<String, dynamic>? matchedSport;
+        Map<String, dynamic>? matchedPlatformStatus;
+
+        for (final sport in sportsList) {
+          // ✅ Match sport by name first
+          if (sport['sport_name']?.toString().toLowerCase() == booking.sportname?.toLowerCase()) {
+            final platformStatusList = sport['platform_status'] as List<dynamic>?;
+
+            if (platformStatusList != null) {
+              for (final platformStatus in platformStatusList) {
+                // ✅ Then match platform ID
+                if (platformStatus['platform_id'].toString() == booking.platformId.toString()) {
+                  matchedSport = sport;
+                  matchedPlatformStatus = platformStatus;
+                  break;
+                }
+              }
+            }
+
+            if (matchedSport != null) break; // stop if found
+          }
+        }
+
+        if (matchedSport != null && matchedPlatformStatus != null) {
+          courtName = '${matchedSport['platform_name']} ${matchedPlatformStatus['platform_id']}';
+          print('✅ Court Name: $courtName');
+        } else {
+          print('⚠️ Platform not found for sport: ${booking.sportname}, platformId: ${booking.platformId}');
+        }
+
+        //final courtName = booking.courtName ?? 'Court ${booking.platformId}';
         individualCourtBookings.add(BookingInfo(
           courtName: courtName,
           courtId: booking.courtId,

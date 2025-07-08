@@ -2675,71 +2675,71 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 // ]
                                 //else ...[
                                 if (!membershipInCart && !hasMembership && !hasPendingMembership || (membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays <= 0)) ...[
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed:
-                                          (nameController.text
-                                                      .trim()
-                                                      .isNotEmpty ||
-                                                  mobileController.text
-                                                      .trim()
-                                                      .isNotEmpty)
-                                              ? () async {
-                                                // First get user data if mobile is entered
-                                                final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
-                                                if (digitsOnly.length == 10) {
-                                                  await controller.getUserDatabyMobile(digitsOnly);
-                                                }
-
-                                                // Check for pending membership payment
-                                                final hasPending = await checkPendingMembershipPayment();
-                                                if (hasPending) {
-                                                  showCustomSnackbar(
-                                                    'Error',
-                                                    'This customer has a pending membership payment. Please complete the existing payment first.',
-                                                    Colors.redAccent,
-                                                  );
-                                                  return;
-                                                }
-
-                                                Navigator.pop(context);
-                                                openMembershipDrawer(
-                                                  context,
-                                                  bookings,
-                                                  onCancel: null,
-                                                );
-                                              }
-                                              : null, // disables the button if both are empty
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            (nameController.text
-                                                        .trim()
-                                                        .isNotEmpty ||
-                                                    mobileController.text
-                                                        .trim()
-                                                        .isNotEmpty)
-                                                ? Colors.black
-                                                : Colors
-                                                    .grey, // visually indicate disabled
-
-                                        foregroundColor: Colors.white,
-                                        minimumSize: Size.fromHeight(65),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        "Enroll Membership",
-                                        style: GoogleFonts.inter(
-                                          fontSize: 23,
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                                  // Expanded(
+                                  //   child: ElevatedButton(
+                                  //     onPressed:
+                                  //         (nameController.text
+                                  //                     .trim()
+                                  //                     .isNotEmpty ||
+                                  //                 mobileController.text
+                                  //                     .trim()
+                                  //                     .isNotEmpty)
+                                  //             ? () async {
+                                  //               // First get user data if mobile is entered
+                                  //               final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
+                                  //               if (digitsOnly.length == 10) {
+                                  //                 await controller.getUserDatabyMobile(digitsOnly);
+                                  //               }
+                                  //
+                                  //               // Check for pending membership payment
+                                  //               final hasPending = await checkPendingMembershipPayment();
+                                  //               if (hasPending) {
+                                  //                 showCustomSnackbar(
+                                  //                   'Error',
+                                  //                   'This customer has a pending membership payment. Please complete the existing payment first.',
+                                  //                   Colors.redAccent,
+                                  //                 );
+                                  //                 return;
+                                  //               }
+                                  //
+                                  //               Navigator.pop(context);
+                                  //               openMembershipDrawer(
+                                  //                 context,
+                                  //                 bookings,
+                                  //                 onCancel: null,
+                                  //               );
+                                  //             }
+                                  //             : null, // disables the button if both are empty
+                                  //     style: ElevatedButton.styleFrom(
+                                  //       backgroundColor:
+                                  //           (nameController.text
+                                  //                       .trim()
+                                  //                       .isNotEmpty ||
+                                  //                   mobileController.text
+                                  //                       .trim()
+                                  //                       .isNotEmpty)
+                                  //               ? Colors.black
+                                  //               : Colors
+                                  //                   .grey, // visually indicate disabled
+                                  //
+                                  //       foregroundColor: Colors.white,
+                                  //       minimumSize: Size.fromHeight(65),
+                                  //       shape: RoundedRectangleBorder(
+                                  //         borderRadius: BorderRadius.circular(
+                                  //           10,
+                                  //         ),
+                                  //       ),
+                                  //     ),
+                                  //     child: Text(
+                                  //       "Enroll Membership",
+                                  //       style: GoogleFonts.inter(
+                                  //         fontSize: 23,
+                                  //         color: Colors.white,
+                                  //         fontWeight: FontWeight.w600,
+                                  //       ),
+                                  //     ),
+                                  //   ),
+                                  // ),
                                 ],
                               ],
                             ),

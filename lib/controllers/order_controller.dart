@@ -699,7 +699,7 @@ class OrderController extends GetxController {
             .schema('${centerSlug}_prod_schema')
             .from('orders')
             .select('*')
-            .eq('order_status','Pending')
+            //.eq('order_status','Pending')
             .eq('booking_id', bookingId)
             .maybeSingle();
 

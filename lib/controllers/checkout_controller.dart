@@ -1876,7 +1876,7 @@ class CheckoutController extends GetxController {
 
       final Map<String, dynamic> updateData = {
         'token_number': tokenNumber,
-        'cart_items': jsonDecode(cartJson!),
+        //'cart_items': jsonDecode(cartJson!),
         'bill_details': {
           'order_id': order_id!,
           'price': to2(price),

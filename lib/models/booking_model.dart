@@ -100,7 +100,7 @@ class BookingModel {
     
     return BookingModel(
       bookingNo: booking?['booking_no'] as String?,
-      grandTotal: booking?['grand_total'],//displayAmount,
+      grandTotal: displayAmount,
       customerName:
           customer != null
               ? '${customer['first_name'] ?? ''} ${customer['last_name'] ?? ''}'
