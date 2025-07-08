@@ -50,271 +50,311 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
-        child: Container(
-          width: 600,
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (!openCash) ...[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          openCash = true;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade500,
-                        padding: EdgeInsets.symmetric(
-                          vertical: 15,
-                          horizontal: 30,
-                        ),
-                      ),
-                      child: Text(
-                        'OPEN CASH',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 25,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 20),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          isLoading = true;
-                        });
-                        // Handle skip logic
-                        authController.logOut(); // Or navigate to order screen
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade300,
-                        padding: EdgeInsets.symmetric(
-                          vertical: 15,
-                          horizontal: 30,
-                        ),
-                      ),
-                      child: isLoading
-                          ? CircularProgressIndicator(
-                        color: Colors.indigo.shade500,
-                        strokeWidth: 2,
-                      )
-                          : Text(
-                        'SKIP',
-                        style: GoogleFonts.poppins(
-                          color: Colors.indigo.shade500,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (openCash) ...[
-                Column(
-                  children: [
+      body: Stack(
+        children: [
+          Center(
+            child: Container(
+              width: 600,
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (!openCash) ...[
                     Row(
-                      spacing: 150,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          'OPEN CASH',
-                          style: GoogleFonts.poppins(
-                            fontSize: 30,
-                            fontWeight: FontWeight.bold,
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              openCash = true;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo.shade500,
+                            padding: EdgeInsets.symmetric(
+                              vertical: 15,
+                              horizontal: 30,
+                            ),
+                          ),
+                          child: Text(
+                            'OPEN CASH',
+                            style: GoogleFonts.poppins(
+                              color: Colors.white,
+                              fontSize: 25,
+                            ),
                           ),
                         ),
-                        Expanded(
-                          child: TextFormField(
-                            controller: cashController,
-                            style: GoogleFonts.poppins(
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.indigo.shade500,
+                        SizedBox(width: 20),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              isLoading = true;
+                            });
+                            // Handle skip logic
+                            authController.logOut(); // Or navigate to order screen
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade300,
+                            padding: EdgeInsets.symmetric(
+                              vertical: 15,
+                              horizontal: 30,
                             ),
-                            textAlign: TextAlign.right,
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.attach_money_sharp, color: Colors.grey, size: 40,),
-                              hintText: '0.00',
-                              hintStyle: TextStyle(fontSize: 30),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1.0,
-                                ),
-                              ),
-                              enabledBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1.0,
-                                ),
-                              ),
-                              focusedBorder: UnderlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: Palette.newColor,
-                                  width: 2.0,
-                                ),
-                              ),
-                            ),
-                            readOnly: true,
-                            onTap: () {
-                              setState(() {
-                                // Update with current cashSum when opening
-                                cashController.text = cashSum.toStringAsFixed(2);
-                                showDenomination = true;
-                              });
-                            },
                           ),
-                        )
+                          child: isLoading
+                              ? CircularProgressIndicator(
+                            color: Colors.indigo.shade500,
+                            strokeWidth: 2,
+                          )
+                              : Text(
+                            'SKIP',
+                            style: GoogleFonts.poppins(
+                              color: Colors.indigo.shade500,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                    SizedBox(height: 50),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (cashController.text.isNotEmpty) {
-                          setState(() {
-                            authController.startLoading.value = true;
-                          });
-                          authController.validateOpenCashStatus().then((value) {
-                            if (value == true) {
-                              authController.addOpenCash(
-                                openingAmount: double.parse(cashController.text),
-                                // kitchenDisplay: kitchenDisplay,
-                                // onlineOrder: onlineOrder,
-                              );
-                            } else {
-                              showCustomSnackbar('Warning', 'Cash counter already opened', Colors.orange);
+                  ],
+                  if (openCash) ...[
+                    Column(
+                      children: [
+                        Row(
+                          spacing: 150,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'OPEN CASH',
+                              style: GoogleFonts.poppins(
+                                fontSize: 30,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Expanded(
+                              child: TextFormField(
+                                controller: cashController,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 30,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade500,
+                                ),
+                                textAlign: TextAlign.right,
+                                decoration: InputDecoration(
+                                  prefixIcon: const Icon(Icons.attach_money_sharp,
+                                      color: Colors.grey, size: 40),
+                                  hintText: '0.00',
+                                  hintStyle: TextStyle(fontSize: 30),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  border: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade300,
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  enabledBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade300,
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Palette.newColor,
+                                      width: 2.0,
+                                    ),
+                                  ),
+                                ),
+                                readOnly: true,
+                                onTap: () {
+                                  setState(() {
+                                    // Update with current cashSum when opening
+                                    cashController.text =
+                                        cashSum.toStringAsFixed(2);
+                                    showDenomination = true;
+                                  });
+                                },
+                              ),
+                            )
+                          ],
+                        ),
+                        SizedBox(height: 50),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (cashController.text.isNotEmpty) {
                               setState(() {
-                                authController.startLoading.value = false;
+                                authController.startLoading.value = true;
                               });
+                              authController
+                                  .validateOpenCashStatus()
+                                  .then((value) {
+                                if (value == true) {
+                                  authController.addOpenCash(
+                                    openingAmount:
+                                    double.parse(cashController.text),
+                                    // kitchenDisplay: kitchenDisplay,
+                                    // onlineOrder: onlineOrder,
+                                  );
+                                } else {
+                                  showCustomSnackbar('Warning',
+                                      'Cash counter already opened', Colors.orange);
+                                  setState(() {
+                                    authController.startLoading.value = false;
+                                  });
+                                }
+                              });
+                            } else {
+                              showCustomSnackbar('Warning',
+                                  'Please Enter the Amount', Colors.orange);
                             }
-                          });
-                        } else {
-                          showCustomSnackbar('Warning', 'Please Enter the Amount', Colors.orange);
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade500,
-                        minimumSize: Size(double.infinity, 60),
-                      ),
-                      child: authController.startLoading.value
-                          ? CircularProgressIndicator(color: Colors.white, strokeWidth: 2,)
-                          : Text('OPEN CASH', style: GoogleFonts.poppins(fontSize: 25, color: Colors.white)),
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.indigo.shade500,
+                            minimumSize: Size(double.infinity, 60),
+                          ),
+                          child: authController.startLoading.value
+                              ? CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          )
+                              : Text('OPEN CASH',
+                              style: GoogleFonts.poppins(
+                                  fontSize: 25, color: Colors.white)),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+          if (showDenomination) ...[
+            // Centered dialog
+            Center(
+              child: _buildDenominationDialog(),
+            ),
+          ],
+        ],
       ),
-      bottomSheet: showDenomination ? _buildDenominationBottomSheet() : null,
     );
   }
 
-  Widget _buildDenominationBottomSheet() {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      padding: EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            spreadRadius: 1,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Cash Denomination',
-                style: GoogleFonts.poppins(
-                  fontSize: 25,
-                  fontWeight: FontWeight.bold,
+  Widget _buildDenominationDialog() {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.4,
+        height: MediaQuery.of(context).size.height * 0.9,
+        padding: EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Cash Denomination',
+                  style: GoogleFonts.poppins(
+                    fontSize: 25,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    SizedBox(width: 10), // Spacer for alignment
+                    Row(
+                      children: [
+                        Text(
+                          '\$${cashSum.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 30),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              quantities = List.filled(11, 0);
+                              cashSum = 0;
+                              cashController.text = '';
+                            });
+                          },
+                          child: Text(
+                            'Reset',
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              color: Colors.indigo.shade500,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Palette.newColorbg,
+                            minimumSize: const Size(120, 60),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: Palette.newColor)),
+                          ),
+                        ),
+                        SizedBox(width: 30),
+                        IconButton(
+                          icon: Icon(Icons.close, size: 30),
+                          onPressed: () {
+                            setState(() {
+                              showDenomination = false;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: moneyTypes.length,
+                itemBuilder: (context, index) {
+                  return _buildDenominationRow(index);
+                },
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  cashController.text = cashSum.toStringAsFixed(2);
+                  showDenomination = false;
+                });
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Palette.newColor,
+                minimumSize: const Size(double.infinity, 60),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              Row(
-                children: [
-                  Text(
-                    '\$${cashSum.toStringAsFixed(2)}',
-                    style: GoogleFonts.poppins(
-                      fontSize: 25,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(width: 30),
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        quantities = List.filled(11, 0);
-                        cashSum = 0;
-                        cashController.text = '';
-                      });
-                    },
-                    child: Text(
-                      'Reset',
-                      style: GoogleFonts.poppins(
-                        fontSize: 22,
-                        color: Colors.indigo.shade500,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Palette.newColorbg,
-                      minimumSize: const Size(120, 60),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          side: BorderSide(color: Palette.newColor)
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          SizedBox(height: 20),
-          Expanded(
-            child: ListView.builder(
-              itemCount: moneyTypes.length,
-              itemBuilder: (context, index) {
-                return _buildDenominationRow(index);
-              },
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              setState(() {
-                cashController.text = cashSum.toStringAsFixed(2);
-                showDenomination = false;
-              });
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Palette.newColor,
-              minimumSize: const Size(double.infinity, 60),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+              child: Text(
+                'Submit',
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  color: Colors.white,
+                ),
               ),
             ),
-            child: Text(
-              'Submit',
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -399,4 +439,14 @@ class MoneyType {
     required this.price,
     required this.type,
   });
+}
+
+void showCustomSnackbar(String title, String message, Color color) {
+  Get.snackbar(
+    title,
+    message,
+    backgroundColor: color,
+    colorText: Colors.white,
+    snackPosition: SnackPosition.BOTTOM,
+  );
 }
