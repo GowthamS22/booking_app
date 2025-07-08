@@ -288,7 +288,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         width: 300,
                         child: ElevatedButton(
                           onPressed: () async {
-                            final manualValue = manualInputController.text.trim();
+                            final manualValue = manualInputController.text.trim().toLowerCase();
 
                             if (manualValue.isEmpty) {
                               showCustomSnackbar('Error', 'Please enter a valid client ID', Colors.redAccent);

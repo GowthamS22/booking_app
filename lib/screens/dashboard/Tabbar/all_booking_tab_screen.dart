@@ -797,107 +797,107 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                         ),
                                         const SizedBox(height: 10),
                                         Divider(color: Colors.grey.shade300, thickness: 2, height: 20,),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  'Total:',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                width: 150,
-                                                child: Text(
-                                                  '\$${booking.total?.toStringAsFixed(2)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                  textAlign: TextAlign.right,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  'Sub Total:',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                width: 150,
-                                                child: Text(
-                                                  '\$${booking.subTotal?.toStringAsFixed(2)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                  textAlign: TextAlign.right,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  'Discount:',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                width: 150,
-                                                child: Text(
-                                                  '\$${booking.discount?.toStringAsFixed(2)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                  textAlign: TextAlign.right,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  'Grand Total:',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                  ),
-                                                ),
-                                              ),
-                                              Container(
-                                                width: 150,
-                                                child: Text(
-                                                  '\$${booking.grandTotal?.toStringAsFixed(2)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 22,
-                                                    color: Colors.green
-                                                  ),
-                                                  textAlign: TextAlign.right,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                                        // Padding(
+                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                        //   child: Row(
+                                        //     children: [
+                                        //       Expanded(
+                                        //         child: Text(
+                                        //           'Total:',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //         ),
+                                        //       ),
+                                        //       Container(
+                                        //         width: 150,
+                                        //         child: Text(
+                                        //           '\$${booking.total?.toStringAsFixed(2)}',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //           textAlign: TextAlign.right,
+                                        //         ),
+                                        //       ),
+                                        //     ],
+                                        //   ),
+                                        // ),
+                                        // Padding(
+                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                        //   child: Row(
+                                        //     children: [
+                                        //       Expanded(
+                                        //         child: Text(
+                                        //           'Sub Total:',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //         ),
+                                        //       ),
+                                        //       Container(
+                                        //         width: 150,
+                                        //         child: Text(
+                                        //           '\$${booking.subTotal?.toStringAsFixed(2)}',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //           textAlign: TextAlign.right,
+                                        //         ),
+                                        //       ),
+                                        //     ],
+                                        //   ),
+                                        // ),
+                                        // Padding(
+                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                        //   child: Row(
+                                        //     children: [
+                                        //       Expanded(
+                                        //         child: Text(
+                                        //           'Discount:',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //         ),
+                                        //       ),
+                                        //       Container(
+                                        //         width: 150,
+                                        //         child: Text(
+                                        //           '\$${booking.discount?.toStringAsFixed(2)}',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //           textAlign: TextAlign.right,
+                                        //         ),
+                                        //       ),
+                                        //     ],
+                                        //   ),
+                                        // ),
+                                        // Padding(
+                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                        //   child: Row(
+                                        //     children: [
+                                        //       Expanded(
+                                        //         child: Text(
+                                        //           'Grand Total:',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //           ),
+                                        //         ),
+                                        //       ),
+                                        //       Container(
+                                        //         width: 150,
+                                        //         child: Text(
+                                        //           '\$${booking.grandTotal?.toStringAsFixed(2)}',
+                                        //           style: const TextStyle(
+                                        //             fontSize: 22,
+                                        //             color: Colors.green
+                                        //           ),
+                                        //           textAlign: TextAlign.right,
+                                        //         ),
+                                        //       ),
+                                        //     ],
+                                        //   ),
+                                        // ),
                                       ],
                                     ),
                                   ),

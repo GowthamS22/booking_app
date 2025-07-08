@@ -3881,211 +3881,213 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.3,
-            padding: const EdgeInsets.all(25),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.admin_panel_settings,
-                  size: 60,
-                  color: Palette.newColor,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Admin Approval Required',
-                  style: GoogleFonts.inter(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+          child: SingleChildScrollView(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.3,
+              padding: const EdgeInsets.all(25),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.admin_panel_settings,
+                    size: 60,
+                    color: Palette.newColor,
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Manual booking discount requires admin approval',
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    color: Colors.grey.shade600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Text(
-                    'Discount Amount: \$${manualDiscountAmount.toStringAsFixed(2)}',
+                  const SizedBox(height: 20),
+                  Text(
+                    'Admin Approval Required',
                     style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.orange.shade700,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
-                const SizedBox(height: 30),
-                PinCodeTextField(
-                  appContext: context,
-                  length: 4,
-                  controller: pinController,
-                  keyboardType: TextInputType.number,
-                  obscureText: true,
-                  animationType: AnimationType.fade,
-                  autoFocus: true,
-                  textStyle: GoogleFonts.inter(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                  const SizedBox(height: 10),
+                  Text(
+                    'Manual booking discount requires admin approval',
+                    style: GoogleFonts.inter(
+                      fontSize: 18,
+                      color: Colors.grey.shade600,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  pinTheme: PinTheme(
-                    shape: PinCodeFieldShape.box,
-                    borderRadius: BorderRadius.circular(8),
-                    fieldHeight: 45,
-                    fieldWidth: 45,
-                    activeFillColor: Colors.white,
-                    inactiveFillColor: Colors.grey.shade100,
-                    selectedFillColor: Colors.white,
-                    activeColor: Palette.newColor,
-                    inactiveColor: Colors.grey.shade300,
-                    selectedColor: Palette.newColor,
-                    fieldOuterPadding: EdgeInsets.symmetric(horizontal: 4),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Text(
+                      'Discount Amount: \$${manualDiscountAmount.toStringAsFixed(2)}',
+                      style: GoogleFonts.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.orange.shade700,
+                      ),
+                    ),
                   ),
-                  enableActiveFill: true,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  onCompleted: (pin) async {
-                    // Verify admin PIN
-                    try {
-                      // First try SharedPreferences
-                      final prefs = await SharedPreferences.getInstance();
-                      final storeDetailsJson = prefs.getString('storeDetails');
-                      String? adminPin;
+                  const SizedBox(height: 30),
+                  PinCodeTextField(
+                    appContext: context,
+                    length: 4,
+                    controller: pinController,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    animationType: AnimationType.fade,
+                    autoFocus: true,
+                    textStyle: GoogleFonts.inter(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    pinTheme: PinTheme(
+                      shape: PinCodeFieldShape.box,
+                      borderRadius: BorderRadius.circular(8),
+                      fieldHeight: 45,
+                      fieldWidth: 45,
+                      activeFillColor: Colors.white,
+                      inactiveFillColor: Colors.grey.shade100,
+                      selectedFillColor: Colors.white,
+                      activeColor: Palette.newColor,
+                      inactiveColor: Colors.grey.shade300,
+                      selectedColor: Palette.newColor,
+                      fieldOuterPadding: EdgeInsets.symmetric(horizontal: 4),
+                    ),
+                    enableActiveFill: true,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    onCompleted: (pin) async {
+                      // Verify admin PIN
+                      try {
+                        // First try SharedPreferences
+                        final prefs = await SharedPreferences.getInstance();
+                        final storeDetailsJson = prefs.getString('storeDetails');
+                        String? adminPin;
 
-                      if (storeDetailsJson != null) {
-                        final storeDetails = jsonDecode(storeDetailsJson);
-                        adminPin =
-                            storeDetails['admin_pin']?.toString() ??
-                            storeDetails['adminPin']?.toString();
-                        print(
-                          'Admin PIN from prefs: ${adminPin != null ? "Found (${adminPin.length} digits)" : "Not found"}',
-                        );
-                      }
+                        if (storeDetailsJson != null) {
+                          final storeDetails = jsonDecode(storeDetailsJson);
+                          adminPin =
+                              storeDetails['admin_pin']?.toString() ??
+                                  storeDetails['adminPin']?.toString();
+                          print(
+                            'Admin PIN from prefs: ${adminPin != null ? "Found (${adminPin.length} digits)" : "Not found"}',
+                          );
+                        }
 
-                      // If not found in prefs, try database
-                      if (adminPin == null || adminPin.isEmpty) {
-                        print('Checking database for admin PIN...');
-                        final centerSlug = prefs.getString('centerSlug');
-                        if (centerSlug != null) {
-                          final storeData =
-                              await supabase
-                                  .schema('${centerSlug}_prod_schema')
-                                  .from('store_details')
-                                  .select('admin_pin')
-                                  .limit(1)
-                                  .maybeSingle();
+                        // If not found in prefs, try database
+                        if (adminPin == null || adminPin.isEmpty) {
+                          print('Checking database for admin PIN...');
+                          final centerSlug = prefs.getString('centerSlug');
+                          if (centerSlug != null) {
+                            final storeData =
+                            await supabase
+                                .schema('${centerSlug}_prod_schema')
+                                .from('store_details')
+                                .select('admin_pin')
+                                .limit(1)
+                                .maybeSingle();
 
-                          if (storeData != null &&
-                              storeData['admin_pin'] != null) {
-                            adminPin = storeData['admin_pin'].toString();
-                            print(
-                              'Admin PIN from database: Found (${adminPin.length} digits)',
-                            );
+                            if (storeData != null &&
+                                storeData['admin_pin'] != null) {
+                              adminPin = storeData['admin_pin'].toString();
+                              print(
+                                'Admin PIN from database: Found (${adminPin.length} digits)',
+                              );
+                            }
                           }
                         }
-                      }
 
-                      print('Entered PIN: $pin');
-                      print('Expected PIN: ${adminPin ?? "Not set"}');
+                        print('Entered PIN: $pin');
+                        print('Expected PIN: ${adminPin ?? "Not set"}');
 
-                      if (adminPin != null && pin == adminPin) {
-                        isValid = true;
-                        Navigator.of(context).pop();
+                        if (adminPin != null && pin == adminPin) {
+                          isValid = true;
+                          Navigator.of(context).pop();
+                          showCustomSnackbar(
+                            'Approved',
+                            'Admin approval granted for discount',
+                            Colors.green,
+                          );
+                        } else {
+                          pinController.clear();
+                          showCustomSnackbar(
+                            'Invalid PIN',
+                            adminPin == null
+                                ? 'Admin PIN not configured'
+                                : 'Please enter the correct admin PIN',
+                            Colors.red,
+                          );
+                        }
+                      } catch (e) {
+                        print('Error verifying admin PIN: $e');
                         showCustomSnackbar(
-                          'Approved',
-                          'Admin approval granted for discount',
-                          Colors.green,
-                        );
-                      } else {
-                        pinController.clear();
-                        showCustomSnackbar(
-                          'Invalid PIN',
-                          adminPin == null
-                              ? 'Admin PIN not configured'
-                              : 'Please enter the correct admin PIN',
+                          'Error',
+                          'Failed to verify admin PIN: $e',
                           Colors.red,
                         );
                       }
-                    } catch (e) {
-                      print('Error verifying admin PIN: $e');
-                      showCustomSnackbar(
-                        'Error',
-                        'Failed to verify admin PIN: $e',
-                        Colors.red,
-                      );
-                    }
-                  },
-                  onChanged: (value) {
-                    print('PIN changed: ${value.length} digits entered');
-                  },
-                ),
-                const SizedBox(height: 20),
-                // Number pad for PIN entry
-                Container(
-                  width: 200,
-                  child: GridView.count(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    crossAxisCount: 3,
-                    childAspectRatio: 1.4,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
+                    },
+                    onChanged: (value) {
+                      print('PIN changed: ${value.length} digits entered');
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  // Number pad for PIN entry
+                  Container(
+                    width: 200,
+                    child: GridView.count(
+                      shrinkWrap: true,
+                      physics: NeverScrollableScrollPhysics(),
+                      crossAxisCount: 3,
+                      childAspectRatio: 1.4,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      children: [
+                        for (int i = 1; i <= 9; i++)
+                          _buildNumberButton(i.toString(), pinController),
+                        _buildNumberButton(
+                          '',
+                          pinController,
+                          isPlaceholder: true,
+                        ),
+                        _buildNumberButton('0', pinController),
+                        _buildNumberButton('⌫', pinController, isBackspace: true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  Row(
                     children: [
-                      for (int i = 1; i <= 9; i++)
-                        _buildNumberButton(i.toString(), pinController),
-                      _buildNumberButton(
-                        '',
-                        pinController,
-                        isPlaceholder: true,
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
                       ),
-                      _buildNumberButton('0', pinController),
-                      _buildNumberButton('⌫', pinController, isBackspace: true),
                     ],
                   ),
-                ),
-                const SizedBox(height: 30),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey.shade200,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          'Cancel',
-                          style: GoogleFonts.inter(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
