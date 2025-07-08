@@ -3915,6 +3915,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       String? centerSlug                  = preferences.getString('centerSlug');
 
 
+      // New Booking
       // If this is a new booking (not from pending payment)
       if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
 
@@ -4003,8 +4004,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               .single();
 
           final bookingId = bookingResponse['id'];
-
           print('Created booking: $bookingNo with ID: $bookingId');
+
+
+          // Create booking payment record for 100% discount
+          final bookingPaymentResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('booking_payments')
+              .insert({
+                'booking_id': bookingId,
+                'customer_id': customerId,
+                'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+                'paid_amount': 0.0, // 100% discount
+                'payment_type': selectedMethod,
+                'payment_via': selectedMethod,
+                'status': 'completed',
+                'notes': '100% Discount Applied',
+                'created_by': authController.userId.value,
+              })
+              .select()
+              .single();
+          final bookingPaymentInserted = bookingPaymentResponse['id'];
 
           // Create booking slots
           for (var booking in widget.bookings) {
@@ -4021,7 +4041,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 int.parse(startTimeParts[0]),
                 int.parse(startTimeParts[1]),
               );
-
               final endDateTime = DateTime(
                 bookingDate.year,
                 bookingDate.month,
@@ -4048,34 +4067,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'created_at': DateTime.now().toIso8601String(),
                 'updated_at': DateTime.now().toIso8601String(),
               };
-
-              await supabase
+              //Insert booking slot payments
+              final bookingSlotsresponse = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('booking_slots')
-                  .insert(slotData);
+                  .insert(slotData)
+                  .select()
+                  .single();
+              final bookingSlotsInserted = bookingSlotsresponse['id'];
+
+              //Insert booking slot payments
+              final slotPaymentData = {
+                'booking_payments_id': bookingPaymentInserted,
+                'booking_slots_id': bookingSlotsInserted,
+                'booking_id': bookingId,
+                'customer_id': customerId,
+                'payment_type': selectedMethod,
+                'payment_via': 'APP',
+                'payment_response': '',
+                'total': subSlot.price,
+                'paid_amount': subSlot.price,
+                'status': 'paid',
+                'created_by': authController.userId.toString(),
+                'updated_by': authController.userId.toString(),
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              };
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('booking_slots_payments')
+                  .insert(slotPaymentData)
+                  .select();
             }
           }
 
           print('Created booking slots for booking: $bookingId');
-
-          // Create booking payment record for 100% discount
-          await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('booking_payments')
-              .insert({
-                'booking_id': bookingId,
-                'customer_id': customerId,
-                'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
-                'paid_amount': 0.0, // 100% discount
-                'payment_type': selectedMethod,
-                'payment_via': selectedMethod,
-                'status': 'completed',
-                'notes': '100% Discount Applied',
-                'created_by': authController.userId.value,
-              });
-
-          print('Created payment record for 100% discount booking');
-
 
           if(cartItems.length > 0) {
 
@@ -4103,11 +4129,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   paymentNotes: notesController.text,
                   receiptToggle: receiptToggle,
                   printBoth: true,
-                  customerId: checkoutController.userData.value.id
+                  customerId: customerId
               ).then((value) async {
                 await checkoutController.mergeBookingtoOrder(
                     order_id: orderId,
-                    customer_id: checkoutController.userData.value.id,
+                    customer_id: customerId,
                     booking_id: bookingId,
                     redirect: false
                 );
@@ -4115,7 +4141,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }
 
           }
-
 
           // Handle receipt printing if enabled
           if (receiptToggle) {
@@ -4129,7 +4154,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
       }
 
-      
+      //Existing Booking
       // Update booking payment status if we have exbookingId
       if (widget.exbookingId != null) {
         print('Processing payment for existing booking: ${widget.exbookingId}');
@@ -4145,7 +4170,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               'updated_at': DateTime.now().toIso8601String(),
             })
             .eq('id', widget.exbookingId!)
-            .select();
+            .select()
+            .single();
             
         print('Updated booking ${widget.exbookingId} payment status to paid');
         print('Update result: $updateResult');
@@ -4296,7 +4322,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             print('No pending membership found for customer ${bookingData['customer_id']}');
           }
         }
-        
+
+        try {
+          final ordersData = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('orders')
+              .select('*')
+              .eq('booking_id', widget.exbookingId!)
+              .limit(1); // Ensure only one is fetched
+
+          if (ordersData != null && ordersData.isNotEmpty) {
+            final order = ordersData.first;
+            final orderId = order['id']?.toString();
+
+            if (orderId != null && orderId.isNotEmpty) {
+              await checkoutController.productsPaymentOnly(
+                order_id: orderId,
+                price: order['total'].toDouble(),
+                taxes: ((order['total'] ?? 0) / 11).toDouble(), // GST is 1/11th of inclusive price
+                surcharge: 0.00,
+                discount: discountAmount.toDouble(),
+                billAmount: order['total'].toDouble(),
+                paidAmount: totalPaid.toDouble(),
+                balanceAmount: double.parse(balanceAmountController.text),
+                paymentType: selectedMethod,
+                paymentNotes: notesController.text,
+                receiptToggle: receiptToggle,
+                printBoth: true,
+                customerId: updateResult['customer_id'],
+              );
+
+              await checkoutController.mergeBookingtoOrder(
+                order_id: orderId,
+                customer_id: updateResult['customer_id'],
+                booking_id: updateResult['id'],
+                redirect: false,
+              );
+            }
+          }
+        } catch (e) {
+          print('Warning: unable to process the order payment: $e');
+        }
+
+
         // Handle receipt printing for existing bookings if enabled
         if (receiptToggle) {
           print('Receipt printing requested for existing booking...');
@@ -4311,9 +4379,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 
             if (bookingDetails != null) {
               // Ensure values are doubles
-              final courtTotal = (bookingDetails['grand_total'] ?? widget.billAmount).toDouble();
-              final discountValue = bookingDetails['discount'] ?? (membershipDiscountAmount + manualDiscountAmount);
-              final discount = discountValue is int ? discountValue.toDouble() : discountValue;
+              final courtTotal      = (bookingDetails['grand_total'] ?? widget.billAmount).toDouble();
+              final discountValue   = bookingDetails['discount'] ?? (membershipDiscountAmount + manualDiscountAmount);
+              final discount        = discountValue is int ? discountValue.toDouble() : discountValue;
               await _printReceipt(widget.exbookingId!, courtTotal, discount);
             }
           } catch (e) {
@@ -4321,7 +4389,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
         }
       }
-      
+
+
       // Update order payment status if we have exorderId  
       if (widget.exorderId != null) {
         try {
@@ -4333,15 +4402,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'updated_at': DateTime.now().toIso8601String(),
               })
               .eq('id', widget.exorderId!);
-              
-          print('Updated order ${widget.exorderId} payment status to paid');
+            print('Updated order ${widget.exorderId} payment status to paid');
         } catch (e) {
           print('Warning: Could not update order: $e');
         }
       }
-      
 
-      
+
       setState(() {
         isLoading = false;
         checkoutController.checkoutPayBtn.value = false;

@@ -2542,6 +2542,12 @@ class NewBookingController extends GetxController {
       // Step 3: Insert booking record
       print('cartItems before booking insert: $cartItems');
 
+      final updatedBCart = bookings?.map((b) {
+        final json = b.toJson();
+        json['bookingId'] = '${bookingNo}'; // Update the bookingId
+        return json;
+      }).toList();
+
       final bookingInsertResponse =
           await supabase
               .schema('${centerSlug}_prod_schema')
@@ -2563,9 +2569,7 @@ class NewBookingController extends GetxController {
                 'updated_by': authController.userId.toString(),
                 'created_at': DateTime.now().toIso8601String(),
                 'updated_at': DateTime.now().toIso8601String(),
-                'bcart_items': jsonEncode(
-                  bookings?.map((b) => b.toJson()).toList(),
-                ),
+                'bcart_items': jsonEncode(updatedBCart),
                 // 'deleted_at':null,
                 // 'deleted_by':authController.userId
               })
@@ -2636,7 +2640,7 @@ class NewBookingController extends GetxController {
       if (cartController.cartItems.length > 0) {
         await createTempOrder(total: cartController.total).then((value) {
           orderId = value['id'];
-          total = value['total'].toDouble();
+          total   = value['total'].toDouble();
         });
 
         await mergeBookingtoOrder(
