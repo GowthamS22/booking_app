@@ -766,6 +766,7 @@ Future<void> openExtendedbookingRightDrawer(
                     Spacer(),
                     if (!bookingEnded)
                       Row(
+                        spacing: 20,
                         children: [
                           Expanded(
                             child: ElevatedButton(
@@ -790,8 +791,6 @@ Future<void> openExtendedbookingRightDrawer(
                               ),
                             ),
                           ),
-
-                          const SizedBox(width: 8),
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
@@ -821,7 +820,6 @@ Future<void> openExtendedbookingRightDrawer(
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
                         ],
                       ),
                   ],
@@ -847,8 +845,7 @@ void showCancelDialog(
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder:
-        (_) => AlertDialog(
+    builder: (_) => AlertDialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),

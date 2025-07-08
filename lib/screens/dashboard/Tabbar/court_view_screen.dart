@@ -1566,6 +1566,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
       // Check membership_data table for pending membership
       bool hasPendingMembership = false;
+      DateTime? membershipValidityFromCheck;
+
       if (userData['id'] != null) {
         final SharedPreferences preferences = await SharedPreferences.getInstance();
         String? centerSlug = preferences.getString('centerSlug');
@@ -1574,7 +1576,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
           final membershipDataCheck = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('membership_data')
-              .select('id, status')
+              .select('*')
               .eq('customer_id', userData['id'])
               .maybeSingle();
 
@@ -1587,7 +1589,25 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
               // This should be treated as having membership
               hasPendingMembership = false;
               print('✅ Customer has active membership in membership_data');
-              // We'll let the main logic below handle setting hasMembership = true
+
+              DateTime? startDate = membershipDataCheck != null ? DateTime.tryParse(membershipDataCheck['created_at']?.toString() ?? '') : null;
+              DateTime? endDate;
+              if (startDate != null && membershipDataCheck != null && membershipDataCheck['validity'] != null) {
+                final billingCycle = membershipDataCheck['billing_cycle']?.toString().toLowerCase();
+                final validity     = int.tryParse(membershipDataCheck['validity'].toString()) ?? 0;
+
+                if (billingCycle == 'month') {
+                  endDate = startDate.add(Duration(days: validity));
+                } else if (billingCycle == 'year') {
+                  endDate = DateTime(
+                    startDate.year,
+                    startDate.month + validity,
+                    startDate.day,
+                  );
+                }
+              }
+              membershipValidityFromCheck = endDate;
+
             }
           }
         } catch (e) {
@@ -1603,10 +1623,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         hasMembership = !hasPendingMembership && (userData['membershipplan_id'] != null && userData['membershipplan_id'].toString().isNotEmpty);
 
         if (hasMembership && !hasPendingMembership) {
-          memberPeakPrice = double.tryParse(userData['peak_price']?.toString() ?? '0');
-          memberNonPeakPrice = double.tryParse(userData['non_peak_price']?.toString() ?? '0');
-          membershipPlan = userData['membership_plan'];
-          membershipValidityDate = DateTime.tryParse(userData['validity_end']?.toString() ?? '');
+          memberPeakPrice         = double.tryParse(userData['peak_price']?.toString() ?? '0');
+          memberNonPeakPrice      = double.tryParse(userData['non_peak_price']?.toString() ?? '0');
+          membershipPlan          = userData['membership_plan'];
+          membershipValidityDate  = DateTime.tryParse(membershipValidityFromCheck.toString() ?? '');
         } else {
           // Reset membership data if no membership
           memberPeakPrice = null;
@@ -1627,10 +1647,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       if (mobile.length == 12) {
         final suggestions = await controller.fetchUserSuggestions(mobile);
         if (suggestions.isNotEmpty) {
-          final exactMatch = suggestions.firstWhere(
-                (user) => user['mobile'] == mobile,
-            orElse: () => {},
-          );
+          final exactMatch = suggestions.firstWhere((user) => user['mobile'] == mobile, orElse: () => {},);
           if (exactMatch.isNotEmpty) {
             _updateUserData(exactMatch);
           } else {
@@ -1836,8 +1853,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                 }
                                               },
                                               onFieldSubmitted: (value) {
-                                                _validateAndFetchUserData(value);
-                                                // Hide keyboard after submission
+                                                final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+                                                if (digitsOnly.length == 10) {
+                                                  _validateAndFetchUserData(value);
+                                                } else {
+                                                  _clearMembershipData();
+                                                }
                                                 FocusScope.of(context).unfocus();
                                               },
                                               onEditingComplete: () {
@@ -1948,14 +1969,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                                   color: borderColor!,
                                                 ),
                                               ),
-                                              child: Text(
-                                                    () {
+                                              child: Text(() {
                                                   if (membershipValidityDate == null) {
                                                     return '$membershipPlan : (No Validity Info)';
                                                   }
-                                                  final now = DateTime.now();
-                                                  final today = DateTime(now.year, now.month, now.day);
-                                                  final expiry = DateTime(
+                                                  final now     = DateTime.now();
+                                                  final today   = DateTime(now.year, now.month, now.day);
+                                                  final expiry  = DateTime(
                                                     membershipValidityDate!.year,
                                                     membershipValidityDate!.month,
                                                     membershipValidityDate!.day,
@@ -2534,21 +2554,18 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                   child: ElevatedButton(
                                     onPressed: () {
                                       if (_formKey.currentState!.validate()) {
+
                                         //Navigator.pop(context);
                                         final double TotalAmount;
                                         final digitsOnly = mobileController.text.replaceAll(RegExp(r'\D'), '');
-                                        controller.getUserDatabyMobile(
-                                          digitsOnly,
-                                        );
+                                        controller.getUserDatabyMobile(digitsOnly,);
+
                                         if (isMembershipApplied) {
-                                          TotalAmount =
-                                              courtPrice +
-                                              memberPrice +
-                                              cartController.total;
+                                          TotalAmount = courtPrice + memberPrice + cartController.total;
                                         } else {
-                                          TotalAmount =
-                                              courtPrice + cartController.total;
+                                          TotalAmount = courtPrice + cartController.total;
                                         }
+
                                         showBookingConfirmationDialog(
                                           context,
                                           nameController.text,
@@ -2562,12 +2579,15 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                           isMembershipApplied,
                                           memberPrice,
                                         );
+
                                       } else {
+
                                         showCustomSnackbar(
                                           'Error :',
                                           'Please enter name & mobile for bookingslots',
                                           Colors.redAccent,
                                         );
+
                                       }
                                     },
                                     style: ElevatedButton.styleFrom(
@@ -2578,11 +2598,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                     ),
-                                    child: Text(
-                                      "Quick Booking",
+                                    child: Text("Quick Booking",
                                       style: GoogleFonts.inter(
                                         fontSize: 22,
-
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -2911,29 +2929,19 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                 children: [
                                   Row(
                                     children: [
-                                      Icon(LucideIcons.gamepad2, size: 18),
-                                      const SizedBox(width: 4),
+                                      Icon(LucideIcons.gamepad2, size: 35),
+                                      const SizedBox(width: 10),
                                       Text(
-                                        serviceListValue.firstWhere(
-                                          (e) => e['id'].toString() == selectedServiceIdValue,
-                                          orElse: () => {'name': 'Sport'},
-                                        )['name'] ?? 'Sport',
+                                        game,
                                         style: GoogleFonts.inter(
-                                          color: Colors.grey.shade800,
                                           fontSize: 25,
                                           fontWeight: FontWeight.w600,
+                                          color: Colors.black,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  Text(
-                                    game,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black,
-                                    ),
-                                  ),
+
                                 ],
                               ),
                             ],

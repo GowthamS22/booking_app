@@ -1916,8 +1916,8 @@ class CheckoutController extends GetxController {
           await printOrderAndBooking(order_id: order_id, order: Orders.fromJson(response));
         } else {
           // Status Alert
-          showPaymentSuccessAlert();
-          await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));  
+          //showPaymentSuccessAlert();
+          await printProductReceipt(orderNo: response['token_number'], order: Orders.fromJson(response));
         }
       } else {
         showPaymentSuccessAlert();
@@ -1950,9 +1950,7 @@ class CheckoutController extends GetxController {
     String? customer_id,
     bool redirect = true,
   }) async {
-
     try {
-
       final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug                  = preferences.getString('centerSlug');
 
@@ -1970,19 +1968,83 @@ class CheckoutController extends GetxController {
       if(redirect==true) {
 
         update();
-
         showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
-
         // Redirect
         Future.delayed(Duration(seconds: 1), () {
           Get.offAllNamed('/');
         });
+
       }
 
     } catch (e) {
       showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
     }
+  }
 
+  Future<void> productsPaymentOnly({
+    String? order_id,
+    double? price,
+    double? taxes,
+    double? surcharge,
+    double? discount,
+    double? billAmount,
+    double? paidAmount,
+    double? balanceAmount,
+    String? paymentType,
+    String? paymentNotes,
+    String? paymentResponse,
+    bool? receiptToggle,
+    bool? printBoth,
+    String? customerId,
+  }) async {
+    try {
+
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug                  = preferences.getString('centerSlug');
+      final cartJson                      = preferences.getString('shopping_cart');
+
+      // Get the next token number
+      final tokenNumber = await getNextTokenNumber();
+
+      // Convert to 2 decimal places
+      double to2(double? value) => value != null ? double.parse(value.toStringAsFixed(2)) : 0.0;
+
+      final Map<String, dynamic> updateData = {
+        'token_number': tokenNumber,
+        'cart_items': jsonDecode(cartJson!),
+        'bill_details': {
+          'order_id': order_id!,
+          'price': to2(price),
+          'taxes': to2(taxes),
+          'surcharge': to2(surcharge),
+          'discount': to2(discount),
+          'billAmount': to2(billAmount),
+          'paidAmount': to2(paidAmount),
+          'balanceAmount': to2(balanceAmount),
+          'paymentType': paymentType,
+          'paymentNotes': paymentNotes,
+        },
+        'transaction_data': paymentResponse,
+        'payment_response': paymentResponse,
+        'total': to2(billAmount),
+        'paid_amount': to2(paidAmount),
+        'payment_type': paymentType,
+        'payment_via': 'App',
+        'order_status': 'Completed',
+      };
+
+      // Conditionally add customer_id if not null
+      if (customerId != null) {
+        updateData['customer_id'] = customerId;
+      }
+
+      // Update the Page
+      isLoading.value = false;
+      update();
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+    }
   }
 
   Future<int> getNextTokenNumber() async {

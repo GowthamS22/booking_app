@@ -263,6 +263,7 @@ class NewBookingController extends GetxController {
         membership_data,
         created_at,
         status,
+        membership_data_id,
         membershipplan (
           name,
           price,
@@ -307,9 +308,9 @@ class NewBookingController extends GetxController {
             .from('membership_data')
             .select('*')
             .eq('customer_id', user['id'])
-            .eq('status', true)
+            .eq('status', false)
             .maybeSingle(); // Use maybeSingle instead of single to handle null case
-            
+
         // Check for pending membership payment - NOT NEEDED HERE
         // The court view screen handles this with checkPendingMembershipPayment()
         bool hasPendingPayment = false;
@@ -328,6 +329,7 @@ class NewBookingController extends GetxController {
           'membershipplan_id': user['membershipplan_id'] ?? '',
           'already_in_cart': membershipDataRes != null, // True if found in membership_data table
           'has_pending_membership': hasPendingPayment, // True if membership payment is pending
+          'membership_data_id': user['membership_data_id'] ?? '',
         };
       } catch (e) {
         // If no record found, return with already_in_cart as false
@@ -345,6 +347,7 @@ class NewBookingController extends GetxController {
           'membershipplan_id': user['membershipplan_id'] ?? '',
           'already_in_cart': false,
           'has_pending_membership': false,
+          'membership_data_id': user['membership_data_id'] ?? '',
         };
       }
     }));
@@ -1373,7 +1376,7 @@ class NewBookingController extends GetxController {
           .single();
 
       final String? paymentStatus = bookingResponse['payment_status'];
-      final String? customerId = bookingResponse['customer_id'];
+      final String? customerId    = bookingResponse['customer_id'];
 
       // Step 2: Always check for and clean up pending membership when cancelling
       print('📌 Checking if membership cleanup needed - paymentStatus: $paymentStatus, customerId: $customerId');

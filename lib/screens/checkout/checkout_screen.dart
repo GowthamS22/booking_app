@@ -2258,7 +2258,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 child: Column(
                   children: [
                     // Discount Notes Input
-                    if (isDiscountApplied)
+                    if (isDiscountApplied) ...[
                       TextField(
                         controller: notesController,
                         decoration: InputDecoration(
@@ -2281,7 +2281,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         style: TextStyle(fontSize: 25),
                       ),
-                    if (isDiscountApplied) const SizedBox(height: 16),
+                      SizedBox(height: 16),
+                    ],
 
                     // Buttons Row
                     Padding(
@@ -2290,11 +2291,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         children: [
                           // Discount buttons - always show for admin override capability
                           // Discount Applied
-                          if (isDiscountApplied)
+                          if (isDiscountApplied) ...[
                             Expanded(
                               child: Container(
                                 height:
-                                    MediaQuery.of(context).size.height * .05,
+                                MediaQuery.of(context).size.height * .05,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF0F4FF),
                                   borderRadius: BorderRadius.circular(10),
@@ -2310,7 +2311,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                               ),
                             ),
-                          if (isDiscountApplied) const SizedBox(width: 12),
+                            SizedBox(width: 12),
+                          ],
 
                           // Remove Manual Discount
                           if (isManualDiscountApplied)
@@ -2351,14 +2353,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                               ),
                             ),
-                          if (isDiscountApplied) const SizedBox(width: 12),
 
-                          if (!isDiscountApplied)
+                          if (!isDiscountApplied) ...[
+                            const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed:
-                                    () =>
-                                        _showDiscountDialog(checkoutController),
+                                onPressed: () => _showDiscountDialog(checkoutController),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFF0F4FF),
                                   shape: RoundedRectangleBorder(
@@ -2378,7 +2378,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 ),
                               ),
                             ),
-                          if (!isDiscountApplied) const SizedBox(width: 12),
+                            SizedBox(width: 12),
+                          ],
 
                           // Receipt Toggle
                           Expanded(
@@ -2504,6 +2505,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
+
                               final totalAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
                               
                               print('🔍 Payment calculation:');
@@ -2533,11 +2535,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               
                               // Validate payment amount for non-100% discount scenarios
                               if (totalPaid < totalAmount) {
-                                showCustomSnackbar(
-                                  'Insufficient Payment',
-                                  'Please pay the full amount',
-                                  Colors.red,
-                                );
+                                showCustomSnackbar('Insufficient Payment', 'Please pay the full amount', Colors.red,);
                                 return;
                               }
                               
@@ -3907,13 +3905,230 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   
   void _handlePaymentSuccess() async {
+
     try {
       setState(() {
         isLoading = true;
       });
       
       final SharedPreferences preferences = await SharedPreferences.getInstance();
-      String? centerSlug = preferences.getString('centerSlug');
+      String? centerSlug                  = preferences.getString('centerSlug');
+
+
+      // If this is a new booking (not from pending payment)
+      if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
+
+       // For 100% discount, we need to create the booking here
+        try {
+          // Calculate total amount
+          double courtTotal = 0;
+          for (var booking in widget.bookings) {
+            for (var subSlot in booking.subSlots) {
+              courtTotal += subSlot.price;
+            }
+          }
+
+          // Get or create customer ID
+          String customerId;
+          final customerData = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .select('id')
+              .eq('mobile', widget.mobileno)
+              .limit(1)
+              .maybeSingle();
+
+          if (customerData == null) {
+            // Create new customer if not found
+            print('Customer not found, creating new customer...');
+            final nameParts = widget.customerName.split(' ');
+            final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
+            final lastName  = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+            final newCustomer = await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('customers')
+                .insert({
+                  'first_name': firstName,
+                  'last_name': lastName,
+                  'mobile': widget.mobileno,
+                  'email': '', // Email not provided in widget
+                  'status': true,
+                })
+                .select()
+                .single();
+
+            customerId = newCustomer['id'];
+            print('Created new customer with ID: $customerId');
+          } else {
+            customerId = customerData['id'];
+          }
+
+          // Get proper booking number
+          final bookingNumberResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .rpc('increment_booking_counter')
+              .select()
+              .single();
+
+          final bookingNumber = bookingNumberResponse['current_token'] as int;
+          final currentYear   = DateTime.now().year;
+          final bookingNo = 'BCK-$currentYear-${bookingNumber}';
+
+          // Create the main booking record
+          final bookingData = {
+            'booking_no': bookingNo,
+            'customer_id': customerId,
+            'sub_total': courtTotal,
+            'surcharge': 0.0,
+            'grand_total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'notes': notesController.text.isNotEmpty ? notesController.text : (manualDiscountAmount > 0 ? 'Manual Discount Applied' : 'Membership Discount Applied'),
+            'discount': membershipDiscountAmount + manualDiscountAmount,
+            'gst': 0.0, // GST is included in the price
+            'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'payment_type': selectedMethod,
+            'payment_status': 'Paid', // 100% discount means paid
+            'status': 'Booked',
+            'created_by': authController.userId.value,
+            'updated_by': authController.userId.value,
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          };
+
+          final bookingResponse = await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('bookings')
+              .insert(bookingData)
+              .select()
+              .single();
+
+          final bookingId = bookingResponse['id'];
+
+          print('Created booking: $bookingNo with ID: $bookingId');
+
+          // Create booking slots
+          for (var booking in widget.bookings) {
+            for (var subSlot in booking.subSlots) {
+              // Parse time strings to create proper DateTime objects
+              final bookingDate = widget.selectedDateTime;
+              final startTimeParts = subSlot.startTime.split(':');
+              final endTimeParts = subSlot.endTime.split(':');
+
+              final startDateTime = DateTime(
+                bookingDate.year,
+                bookingDate.month,
+                bookingDate.day,
+                int.parse(startTimeParts[0]),
+                int.parse(startTimeParts[1]),
+              );
+
+              final endDateTime = DateTime(
+                bookingDate.year,
+                bookingDate.month,
+                bookingDate.day,
+                int.parse(endTimeParts[0]),
+                int.parse(endTimeParts[1]),
+              );
+
+              final slotData = {
+                'booking_id': bookingId,
+                'service_id': newBookingController.selectedServiceId.value,
+                'court_id': booking.courtId ?? 'COURT-001', // Default court ID if not available
+                'start_time': startDateTime.toIso8601String(),
+                'end_time': endDateTime.toIso8601String(),
+                'price': subSlot.price,
+                'slot_type': 'Normal',
+                'repeat_days': null,
+                'repeat_end_date': null,
+                'repeat_id': null,
+                'repeat_group_id': null,
+                'status': 'Booked',
+                'created_by': authController.userId.value,
+                'updated_by': authController.userId.value,
+                'created_at': DateTime.now().toIso8601String(),
+                'updated_at': DateTime.now().toIso8601String(),
+              };
+
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('booking_slots')
+                  .insert(slotData);
+            }
+          }
+
+          print('Created booking slots for booking: $bookingId');
+
+          // Create booking payment record for 100% discount
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('booking_payments')
+              .insert({
+                'booking_id': bookingId,
+                'customer_id': customerId,
+                'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+                'paid_amount': 0.0, // 100% discount
+                'payment_type': selectedMethod,
+                'payment_via': selectedMethod,
+                'status': 'completed',
+                'notes': '100% Discount Applied',
+                'created_by': authController.userId.value,
+              });
+
+          print('Created payment record for 100% discount booking');
+
+
+          if(cartItems.length > 0) {
+
+            double? itemSubTotal = cartItemsTotal;
+            String? orderId = '';
+            //Create order if the cart items are exist
+            if (cartItems.length > 0) {
+              await checkoutController.createTempOrder(
+                total: (itemSubTotal ?? 0.0),).then((value) {
+                orderId = value['id'];
+              },);
+            }
+
+            if(orderId!=null && orderId!='') {
+              await checkoutController.productsPaymentOnly(
+                  order_id: orderId,
+                  price: itemSubTotal,
+                  taxes: (itemSubTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
+                  surcharge: 0,
+                  discount: discountAmount,
+                  billAmount: itemSubTotal,
+                  paidAmount: totalPaid,
+                  balanceAmount: double.parse(balanceAmountController.text,),
+                  paymentType: selectedMethod,
+                  paymentNotes: notesController.text,
+                  receiptToggle: receiptToggle,
+                  printBoth: true,
+                  customerId: checkoutController.userData.value.id
+              ).then((value) async {
+                await checkoutController.mergeBookingtoOrder(
+                    order_id: orderId,
+                    customer_id: checkoutController.userData.value.id,
+                    booking_id: bookingId,
+                    redirect: false
+                );
+              },);
+            }
+
+          }
+
+
+          // Handle receipt printing if enabled
+          if (receiptToggle) {
+            print('Receipt printing requested...');
+            await _printReceipt(bookingId, courtTotal, membershipDiscountAmount + manualDiscountAmount);
+          }
+
+        } catch (e) {
+          print('Error creating new booking: $e');
+          throw e;
+        }
+      }
+
       
       // Update booking payment status if we have exbookingId
       if (widget.exbookingId != null) {
@@ -3946,6 +4161,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               .single();
               
           if (bookingData != null) {
+
             print('Creating booking payment record...');
             print('Booking data: $bookingData');
             print('Total paid: $totalPaid, Payment method: $selectedMethod');
@@ -3968,6 +4184,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 
             print('Created booking payment record for booking ${widget.exbookingId}');
             print('Payment record: $paymentRecord');
+
           } else {
             print('ERROR: bookingData is null, cannot create payment record');
           }
@@ -4123,177 +4340,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
       }
       
-      // If this is a new booking (not from pending payment)
-      if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
-        print('Creating new booking with 100% discount...');
-        
-        // For 100% discount, we need to create the booking here
-        try {
-          // Calculate total amount
-          double courtTotal = 0;
-          for (var booking in widget.bookings) {
-            for (var subSlot in booking.subSlots) {
-              courtTotal += subSlot.price;
-            }
-          }
-          
-          // Get or create customer ID
-          String customerId;
-          final customerData = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('customers')
-              .select('id')
-              .eq('mobile', widget.mobileno)
-              .limit(1)
-              .maybeSingle();
-              
-          if (customerData == null) {
-            // Create new customer if not found
-            print('Customer not found, creating new customer...');
-            final nameParts = widget.customerName.split(' ');
-            final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
-            final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
-            
-            final newCustomer = await supabase
-                .schema('${centerSlug}_prod_schema')
-                .from('customers')
-                .insert({
-                  'first_name': firstName,
-                  'last_name': lastName,
-                  'mobile': widget.mobileno,
-                  'email': '', // Email not provided in widget
-                  'status': true,
-                })
-                .select()
-                .single();
-                
-            customerId = newCustomer['id'];
-            print('Created new customer with ID: $customerId');
-          } else {
-            customerId = customerData['id'];
-          }
-          
-          // Get proper booking number
-          final bookingNumberResponse = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .rpc('increment_booking_counter')
-              .select()
-              .single();
-          final bookingNumber = bookingNumberResponse['current_token'] as int;
-          final bookingNo = 'BCK-2025-${bookingNumber}';
-          
-          // Create the main booking record
-          final bookingData = {
-            'booking_no': bookingNo,
-            'customer_id': customerId,
-            'sub_total': courtTotal,
-            'surcharge': 0.0,
-            'grand_total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
-            'notes': notesController.text.isNotEmpty ? notesController.text : 
-                    (manualDiscountAmount > 0 ? 'Manual Discount Applied' : 'Membership Discount Applied'),
-            'discount': membershipDiscountAmount + manualDiscountAmount,
-            'gst': 0.0, // GST is included in the price
-            'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
-            'payment_type': selectedMethod,
-            'payment_status': 'Paid', // 100% discount means paid
-            'status': 'Booked',
-            'created_by': authController.userId.value,
-            'updated_by': authController.userId.value,
-            'created_at': DateTime.now().toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          };
-          
-          final bookingResponse = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('bookings')
-              .insert(bookingData)
-              .select()
-              .single();
-              
-          final bookingId = bookingResponse['id'];
-          print('Created booking: $bookingNo with ID: $bookingId');
-          
-          // Create booking slots
-          for (var booking in widget.bookings) {
-            for (var subSlot in booking.subSlots) {
-              // Parse time strings to create proper DateTime objects
-              final bookingDate = widget.selectedDateTime;
-              final startTimeParts = subSlot.startTime.split(':');
-              final endTimeParts = subSlot.endTime.split(':');
-              
-              final startDateTime = DateTime(
-                bookingDate.year,
-                bookingDate.month,
-                bookingDate.day,
-                int.parse(startTimeParts[0]),
-                int.parse(startTimeParts[1]),
-              );
-              
-              final endDateTime = DateTime(
-                bookingDate.year,
-                bookingDate.month,
-                bookingDate.day,
-                int.parse(endTimeParts[0]),
-                int.parse(endTimeParts[1]),
-              );
-              
-              final slotData = {
-                'booking_id': bookingId,
-                'service_id': newBookingController.selectedServiceId.value,
-                'court_id': booking.courtId ?? 'COURT-001', // Default court ID if not available
-                'start_time': startDateTime.toIso8601String(),
-                'end_time': endDateTime.toIso8601String(),
-                'price': subSlot.price,
-                'slot_type': 'Normal',
-                'repeat_days': null,
-                'repeat_end_date': null,
-                'repeat_id': null,
-                'repeat_group_id': null,
-                'status': 'Booked',
-                'created_by': authController.userId.value,
-                'updated_by': authController.userId.value,
-                'created_at': DateTime.now().toIso8601String(),
-                'updated_at': DateTime.now().toIso8601String(),
-              };
-              
-              await supabase
-                  .schema('${centerSlug}_prod_schema')
-                  .from('booking_slots')
-                  .insert(slotData);
-            }
-          }
-          
-          print('Created booking slots for booking: $bookingId');
-          
-          // Create booking payment record for 100% discount
-          await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('booking_payments')
-              .insert({
-                'booking_id': bookingId,
-                'customer_id': customerId,
-                'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
-                'paid_amount': 0.0, // 100% discount
-                'payment_type': selectedMethod,
-                'payment_via': selectedMethod,
-                'status': 'completed',
-                'notes': '100% Discount Applied',
-                'created_by': authController.userId.value,
-              });
-              
-          print('Created payment record for 100% discount booking');
-          
-          // Handle receipt printing if enabled
-          if (receiptToggle) {
-            print('Receipt printing requested...');
-            await _printReceipt(bookingId, courtTotal, membershipDiscountAmount + manualDiscountAmount);
-          }
-          
-        } catch (e) {
-          print('Error creating new booking: $e');
-          throw e;
-        }
-      }
+
       
       setState(() {
         isLoading = false;
