@@ -14,7 +14,8 @@ class MobileNumberFormatter extends TextInputFormatter {
     if (digits.length >= 4) {
       formatted += digits.substring(0, 4);
       if (digits.length >= 5) {
-        formatted += ' ' + digits.substring(4, digits.length >= 7 ? 7 : digits.length);
+        formatted +=
+            ' ' + digits.substring(4, digits.length >= 7 ? 7 : digits.length);
         if (digits.length >= 8) {
           formatted += ' ' + digits.substring(7, digits.length);
         }
@@ -28,4 +29,4 @@ class MobileNumberFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: selectionIndex),
     );
   }
-} 
+}

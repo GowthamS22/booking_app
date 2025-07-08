@@ -246,8 +246,17 @@ class MembershipController extends GetxController {
       final response = await query;
       final data = response as List<dynamic>;
 
+      // DEBUG: Print raw data
+      print('Fetched customers:');
+      for (var customer in data) {
+        print('Customer: ' + customer.toString());
+        print('Customer ${customer['id']} membershippayment: ${customer['membershippayment']}');
+      }
+
       final result = data.where((customer) {
-        return customer['membershipplan'] != null;
+        final hasMembershipPlan = customer['membershipplan'] != null;
+        final hasMembershipPayment = (customer['membershippayment'] as List?)?.isNotEmpty ?? false;
+        return hasMembershipPlan || hasMembershipPayment;
       }).map((customer) {
         final bookingList = customer['bookings'] as List<dynamic>? ?? [];
         final orders = (customer['orders'] as List<dynamic>? ?? []).where((order) {
@@ -283,11 +292,19 @@ class MembershipController extends GetxController {
         final totalSpent = bookingSpent + orderSpent + membershipSpent;
         final totalBookings = nonCancelledBookings.length;
 
+        // Show membership name if available, else "Paid (No Plan)" if payment exists
+        String membershipName = 'N/A';
+        if (customer['membershipplan']?['name'] != null) {
+          membershipName = customer['membershipplan']['name'];
+        } else if (payments.isNotEmpty) {
+          membershipName = 'Paid (No Plan)';
+        }
+
         return {
           'id': customer['id'],
           'name': '${customer['first_name']}',
           'mobile': customer['mobile'],
-          'membership': customer['membershipplan']?['name'] ?? 'N/A',
+          'membership': membershipName,
           'totalBookings': totalBookings,
           'totalSpent': totalSpent.toStringAsFixed(2),
         };

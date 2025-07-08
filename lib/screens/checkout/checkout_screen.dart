@@ -74,11 +74,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final CustomerController customerController = Get.put(CustomerController());
   final PaymentController paymentController = Get.put(PaymentController());
   final cart.CartController cartController = Get.put(cart.CartController());
-  final MembershipController membershipController = Get.put(MembershipController());
+  final MembershipController membershipController = Get.put(
+    MembershipController(),
+  );
   final CheckoutController checkoutController = Get.put(CheckoutController());
   final AuthController authController = Get.put(AuthController());
   final supabase = Supabase.instance.client;
-  
+
   bool isLoading = false;
 
   TextEditingController notesController = TextEditingController();
@@ -136,17 +138,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool isManualDiscountApplied = false;
   TextEditingController discountController = TextEditingController();
   String manualDiscountType = 'percentage'; // Always percentage-based
-  double manualDiscountValue = 0.0; // The raw value entered (e.g., 10 for 10% or $10)
-  bool isManualBookingOnlyDiscount = false; // Whether manual discount applies only to booking
-  
+  double manualDiscountValue =
+      0.0; // The raw value entered (e.g., 10 for 10% or $10)
+  bool isManualBookingOnlyDiscount =
+      false; // Whether manual discount applies only to booking
+
   // Membership discount state
   double membershipDiscountAmount = 0.0;
   bool isMembershipDiscountApplied = false;
-  
+
   // Combined discount for display
   double get discountAmount => manualDiscountAmount + membershipDiscountAmount;
-  bool get isDiscountApplied => isManualDiscountApplied || isMembershipDiscountApplied;
-  
+  bool get isDiscountApplied =>
+      isManualDiscountApplied || isMembershipDiscountApplied;
+
   // Admin approval tracking
   bool _hasAdminApproval = false;
 
@@ -157,22 +162,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double? selectedMembershipPrice;
   double? selectedMembershipPeakPrice;
   double? selectedMembershipNonPeakPrice;
-  
+
   // Slide panel state
   bool _isMembershipPanelOpen = false;
-  
+
   // Track if user has existing membership
   bool userHasExistingMembership = false;
   String? existingMembershipName;
   Map<String, dynamic>? existingMembershipPlan;
   String? existingMembershipId;
-  
+
   // Track pending membership status
   bool userHasPendingMembership = false;
   String? pendingMembershipName;
 
-  double get cartItemsTotal => cartItems.fold(0,(sum, item) => sum + item.appliedPrice,);
-  
+  double get cartItemsTotal =>
+      cartItems.fold(0, (sum, item) => sum + item.appliedPrice);
+
   // Calculate the actual total including bookings, cart items, and membership
   double get courtBookingTotal {
     double total = 0;
@@ -186,23 +192,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   double get actualTotal {
     double total = courtBookingTotal + cartItemsTotal;
-    
+
     // Add membership fee if applied
     if (isMembershipApplied && selectedMembershipPrice != null) {
       total += selectedMembershipPrice!;
     }
-    
+
     return total;
   }
 
   // Calculate membership discount based on booking amount
   void _calculateMembershipDiscount() {
-    print('_calculateMembershipDiscount called - userHasExistingMembership: $userHasExistingMembership, isMembershipApplied: $isMembershipApplied');
-    print('selectedMembershipName: $selectedMembershipName, selectedMembershipPrice: $selectedMembershipPrice');
-    print('widget.membershipName: ${widget.membershipName}, widget.isMembershipApplied: ${widget.isMembershipApplied}');
+    print(
+      '_calculateMembershipDiscount called - userHasExistingMembership: $userHasExistingMembership, isMembershipApplied: $isMembershipApplied',
+    );
+    print(
+      'selectedMembershipName: $selectedMembershipName, selectedMembershipPrice: $selectedMembershipPrice',
+    );
+    print(
+      'widget.membershipName: ${widget.membershipName}, widget.isMembershipApplied: ${widget.isMembershipApplied}',
+    );
     print('existingMembershipPlan: $existingMembershipPlan');
-    
-    if (userHasExistingMembership || isMembershipApplied || widget.isMembershipApplied == true) {
+
+    if (userHasExistingMembership ||
+        isMembershipApplied ||
+        widget.isMembershipApplied == true) {
       // Calculate discount based on peak_price and non_peak_price
       _calculatePriceBasedDiscount();
     } else {
@@ -212,31 +226,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         membershipDiscountAmount = 0.0;
         isMembershipDiscountApplied = false;
       });
-      
+
       // Show message if user has pending membership
       if (userHasPendingMembership) {
         showCustomSnackbar(
           'No Membership Discount',
           'Complete your pending membership payment to enjoy discounts',
-          Colors.orange
+          Colors.orange,
         );
       }
     }
   }
-  
+
   void _calculatePriceBasedDiscount() {
     print('Calculating price-based discount using peak/non-peak prices');
     print('existingMembershipPlan: $existingMembershipPlan');
     print('selectedMembershipId: $selectedMembershipId');
     print('existingMembershipId: $existingMembershipId');
-    
+
     // First, we need to get the membership plan details
     final membershipId = selectedMembershipId ?? existingMembershipId;
     if (membershipId == null && existingMembershipPlan == null) {
       print('No membership ID or plan available');
       return;
     }
-    
+
     // Calculate total booking duration in minutes
     int totalMinutes = 0;
     for (final booking in widget.bookings) {
@@ -244,30 +258,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         // Parse start and end times to calculate duration
         final startParts = subSlot.startTime.split(':');
         final endParts = subSlot.endTime.split(':');
-        final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+        final startMinutes =
+            int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
         final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
         totalMinutes += endMinutes - startMinutes;
       }
     }
-    
+
     print('Total booking duration: $totalMinutes minutes');
-    
+
     // Check if total duration meets minimum requirement
     if (totalMinutes < 60) {
-      print('Booking duration ($totalMinutes min) is less than minimum required (60 min) for membership discount');
+      print(
+        'Booking duration ($totalMinutes min) is less than minimum required (60 min) for membership discount',
+      );
       setState(() {
         membershipDiscountAmount = 0.0;
         isMembershipDiscountApplied = false;
         // Add a message to show to the user
         showCustomSnackbar(
-          'No Membership Discount', 
+          'No Membership Discount',
           'Minimum 60 minutes booking required for membership discount. Current booking: $totalMinutes minutes',
-          Colors.orange
+          Colors.orange,
         );
       });
       return;
     }
-    
+
     // First check if there's any peak hour slot in the booking
     bool hasPeakSlot = false;
     for (final booking in widget.bookings) {
@@ -279,39 +296,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       if (hasPeakSlot) break;
     }
-    
+
     print('Booking has peak slot: $hasPeakSlot');
-    
+
     // Calculate total discount - apply only ONE discount for the entire booking
     double totalDiscount = 0.0;
-    
+
     // Determine which discount rate to use
     if (existingMembershipPlan != null) {
       if (hasPeakSlot && existingMembershipPlan!['peak_price'] != null) {
         // Use peak discount if there's any peak slot
-        final peakDiscountStr = existingMembershipPlan!['peak_price']?.toString() ?? '';
+        final peakDiscountStr =
+            existingMembershipPlan!['peak_price']?.toString() ?? '';
         totalDiscount = double.tryParse(peakDiscountStr) ?? 0.0;
         print('Applying peak discount (single): $totalDiscount');
-      } else if (!hasPeakSlot && existingMembershipPlan!['non_peak_price'] != null) {
+      } else if (!hasPeakSlot &&
+          existingMembershipPlan!['non_peak_price'] != null) {
         // Use non-peak discount only if there are no peak slots
-        final nonPeakDiscountStr = existingMembershipPlan!['non_peak_price']?.toString() ?? '';
+        final nonPeakDiscountStr =
+            existingMembershipPlan!['non_peak_price']?.toString() ?? '';
         totalDiscount = double.tryParse(nonPeakDiscountStr) ?? 0.0;
         print('Applying non-peak discount (single): $totalDiscount');
       }
     }
-    
+
     // Log booking details for debugging
     print('Total bookings: ${widget.bookings.length}');
     double bookingSubtotal = 0.0;
     for (final booking in widget.bookings) {
-      print('Booking court: ${booking.courtName}, subSlots: ${booking.subSlots.length}');
+      print(
+        'Booking court: ${booking.courtName}, subSlots: ${booking.subSlots.length}',
+      );
       for (final subSlot in booking.subSlots) {
         bookingSubtotal += subSlot.price;
-        print('Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, price: ${subSlot.price}');
+        print(
+          'Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, price: ${subSlot.price}',
+        );
       }
     }
-    print('Booking subtotal: $bookingSubtotal, Single discount applied: $totalDiscount');
-    
+    print(
+      'Booking subtotal: $bookingSubtotal, Single discount applied: $totalDiscount',
+    );
+
     // If we still don't have the plan details but have an ID, fetch it
     if (existingMembershipPlan == null && membershipId != null) {
       membershipController.fetchMembershipPlanDetails().then((_) {
@@ -319,44 +345,52 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           (p) => p['id'] == membershipId,
           orElse: () => {},
         );
-        
+
         if (plan.isNotEmpty) {
           print('Found membership plan: $plan');
-          
+
           // Store peak/non-peak prices
           if (plan['peak_price'] != null) {
-            selectedMembershipPeakPrice = double.tryParse(plan['peak_price'].toString());
+            selectedMembershipPeakPrice = double.tryParse(
+              plan['peak_price'].toString(),
+            );
           }
           if (plan['non_peak_price'] != null) {
-            selectedMembershipNonPeakPrice = double.tryParse(plan['non_peak_price'].toString());
+            selectedMembershipNonPeakPrice = double.tryParse(
+              plan['non_peak_price'].toString(),
+            );
           }
-          
+
           // Check minimum duration requirement first
           int totalMinutes = 0;
           for (final booking in widget.bookings) {
             for (final subSlot in booking.subSlots) {
               final startParts = subSlot.startTime.split(':');
               final endParts = subSlot.endTime.split(':');
-              final startMinutes = int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
-              final endMinutes = int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
+              final startMinutes =
+                  int.parse(startParts[0]) * 60 + int.parse(startParts[1]);
+              final endMinutes =
+                  int.parse(endParts[0]) * 60 + int.parse(endParts[1]);
               totalMinutes += endMinutes - startMinutes;
             }
           }
-          
+
           if (totalMinutes < 60) {
-            print('Booking duration ($totalMinutes min) is less than minimum required (60 min) for membership discount');
+            print(
+              'Booking duration ($totalMinutes min) is less than minimum required (60 min) for membership discount',
+            );
             setState(() {
               membershipDiscountAmount = 0.0;
               isMembershipDiscountApplied = false;
               showCustomSnackbar(
-                'No Membership Discount', 
+                'No Membership Discount',
                 'Minimum 60 minutes booking required for membership discount. Current booking: $totalMinutes minutes',
-                Colors.orange
+                Colors.orange,
               );
             });
             return;
           }
-          
+
           // Check if there's any peak hour slot in the booking
           bool hasPeakSlot = false;
           for (final booking in widget.bookings) {
@@ -368,9 +402,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             }
             if (hasPeakSlot) break;
           }
-          
+
           print('Booking has peak slot: $hasPeakSlot');
-          
+
           // Determine which discount to apply (only ONE discount for entire booking)
           totalDiscount = 0.0;
           if (hasPeakSlot && selectedMembershipPeakPrice != null) {
@@ -382,17 +416,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             totalDiscount = selectedMembershipNonPeakPrice!;
             print('Applying non-peak discount (single): $totalDiscount');
           }
-          
+
           // Log booking details for debugging
           double bookingSubtotal = 0.0;
           for (final booking in widget.bookings) {
             for (final subSlot in booking.subSlots) {
               bookingSubtotal += subSlot.price;
-              print('Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, price: ${subSlot.price}');
+              print(
+                'Slot: ${subSlot.startTime}-${subSlot.endTime}, isPeak: ${subSlot.isPeak}, price: ${subSlot.price}',
+              );
             }
           }
-          print('Booking subtotal: $bookingSubtotal, Single discount applied: $totalDiscount');
-          
+          print(
+            'Booking subtotal: $bookingSubtotal, Single discount applied: $totalDiscount',
+          );
+
           setState(() {
             membershipDiscountAmount = totalDiscount;
             isMembershipDiscountApplied = totalDiscount > 0;
@@ -408,10 +446,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       print('Total membership discount: $totalDiscount');
     }
   }
-  
+
   void _applyNameBasedDiscount(String membershipName, double bookingTotal) {
     print('Applying name-based discount for $membershipName');
-    
+
     // Default discounts based on membership tier
     double discountPercentage = 0.0;
     if (membershipName.toLowerCase().contains('platinum')) {
@@ -423,16 +461,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } else if (membershipName.toLowerCase().contains('bronze')) {
       discountPercentage = 5.0;
     }
-    
+
     if (discountPercentage > 0 && bookingTotal > 0) {
       final discount = bookingTotal * (discountPercentage / 100);
-      print('Applying $discountPercentage% discount on $bookingTotal: $discount');
+      print(
+        'Applying $discountPercentage% discount on $bookingTotal: $discount',
+      );
       setState(() {
         membershipDiscountAmount = discount;
         isMembershipDiscountApplied = true;
       });
     } else {
-      print('No discount applied - discountPercentage: $discountPercentage, bookingTotal: $bookingTotal');
+      print(
+        'No discount applied - discountPercentage: $discountPercentage, bookingTotal: $bookingTotal',
+      );
     }
   }
 
@@ -440,19 +482,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     print('🔍 CheckoutScreen initState called');
-    
+
     // Initialize membership state from widget
     // Only apply membership if it has a valid name and price
-    if (widget.membershipName != null && 
-        widget.membershipName!.isNotEmpty && 
-        widget.membershipPrice != null && 
+    if (widget.membershipName != null &&
+        widget.membershipName!.isNotEmpty &&
+        widget.membershipPrice != null &&
         widget.membershipPrice! > 0) {
       isMembershipApplied = widget.isMembershipApplied ?? false;
       // Only set membership ID if it's not null and not empty
-      selectedMembershipId = (widget.membershipID != null && widget.membershipID!.isNotEmpty) ? widget.membershipID : null;
+      selectedMembershipId =
+          (widget.membershipID != null && widget.membershipID!.isNotEmpty)
+              ? widget.membershipID
+              : null;
       selectedMembershipName = widget.membershipName;
       selectedMembershipPrice = widget.membershipPrice;
-      
+
       // Don't set userHasExistingMembership here - let _fetchUserData determine the actual status
     } else {
       // No valid membership data, ensure it's cleared
@@ -461,18 +506,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       selectedMembershipName = null;
       selectedMembershipPrice = null;
     }
-    
+
     // Reset discount states on init
     membershipDiscountAmount = 0.0;
     isMembershipDiscountApplied = false;
     manualDiscountAmount = 0.0;
     isManualDiscountApplied = false;
-    
+
     _loadCartItems();
-    
+
     // Fetch user data to check for existing membership and pending membership
     _fetchUserData();
-    
+
     // Calculate membership discount immediately if we have membership from widget
     if (widget.membershipName != null && widget.membershipName!.isNotEmpty) {
       // Calculate immediately for widget-based membership
@@ -483,7 +528,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _calculateMembershipDiscount();
       });
     }
-    
+
     for (var booking in widget.bookings) {
       groupedBookings.putIfAbsent(booking.courtName, () => []).add(booking);
     }
@@ -495,15 +540,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       final cartJson = prefs.getString('shopping_cart');
       print('📦 Loading cart items from SharedPreferences...');
       print('📦 Cart JSON: $cartJson');
-      
+
       if (cartJson != null) {
         final List<dynamic> cartData = jsonDecode(cartJson);
         print('📦 Decoded ${cartData.length} cart items');
-        
+
         setState(() {
           cartItems = cartData.map((json) => CartItem.fromJson(json)).toList();
         });
-        
+
         print('📦 Successfully loaded ${cartItems.length} cart items');
         for (var item in cartItems) {
           print('  - ${item.product.name} x ${item.quantity}');
@@ -511,7 +556,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       } else {
         print('📦 No cart items found in SharedPreferences');
       }
-    } catch (err) { // Renamed 'e' to 'err'
+    } catch (err) {
+      // Renamed 'e' to 'err'
       print('❌ Error loading cart items: $err');
       print('Stack trace: ${StackTrace.current}');
     }
@@ -521,67 +567,70 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('shopping_cart');
   }
-  
+
   void _clearAllStateAfterSuccessfulPayment() {
     // Clear cart items
     cartController.clearCart();
     cartItems.clear();
-    
+
     // Clear booking selections
     newBookingController.clearSelectedSlots();
     newBookingController.cartItems.clear();
-    
+
     // Clear text controllers
     newBookingController.mobileNumberController.clear();
     newBookingController.nameController.clear();
-    
+
     // Reset checkout state
     setState(() {
       totalPaid = 0.0;
       customAmountString = '';
       selectedAmount = '';
     });
-    
+
     print('All state cleared after successful payment');
   }
-  
+
   Future<void> _fetchUserData() async {
     print('🔍 _fetchUserData called for mobile: ${widget.mobileno}');
     try {
-      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
       String? centerSlug = preferences.getString('centerSlug');
       print('🔍 centerSlug: $centerSlug');
-      
+
       // Clean mobile number - remove spaces
       final cleanMobile = widget.mobileno;
       print('🔍 mobile (with spaces): $cleanMobile');
-      
+
       // First get the customer to find their ID
-      final userResponse = await supabase
-          .schema('${centerSlug}_prod_schema')
-          .from('customers')
-          .select('*, membershipplan:membershipplan_id(*)')
-          .eq('mobile', cleanMobile)
-          .limit(1)
-          .maybeSingle();
-          
+      final userResponse =
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('customers')
+              .select('*, membershipplan:membershipplan_id(*)')
+              .eq('mobile', cleanMobile)
+              .limit(1)
+              .maybeSingle();
+
       print('🔍 userResponse found: ${userResponse != null}');
-      
+
       if (userResponse != null && userResponse['id'] != null) {
         final customerId = userResponse['id'];
         print('🔍 customerId: $customerId');
-        
+
         // Check for any membership_data record (both pending and active)
-        final membershipDataCheck = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('membership_data')
-            .select('id, status')
-            .eq('customer_id', customerId)
-            .limit(1)
-            .maybeSingle();
-            
+        final membershipDataCheck =
+            await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('membership_data')
+                .select('id, status')
+                .eq('customer_id', customerId)
+                .limit(1)
+                .maybeSingle();
+
         print('🔍 membership_data check result: $membershipDataCheck');
-            
+
         if (membershipDataCheck != null) {
           final bool isActive = membershipDataCheck['status'] == true;
           setState(() {
@@ -595,19 +644,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               userHasExistingMembership = false;
             }
           });
-          print('✅ Found membership_data record - status: ${isActive ? "ACTIVE" : "PENDING"}');
-          
+          print(
+            '✅ Found membership_data record - status: ${isActive ? "ACTIVE" : "PENDING"}',
+          );
+
           // For active memberships, we need to load the plan details for discount calculation
           if (isActive) {
             // Get the membership plan details
-            final membershipResponse = await supabase
-                .schema('${centerSlug}_prod_schema')
-                .from('membership_data')
-                .select('*, membershipplan(*)')
-                .eq('customer_id', customerId)
-                .eq('status', true)
-                .single();
-                
+            final membershipResponse =
+                await supabase
+                    .schema('${centerSlug}_prod_schema')
+                    .from('membership_data')
+                    .select('*, membershipplan(*)')
+                    .eq('customer_id', customerId)
+                    .eq('status', true)
+                    .single();
+
             if (membershipResponse != null) {
               setState(() {
                 existingMembershipPlan = membershipResponse['membershipplan'];
@@ -616,7 +668,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               });
             }
           }
-          
+
           // Always calculate membership discount to show warning for pending memberships
           _calculateMembershipDiscount();
           return;
@@ -624,7 +676,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           print('❌ No membership_data record found');
           // Only check old membership field if no membership_data exists
           final membershipPlanId = userResponse['membershipplan_id'];
-          if (membershipPlanId != null && membershipPlanId.toString().isNotEmpty) {
+          if (membershipPlanId != null &&
+              membershipPlanId.toString().isNotEmpty) {
             setState(() {
               userHasExistingMembership = true;
               existingMembershipId = membershipPlanId.toString();
@@ -645,37 +698,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void showCancelBookingConfirmationDialog() {
     _showCancelBookingDialog();
   }
-  
+
   Future<String> _getPrinterInfo() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // First, try to migrate printers from storeDetails if needed
       await _migratePrintersIfNeeded(prefs);
-      
+
       final pairedPrintersJson = prefs.getString('paired_printers');
-      
+
       if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
         return '';
       }
-      
+
       final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
       if (pairedPrinters.isEmpty) {
         return '';
       }
-      
+
       // Show all configured printers
-      final printerInfo = pairedPrinters.map((p) { // Renamed 'printer' to 'p'
-        return '${p['name']} (${p['ip']}:${p['port']})';
-      }).join(', ');
-      
+      final printerInfo = pairedPrinters
+          .map((p) {
+            // Renamed 'printer' to 'p'
+            return '${p['name']} (${p['ip']}:${p['port']})';
+          })
+          .join(', ');
+
       return printerInfo;
-    } catch (err) { // Renamed 'e' to 'err'
+    } catch (err) {
+      // Renamed 'e' to 'err'
       print('Error getting printer info: $err');
       return 'Error loading printer info';
     }
   }
-  
+
   Future<void> _migratePrintersIfNeeded(SharedPreferences prefs) async {
     try {
       // Check if paired_printers already exists
@@ -683,91 +740,124 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (pairedPrintersJson != null && pairedPrintersJson.isNotEmpty) {
         return; // Already migrated
       }
-      
+
       // Try to get printers from storeDetails
       final storeDetailsJson = prefs.getString('storeDetails');
       if (storeDetailsJson == null || storeDetailsJson.isEmpty) {
         return;
       }
-      
+
       final storeDetails = jsonDecode(storeDetailsJson);
       if (storeDetails['printer'] != null && storeDetails['printer'] is List) {
         final List<dynamic> printers = storeDetails['printer'];
         if (printers.isNotEmpty) {
           // Migrate printers to paired_printers
-          final List<Map<String, dynamic>> simplePrinters = printers.map((p) { // Renamed 'printer' to 'p'
-            return {
-              'name': p['name'] ?? 'Unknown Printer',
-              'ip': p['ip'] ?? '',
-              'port': p['port'] ?? '9100',
-            };
-          }).toList();
-          
+          final List<Map<String, dynamic>> simplePrinters =
+              printers.map((p) {
+                // Renamed 'printer' to 'p'
+                return {
+                  'name': p['name'] ?? 'Unknown Printer',
+                  'ip': p['ip'] ?? '',
+                  'port': p['port'] ?? '9100',
+                };
+              }).toList();
+
           await prefs.setString('paired_printers', jsonEncode(simplePrinters));
-          print('Successfully migrated ${simplePrinters.length} printers from storeDetails to paired_printers');
+          print(
+            'Successfully migrated ${simplePrinters.length} printers from storeDetails to paired_printers',
+          );
         }
       }
-    } catch (err) { // Renamed 'e' to 'err'
+    } catch (err) {
+      // Renamed 'e' to 'err'
       print('Error migrating printers: $err');
     }
   }
-  
+
   Future<void> _testPrint() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      
+
       // First, try to migrate printers from storeDetails if needed
       await _migratePrintersIfNeeded(prefs);
-      
+
       final pairedPrintersJson = prefs.getString('paired_printers');
-      
+
       if (pairedPrintersJson == null || pairedPrintersJson.isEmpty) {
         showCustomSnackbar('Error', 'No printers configured', Colors.red);
         return;
       }
-      
+
       final List<dynamic> pairedPrinters = jsonDecode(pairedPrintersJson);
       if (pairedPrinters.isEmpty) {
         showCustomSnackbar('Error', 'No printers configured', Colors.red);
         return;
       }
-      
+
       // Test print on first printer
-      final printerInfo = pairedPrinters[0]; // Renamed 'printer' to 'printerInfo'
+      final printerInfo =
+          pairedPrinters[0]; // Renamed 'printer' to 'printerInfo'
       final printerIp = printerInfo['ip'];
       final printerPort = int.parse(printerInfo['port']);
-      
+
       final profile = await CapabilityProfile.load();
       final networkPrinter = NetworkPrinter(PaperSize.mm80, profile);
-      final PosPrintResult res = await networkPrinter.connect(printerIp, port: printerPort);
-      
+      final PosPrintResult res = await networkPrinter.connect(
+        printerIp,
+        port: printerPort,
+      );
+
       if (res == PosPrintResult.success) {
         // Print test receipt
-        networkPrinter.text('=== TEST PRINT ===', styles: PosStyles(align: PosAlign.center, bold: true));
-        networkPrinter.text('Printer: ${printerInfo['name']}', styles: PosStyles(align: PosAlign.center));
-        networkPrinter.text('IP: $printerIp:$printerPort', styles: PosStyles(align: PosAlign.center));
-        networkPrinter.text('Time: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}', styles: PosStyles(align: PosAlign.center));
-        networkPrinter.text('Status: Connected Successfully', styles: PosStyles(align: PosAlign.center));
+        networkPrinter.text(
+          '=== TEST PRINT ===',
+          styles: PosStyles(align: PosAlign.center, bold: true),
+        );
+        networkPrinter.text(
+          'Printer: ${printerInfo['name']}',
+          styles: PosStyles(align: PosAlign.center),
+        );
+        networkPrinter.text(
+          'IP: $printerIp:$printerPort',
+          styles: PosStyles(align: PosAlign.center),
+        );
+        networkPrinter.text(
+          'Time: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())}',
+          styles: PosStyles(align: PosAlign.center),
+        );
+        networkPrinter.text(
+          'Status: Connected Successfully',
+          styles: PosStyles(align: PosAlign.center),
+        );
         networkPrinter.feed(2);
         networkPrinter.cut();
         networkPrinter.disconnect();
-        
-        showCustomSnackbar('Success', 'Test print sent to ${printerInfo['name']}', Colors.green);
+
+        showCustomSnackbar(
+          'Success',
+          'Test print sent to ${printerInfo['name']}',
+          Colors.green,
+        );
       } else {
-        showCustomSnackbar('Error', 'Failed to connect to printer: ${res.msg}', Colors.red);
+        showCustomSnackbar(
+          'Error',
+          'Failed to connect to printer: ${res.msg}',
+          Colors.red,
+        );
       }
-    } catch (err) { // Renamed 'e' to 'err'
+    } catch (err) {
+      // Renamed 'e' to 'err'
       print('Test print error: $err');
       showCustomSnackbar('Error', 'Test print failed: $err', Colors.red);
     }
   }
-  
+
   void showCancelBookingConfirmationDialog_old() {
     Get.dialog(
       AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        title: const Text("Confirm", style: TextStyle(fontSize: 25),),
+        title: const Text("Confirm", style: TextStyle(fontSize: 25)),
         content: const Text(
           "Are you sure you want to cancel this booking and go to the Dashboard?",
           style: TextStyle(fontSize: 22),
@@ -781,7 +871,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 onPressed: () {
                   Get.back(); // Close dialog
                 },
-                child: const Text("No", style: TextStyle(fontSize: 22),),
+                child: const Text("No", style: TextStyle(fontSize: 22)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[200],
                   minimumSize: const Size(200, 60),
@@ -795,40 +885,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // Clear all booking and cart state
                   newBookingController.clearSelectedSlots();
                   cartController.clearCart();
-                  
+
                   // Reset any other state that might be stuck
                   newBookingController.mobileNumberController.clear();
                   newBookingController.nameController.clear();
                   newBookingController.selectedService.value = '';
                   newBookingController.selectedServiceId.value = '';
-                  newBookingController.isLoading.value = false;  // Reset loading state
-                  newBookingController.checkout.value = false;  // Reset checkout state
-                  newBookingController.confirmBtn.value = false;  // Reset confirm button state
-                  newBookingController.courtChangeBtn.value = false;  // Reset court change button
-                  newBookingController.cancelBookingbtn.value = false;  // Reset cancel button
-                  newBookingController.selectedCourtSlots.clear();  // Clear slots again
-                  newBookingController.selectedCourt.value = null;  // Clear court
+                  newBookingController.isLoading.value =
+                      false; // Reset loading state
+                  newBookingController.checkout.value =
+                      false; // Reset checkout state
+                  newBookingController.confirmBtn.value =
+                      false; // Reset confirm button state
+                  newBookingController.courtChangeBtn.value =
+                      false; // Reset court change button
+                  newBookingController.cancelBookingbtn.value =
+                      false; // Reset cancel button
+                  newBookingController.selectedCourtSlots
+                      .clear(); // Clear slots again
+                  newBookingController.selectedCourt.value =
+                      null; // Clear court
                   newBookingController.update();
-                  
+
                   // Reset checkout controller state
                   final checkoutController = Get.find<CheckoutController>();
                   checkoutController.checkoutPayBtn.value = false;
                   checkoutController.isLoading.value = false;
                   checkoutController.update();
-                  
+
                   // Reset customer controller state if exists
                   try {
                     final customerController = Get.find<CustomerController>();
                     customerController.isLoading.value = false;
                     customerController.update();
-                  } catch (err) { // Renamed 'e' to 'err'
+                  } catch (err) {
+                    // Renamed 'e' to 'err'
                     // CustomerController might not be initialized
                   }
-                  
+
                   final defaultController = Get.find<DefaultController>();
                   defaultController.tabIndex.value = 0;
                   defaultController.dashboardTabController?.index = 0;
-                  
+
                   // Force clean navigation with a small delay to ensure state is cleared
                   Future.delayed(Duration(milliseconds: 100), () {
                     Get.offAllNamed('/');
@@ -841,10 +939,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text("Yes", style: TextStyle(fontSize: 22, color: Colors.white),),
+                child: const Text(
+                  "Yes",
+                  style: TextStyle(fontSize: 22, color: Colors.white),
+                ),
               ),
             ],
-          )
+          ),
         ],
       ),
       barrierDismissible: false,
@@ -854,7 +955,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Color? borderColor;
   Color? backgroundColor;
   Color? textColor;
-  
+
   String _getDiscountDisplayText() {
     if (isMembershipDiscountApplied && isManualDiscountApplied) {
       return 'Membership + Manual Discount';
@@ -865,11 +966,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     return '';
   }
-  
+
   void _updateMembershipColors() {
     // Use selected membership name if available, otherwise use existing membership, then widget membership name
-    final membershipName = selectedMembershipName ?? existingMembershipName ?? widget.membershipName ?? '';
-    
+    final membershipName =
+        selectedMembershipName ??
+        existingMembershipName ??
+        widget.membershipName ??
+        '';
+
     if (membershipName.toString().toLowerCase().contains('gold')) {
       borderColor = Colors.amber.shade500;
       backgroundColor = Colors.amber.shade50;
@@ -892,18 +997,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       textColor = Colors.blue.shade800;
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     _updateMembershipColors();
-    
+
     // Debug logging for membership button visibility
     print('🔍 Add Membership button check:');
     print('  - isMembershipApplied: $isMembershipApplied');
     print('  - userHasExistingMembership: $userHasExistingMembership');
     print('  - userHasPendingMembership: $userHasPendingMembership');
-    print('  - Should show button: ${!isMembershipApplied && !userHasExistingMembership && userHasPendingMembership == false}');
-    
+    print(
+      '  - Should show button: ${!isMembershipApplied && !userHasExistingMembership && userHasPendingMembership == false}',
+    );
+
     return GetBuilder(
       init: CheckoutController(),
       builder: (controller) {
@@ -916,189 +1023,197 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           },
           child: Scaffold(
             appBar: AppBar(
-            elevation: 0,
-            toolbarHeight: 100,
-            titleSpacing: 0,
-            automaticallyImplyLeading: false,
-            //leadingWidth: MediaQuery.of(context).size.width / 2.1,
-            title: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              margin: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  //SizedBox(width: 22 * ffem),
-                  Container(
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: Colors.white, // Navy blue
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade500),
-                    ),
-                    child: IconButton(
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      icon: Container(
-                        child: Row(
-                          spacing: 10,
-                          children: [
-                            Icon(Icons.arrow_back, color: Colors.black, size: 35,),
-                            Text('Go back', style: TextStyle(fontSize: 23),)
-                          ],
-                        ),
-                      ),
-                      onPressed: () {
-                        // Clear cart when going back
-                        //cartController.clearCart();
-                        Get.back(result: true);
-                      },
-                    ),
-                  ),
-                  SizedBox(width: 18 * ffem),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Payment',
-                        style: GoogleFonts.inter(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
-                        ),
-                      ),
-                      Text(
-                        'Create new booking based on selected courts',
-                        style: GoogleFonts.inter(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.grey.shade500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  // Items count
-                  GestureDetector(
-                    onTap: () {
-                      showCancelBookingConfirmationDialog();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade500),
-                        borderRadius: BorderRadius.circular(6),
-                        color: Colors.white,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(LucideIcons.layoutDashboard, size: 40),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Dashboard',
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w500,
-                              color: Colors.grey.shade900,
-                              fontSize: 25,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  //SizedBox(width: 30),
-                ],
-              ),
-            ),
-          ),
-          //backgroundColor: Palette.white,
-          body: Stack(
-            children: [
-              // Main content
-              SingleChildScrollView(
-                child: Column(
+              elevation: 0,
+              toolbarHeight: 100,
+              titleSpacing: 0,
+              automaticallyImplyLeading: false,
+              //leadingWidth: MediaQuery.of(context).size.width / 2.1,
+              title: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                margin: EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    //Divider(color: Colors.grey.shade300, thickness: 1),
+                    //SizedBox(width: 22 * ffem),
                     Container(
+                      height: 60,
                       decoration: BoxDecoration(
-                        //color: Colors.white,
-                        //border: Border.all(color: Colors.grey.shade300),
-                        //borderRadius: BorderRadius.circular(10)
+                        color: Colors.white, // Navy blue
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade500),
                       ),
-                      //margin: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
-                      //padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
-                      child: SingleChildScrollView(
-                        child: Column(
+                      child: IconButton(
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: Container(
+                          child: Row(
+                            spacing: 10,
+                            children: [
+                              Icon(
+                                Icons.arrow_back,
+                                color: Colors.black,
+                                size: 35,
+                              ),
+                              Text('Go back', style: TextStyle(fontSize: 23)),
+                            ],
+                          ),
+                        ),
+                        onPressed: () {
+                          // Clear cart when going back
+                          //cartController.clearCart();
+                          Get.back(result: true);
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 18 * ffem),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Payment',
+                          style: GoogleFonts.inter(
+                            fontSize: 25,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          'Create new booking based on selected courts',
+                          style: GoogleFonts.inter(
+                            fontSize: 23,
+                            fontWeight: FontWeight.w400,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    // Items count
+                    GestureDetector(
+                      onTap: () {
+                        showCancelBookingConfirmationDialog();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade500),
+                          borderRadius: BorderRadius.circular(6),
+                          color: Colors.white,
+                        ),
+                        child: Row(
                           children: [
-                            Row(
-                              spacing: 20,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                buildCartItems(controller),
-                                buildCheckout(newBookingController, controller),
-                              ],
+                            Icon(LucideIcons.layoutDashboard, size: 40),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Dashboard',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey.shade900,
+                                fontSize: 25,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
+                    //SizedBox(width: 30),
                   ],
                 ),
               ),
-              
-              // Overlay when panel is open (must come before panel in stack)
-              if (_isMembershipPanelOpen)
-                Positioned.fill(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _isMembershipPanelOpen = false;
-                      });
-                    },
-                    child: Container(
-                      color: Colors.black.withOpacity(0.3),
-                    ),
-                  ),
-                ),
-              
-              // Slide-in membership panel (must come after overlay in stack)
-              AnimatedPositioned(
-                duration: Duration(milliseconds: 300),
-                right: _isMembershipPanelOpen ? 0 : -500,
-                top: 0,
-                bottom: 0,
-                width: 500,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: Offset(-5, 0),
+            ),
+            //backgroundColor: Palette.white,
+            body: Stack(
+              children: [
+                // Main content
+                SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      //Divider(color: Colors.grey.shade300, thickness: 1),
+                      Container(
+                        decoration: BoxDecoration(
+                          //color: Colors.white,
+                          //border: Border.all(color: Colors.grey.shade300),
+                          //borderRadius: BorderRadius.circular(10)
+                        ),
+                        //margin: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                        //padding: EdgeInsets.symmetric(vertical: 20, horizontal: 30),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              Row(
+                                spacing: 20,
+                                mainAxisAlignment: MainAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  buildCartItems(controller),
+                                  buildCheckout(
+                                    newBookingController,
+                                    controller,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: _buildMembershipPanel(),
                 ),
-              ),
-            ],
-          ),
-        ),  // End of Scaffold
-        );  // End of WillPopScope
-      },  // End of GetBuilder builder
-    );  // End of GetBuilder
-  }  // End of build method
+
+                // Overlay when panel is open (must come before panel in stack)
+                if (_isMembershipPanelOpen)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isMembershipPanelOpen = false;
+                        });
+                      },
+                      child: Container(color: Colors.black.withOpacity(0.3)),
+                    ),
+                  ),
+
+                // Slide-in membership panel (must come after overlay in stack)
+                AnimatedPositioned(
+                  duration: Duration(milliseconds: 300),
+                  right: _isMembershipPanelOpen ? 0 : -500,
+                  top: 0,
+                  bottom: 0,
+                  width: 500,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: Offset(-5, 0),
+                        ),
+                      ],
+                    ),
+                    child: _buildMembershipPanel(),
+                  ),
+                ),
+              ],
+            ),
+          ), // End of Scaffold
+        ); // End of WillPopScope
+      }, // End of GetBuilder builder
+    ); // End of GetBuilder
+  } // End of build method
 
   // Add this function to CheckoutController
 
@@ -1165,7 +1280,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
-  Widget buildCartItems(CheckoutController checkoutController,) {
+  Widget buildCartItems(CheckoutController checkoutController) {
     return Expanded(
       flex: 2,
       child: Container(
@@ -1211,15 +1326,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ),
                                 ),
                                 // Show crown icon if user has membership
-                                if (userHasExistingMembership || isMembershipApplied) ...[
+                                if (userHasExistingMembership ||
+                                    isMembershipApplied) ...[
                                   const SizedBox(width: 8),
                                   Container(
                                     padding: EdgeInsets.all(4),
                                     decoration: BoxDecoration(
-                                      color: backgroundColor ?? Colors.blue.shade50,
+                                      color:
+                                          backgroundColor ??
+                                          Colors.blue.shade50,
                                       borderRadius: BorderRadius.circular(4),
                                       border: Border.all(
-                                        color: borderColor ?? Colors.blue.shade500,
+                                        color:
+                                            borderColor ?? Colors.blue.shade500,
                                         width: 1,
                                       ),
                                     ),
@@ -1357,7 +1476,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             );
                           }).toList(),
                     ),
-                    if (isMembershipApplied == true && selectedMembershipName != null) ...[
+                    if (isMembershipApplied == true &&
+                        selectedMembershipName != null) ...[
                       const SizedBox(height: 8),
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
@@ -1419,7 +1539,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 textAlign: TextAlign.right,
                               ),
                             ),
-                            
+
                             // Delete membership button
                             IconButton(
                               icon: Icon(
@@ -1431,7 +1551,77 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 // Show confirmation dialog
                                 showDialog(
                                   context: context,
-                                  builder: (context) => AlertDialog(
+                                  builder:
+                                      (context) => AlertDialog(
+                                        title: Text(
+                                          'Remove Membership',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: Text(
+                                          'Are you sure you want to remove the ${selectedMembershipName} membership?',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed:
+                                                () => Navigator.pop(context),
+                                            child: Text(
+                                              'Cancel',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 20,
+                                              ),
+                                            ),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              // Remove membership using comprehensive clearing method
+                                              _clearAllMembershipState();
+
+                                              Navigator.pop(context);
+
+                                              // Show success message
+                                              showCustomSnackbar(
+                                                'Membership Removed',
+                                                'Membership has been removed from the booking',
+                                                Colors.green,
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.red.shade600,
+                                            ),
+                                            child: Text(
+                                              'Remove',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 20,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Add a more prominent Remove Membership button below
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            // Show confirmation dialog
+                            showDialog(
+                              context: context,
+                              builder:
+                                  (context) => AlertDialog(
                                     title: Text(
                                       'Remove Membership',
                                       style: GoogleFonts.inter(
@@ -1448,16 +1638,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         onPressed: () => Navigator.pop(context),
                                         child: Text(
                                           'Cancel',
-                                          style: GoogleFonts.inter(fontSize: 20),
+                                          style: GoogleFonts.inter(
+                                            fontSize: 20,
+                                          ),
                                         ),
                                       ),
                                       ElevatedButton(
                                         onPressed: () {
                                           // Remove membership using comprehensive clearing method
                                           _clearAllMembershipState();
-                                          
+
                                           Navigator.pop(context);
-                                          
+
                                           // Show success message
                                           showCustomSnackbar(
                                             'Membership Removed',
@@ -1478,68 +1670,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       ),
                                     ],
                                   ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Add a more prominent Remove Membership button below
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            // Show confirmation dialog
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(
-                                  'Remove Membership',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                content: Text(
-                                  'Are you sure you want to remove the ${selectedMembershipName} membership?',
-                                  style: GoogleFonts.inter(fontSize: 20),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text(
-                                      'Cancel',
-                                      style: GoogleFonts.inter(fontSize: 20),
-                                    ),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      // Remove membership using comprehensive clearing method
-                                      _clearAllMembershipState();
-                                      
-                                      Navigator.pop(context);
-                                      
-                                      // Show success message
-                                      showCustomSnackbar(
-                                        'Membership Removed',
-                                        'Membership has been removed from the booking',
-                                        Colors.green,
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red.shade600,
-                                    ),
-                                    child: Text(
-                                      'Remove',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 20,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             );
                           },
                           icon: Icon(Icons.remove_circle, size: 24),
@@ -1553,7 +1683,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red.shade600,
                             foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 20,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -1561,9 +1694,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     ],
-                    
+
                     // Add Membership button when no membership is applied AND user doesn't have existing membership AND no pending membership
-                    if (!isMembershipApplied && !userHasExistingMembership && userHasPendingMembership == false) ...[
+                    if (!isMembershipApplied &&
+                        !userHasExistingMembership &&
+                        userHasPendingMembership == false) ...[
                       const SizedBox(height: 8),
                       Divider(thickness: 1, color: Colors.grey.shade300),
                       const SizedBox(height: 8),
@@ -1577,7 +1712,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             });
                             membershipController.fetchMembershipPlanDetails();
                           },
-                          icon: Icon(Icons.card_membership, size: 30, color: Colors.white,),
+                          icon: Icon(
+                            Icons.card_membership,
+                            size: 30,
+                            color: Colors.white,
+                          ),
                           label: Text(
                             'Add Membership',
                             style: GoogleFonts.inter(
@@ -1588,7 +1727,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade600,
                             foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                            padding: EdgeInsets.symmetric(
+                              vertical: 12,
+                              horizontal: 20,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -1596,7 +1738,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     ],
-                    
+
                     // Show pending membership message
                     if (userHasPendingMembership) ...[
                       const SizedBox(height: 8),
@@ -1612,7 +1754,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.info_outline, color: Colors.orange.shade700, size: 28),
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.orange.shade700,
+                              size: 28,
+                            ),
                             const SizedBox(height: 8),
                             Text(
                               'Membership Pending Payment',
@@ -1644,7 +1790,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                     ],
-                    
+
                     SizedBox(height: 8),
                     Container(
                       width: MediaQuery.of(context).size.width / 2.5,
@@ -1704,7 +1850,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   textAlign: TextAlign.right,
                                 ),
                               ),
-                              
+
                               // Space for delete button
                               SizedBox(width: 48),
                             ],
@@ -1775,7 +1921,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         textAlign: TextAlign.right,
                                       ),
                                     ),
-                                    
+
                                     // Delete button
                                     IconButton(
                                       icon: Icon(
@@ -1787,85 +1933,128 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                         // Show confirmation dialog
                                         showDialog(
                                           context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: Text(
-                                              'Remove Item',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            content: Text(
-                                              'Are you sure you want to remove ${item.product.name} from cart?',
-                                              style: GoogleFonts.inter(fontSize: 20),
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: Text(
-                                                  'Cancel',
-                                                  style: GoogleFonts.inter(fontSize: 20),
-                                                ),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () async {
-                                                  // Update cart in controller first
-                                                  // Find the matching item in the controller's cart
-                                                  final controllerItem = cartController.cartItems.firstWhere(
-                                                    (controllerCartItem) => controllerCartItem.product.id == item.product.id,
-                                                  );
-                                                  print(controllerItem);
-                                                  cartController.removeItem(controllerItem);
-                                                  
-                                                  // Remove item from cart and recalculate totals
-                                                  setState(() {
-                                                    cartItems.removeWhere((cartItem) => 
-                                                      cartItem.product.id == item.product.id
-                                                    );
-                                                    
-                                                    // Recalculate manual discount if it's not booking-only
-                                                    if (!isManualBookingOnlyDiscount && manualDiscountValue > 0) {
-                                                      if (manualDiscountType == 'percentage') {
-                                                        // Recalculate percentage discount based on new cart total
-                                                        manualDiscountAmount = cartItemsTotal * (manualDiscountValue / 100);
-                                                      }
-                                                      // For flat discount, the amount stays the same
-                                                    }
-                                                    
-                                                    // Update payment controllers
-                                                    totalPaid = (actualTotal - discountAmount);
-                                                    paidAmountController.text = totalPaid.toStringAsFixed(2);
-                                                    balanceAmountController.text = '0.00';
-                                                  });
-                                                  
-                                                  // Close dialog
-                                                  Navigator.pop(context);
-                                                  
-                                                  // Show success message
-                                                  showCustomSnackbar(
-                                                    'Item Removed',
-                                                    '${item.product.name} has been removed from cart',
-                                                    Colors.green,
-                                                  );
-                                                  
-                                                  // If cart is now empty and no bookings, go back
-                                                  if (cartItems.isEmpty && widget.bookings.isEmpty) {
-                                                    Navigator.pop(context);
-                                                  }
-                                                },
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.red.shade600,
-                                                ),
-                                                child: Text(
-                                                  'Remove',
+                                          builder:
+                                              (context) => AlertDialog(
+                                                title: Text(
+                                                  'Remove Item',
                                                   style: GoogleFonts.inter(
-                                                    fontSize: 20,
-                                                    color: Colors.white,
+                                                    fontSize: 24,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
+                                                content: Text(
+                                                  'Are you sure you want to remove ${item.product.name} from cart?',
+                                                  style: GoogleFonts.inter(
+                                                    fontSize: 20,
+                                                  ),
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed:
+                                                        () => Navigator.pop(
+                                                          context,
+                                                        ),
+                                                    child: Text(
+                                                      'Cancel',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 20,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  ElevatedButton(
+                                                    onPressed: () async {
+                                                      // Update cart in controller first
+                                                      // Find the matching item in the controller's cart
+                                                      final controllerItem =
+                                                          cartController
+                                                              .cartItems
+                                                              .firstWhere(
+                                                                (
+                                                                  controllerCartItem,
+                                                                ) =>
+                                                                    controllerCartItem
+                                                                        .product
+                                                                        .id ==
+                                                                    item
+                                                                        .product
+                                                                        .id,
+                                                              );
+                                                      print(controllerItem);
+                                                      cartController.removeItem(
+                                                        controllerItem,
+                                                      );
+
+                                                      // Remove item from cart and recalculate totals
+                                                      setState(() {
+                                                        cartItems.removeWhere(
+                                                          (cartItem) =>
+                                                              cartItem
+                                                                  .product
+                                                                  .id ==
+                                                              item.product.id,
+                                                        );
+
+                                                        // Recalculate manual discount if it's not booking-only
+                                                        if (!isManualBookingOnlyDiscount &&
+                                                            manualDiscountValue >
+                                                                0) {
+                                                          if (manualDiscountType ==
+                                                              'percentage') {
+                                                            // Recalculate percentage discount based on new cart total
+                                                            manualDiscountAmount =
+                                                                cartItemsTotal *
+                                                                (manualDiscountValue /
+                                                                    100);
+                                                          }
+                                                          // For flat discount, the amount stays the same
+                                                        }
+
+                                                        // Update payment controllers
+                                                        totalPaid =
+                                                            (actualTotal -
+                                                                discountAmount);
+                                                        paidAmountController
+                                                            .text = totalPaid
+                                                            .toStringAsFixed(2);
+                                                        balanceAmountController
+                                                            .text = '0.00';
+                                                      });
+
+                                                      // Close dialog
+                                                      Navigator.pop(context);
+
+                                                      // Show success message
+                                                      showCustomSnackbar(
+                                                        'Item Removed',
+                                                        '${item.product.name} has been removed from cart',
+                                                        Colors.green,
+                                                      );
+
+                                                      // If cart is now empty and no bookings, go back
+                                                      if (cartItems.isEmpty &&
+                                                          widget
+                                                              .bookings
+                                                              .isEmpty) {
+                                                        Navigator.pop(context);
+                                                      }
+                                                    },
+                                                    style:
+                                                        ElevatedButton.styleFrom(
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .red
+                                                                  .shade600,
+                                                        ),
+                                                    child: Text(
+                                                      'Remove',
+                                                      style: GoogleFonts.inter(
+                                                        fontSize: 20,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
-                                          ),
                                         );
                                       },
                                     ),
@@ -1957,7 +2146,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ],
                   ),
-                if (isMembershipDiscountApplied && isManualDiscountApplied) 
+                if (isMembershipDiscountApplied && isManualDiscountApplied)
                   const SizedBox(height: 4),
                 if (isManualDiscountApplied)
                   Row(
@@ -2130,10 +2319,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             onTap: () async {
                               if (method['label'] == 'EFTPOS') {
                                 // For EFTPOS, calculate the amount to be paid (includes membership)
-                                double amountToPay = actualTotal - manualDiscountAmount;
+                                double amountToPay =
+                                    actualTotal - manualDiscountAmount;
                                 totalPaid = amountToPay;
                                 customAmountString = amountToPay.toString();
-                                paidAmountController.text = amountToPay.toStringAsFixed(2);
+                                paidAmountController.text = amountToPay
+                                    .toStringAsFixed(2);
                                 setState(() {
                                   selectedMethod = method['label'];
                                 });
@@ -2149,7 +2340,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 customAmountString =
                                     (actualTotal - manualDiscountAmount)
                                         .toString();
-                                paidAmountController.text = (actualTotal - manualDiscountAmount).toStringAsFixed(2);
+                                paidAmountController.text = (actualTotal -
+                                        manualDiscountAmount)
+                                    .toStringAsFixed(2);
                                 setState(() {
                                   selectedMethod = method['label'];
                                 });
@@ -2295,7 +2488,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             Expanded(
                               child: Container(
                                 height:
-                                MediaQuery.of(context).size.height * .05,
+                                    MediaQuery.of(context).size.height * .05,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF0F4FF),
                                   borderRadius: BorderRadius.circular(10),
@@ -2306,7 +2499,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   style: GoogleFonts.inter(
                                     color: Colors.indigo.shade500,
                                     fontWeight: FontWeight.w600,
-                                    fontSize: _getDiscountDisplayText().length > 20 ? 20 : 25,
+                                    fontSize:
+                                        _getDiscountDisplayText().length > 20
+                                            ? 20
+                                            : 25,
                                   ),
                                 ),
                               ),
@@ -2358,7 +2554,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () => _showDiscountDialog(checkoutController),
+                                onPressed:
+                                    () =>
+                                        _showDiscountDialog(checkoutController),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFFF0F4FF),
                                   shape: RoundedRectangleBorder(
@@ -2425,10 +2623,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     FutureBuilder<String>(
                                       future: _getPrinterInfo(),
                                       builder: (context, snapshot) {
-                                        if (snapshot.connectionState == ConnectionState.waiting) {
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
                                           return CircularProgressIndicator();
                                         } else if (snapshot.hasError) {
-                                          return Text('Error: ${snapshot.error}');
+                                          return Text(
+                                            'Error: ${snapshot.error}',
+                                          );
                                         } else {
                                           return Text(
                                             snapshot.data!.isNotEmpty
@@ -2436,7 +2637,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                                 : 'No printer configured',
                                             style: GoogleFonts.inter(
                                               fontSize: 18,
-                                              color: snapshot.data!.isNotEmpty ? Colors.green : Colors.red,
+                                              color:
+                                                  snapshot.data!.isNotEmpty
+                                                      ? Colors.green
+                                                      : Colors.red,
                                             ),
                                           );
                                         }
@@ -2477,7 +2681,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         const SizedBox(width: 12),
                         // Pay Later button - only show for new bookings or if customer wants to defer payment
-                        if (widget.type != 'ExistingBooking' || widget.forpayment != 'individual-court-payment') ...[
+                        if (widget.type != 'ExistingBooking' ||
+                            widget.forpayment !=
+                                'individual-court-payment') ...[
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
@@ -2485,7 +2691,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange.shade500,
-                                padding: const EdgeInsets.symmetric(vertical: 18),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -2505,78 +2713,114 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () async {
+                              final totalAmount =
+                                  actualTotal -
+                                  membershipDiscountAmount -
+                                  manualDiscountAmount;
 
-                              final totalAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
-                              
                               print('🔍 Payment calculation:');
                               print('  Actual total: $actualTotal');
-                              print('  Membership discount: $membershipDiscountAmount');
+                              print(
+                                '  Membership discount: $membershipDiscountAmount',
+                              );
                               print('  Manual discount: $manualDiscountAmount');
                               print('  Total amount to pay: $totalAmount');
                               print('  Total paid: $totalPaid');
                               print('  Selected method: $selectedMethod');
-                              
+
                               // Admin approval is now handled when applying the discount
                               // No need to check again here
-                              
+
                               // Check for 100% discount scenario
                               if (totalAmount <= 0) {
                                 // 100% discount - process as fully discounted payment
                                 setState(() {
-                                  checkoutController.checkoutPayBtn.value = true;
+                                  checkoutController.checkoutPayBtn.value =
+                                      true;
                                 });
-                                
+
                                 // Handle as a fully discounted payment
-                                selectedMethod = 'On Account/Void'; // Set payment method for 100% discount
+                                selectedMethod =
+                                    'On Account/Void'; // Set payment method for 100% discount
                                 totalPaid = 0.0; // No payment required
                                 _handlePaymentSuccess();
                                 return;
                               }
-                              
+
                               // Validate payment amount for non-100% discount scenarios
                               if (totalPaid < totalAmount) {
-                                showCustomSnackbar('Insufficient Payment', 'Please pay the full amount', Colors.red,);
+                                showCustomSnackbar(
+                                  'Insufficient Payment',
+                                  'Please pay the full amount',
+                                  Colors.red,
+                                );
                                 return;
                               }
-                              
+
                               setState(() {
                                 checkoutController.checkoutPayBtn.value = true;
                               });
-                              
+
                               // Process the payment based on selected method
                               if (selectedMethod == 'EFTPOS') {
                                 // For EFTPOS, process through Tyro
                                 try {
-                                  final prefs = await SharedPreferences.getInstance();
-                                  final storeDetailsJson = prefs.getString('storeDetails');
-                                  
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  final storeDetailsJson = prefs.getString(
+                                    'storeDetails',
+                                  );
+
                                   if (storeDetailsJson != null) {
-                                    final storeDetails = jsonDecode(storeDetailsJson);
-                                    final tyroConfig = storeDetails['tyro'] ?? {};
-                                    
+                                    final storeDetails = jsonDecode(
+                                      storeDetailsJson,
+                                    );
+                                    final tyroConfig =
+                                        storeDetails['tyro'] ?? {};
+
                                     if (tyroConfig['apiKey'] != null) {
                                       // Process EFTPOS payment
-                                      final paymentAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
-                                      totalPaid = paymentAmount; // Ensure totalPaid is set correctly
-                                      
-                                      final paymentResult = await paymentController.processPayment(
-                                        context: context,
-                                        amount: paymentAmount,
-                                        reference: widget.exbookingId ?? 'NEW-${DateTime.now().millisecondsSinceEpoch}',
-                                        apiKey: tyroConfig['apiKey'],
-                                        merchantId: tyroConfig['merchantId'] ?? '',
-                                        terminalId: tyroConfig['terminalId'] ?? '',
-                                        integrationKey: tyroConfig['integrationKey'] ?? '',
-                                        posProductVendor: tyroConfig['posProductVendor'] ?? 'Solution22',
-                                        posProductName: tyroConfig['posProductName'] ?? 'DropIn Booking',
-                                        posProductVersion: tyroConfig['posProductVersion'] ?? '1.0',
-                                      );
-                                      
-                                      if (paymentResult['status'] == 'completed') {
+                                      final paymentAmount =
+                                          actualTotal -
+                                          membershipDiscountAmount -
+                                          manualDiscountAmount;
+                                      totalPaid =
+                                          paymentAmount; // Ensure totalPaid is set correctly
+
+                                      final paymentResult =
+                                          await paymentController.processPayment(
+                                            context: context,
+                                            amount: paymentAmount,
+                                            reference:
+                                                widget.exbookingId ??
+                                                'NEW-${DateTime.now().millisecondsSinceEpoch}',
+                                            apiKey: tyroConfig['apiKey'],
+                                            merchantId:
+                                                tyroConfig['merchantId'] ?? '',
+                                            terminalId:
+                                                tyroConfig['terminalId'] ?? '',
+                                            integrationKey:
+                                                tyroConfig['integrationKey'] ??
+                                                '',
+                                            posProductVendor:
+                                                tyroConfig['posProductVendor'] ??
+                                                'Solution22',
+                                            posProductName:
+                                                tyroConfig['posProductName'] ??
+                                                'DropIn Booking',
+                                            posProductVersion:
+                                                tyroConfig['posProductVersion'] ??
+                                                '1.0',
+                                          );
+
+                                      if (paymentResult['status'] ==
+                                          'completed') {
                                         _handlePaymentSuccess();
                                       } else {
                                         setState(() {
-                                          checkoutController.checkoutPayBtn.value = false;
+                                          checkoutController
+                                              .checkoutPayBtn
+                                              .value = false;
                                         });
                                         showCustomSnackbar(
                                           'Payment Failed',
@@ -2594,7 +2838,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   }
                                 } catch (e) {
                                   setState(() {
-                                    checkoutController.checkoutPayBtn.value = false;
+                                    checkoutController.checkoutPayBtn.value =
+                                        false;
                                   });
                                   print('EFTPOS payment error: $e');
                                   showCustomSnackbar(
@@ -2607,7 +2852,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 // For Cash and On Account/Void
                                 if (selectedMethod == 'CASH') {
                                   // Ensure totalPaid is set correctly for cash payments
-                                  totalPaid = actualTotal - membershipDiscountAmount - manualDiscountAmount;
+                                  totalPaid =
+                                      actualTotal -
+                                      membershipDiscountAmount -
+                                      manualDiscountAmount;
                                 }
                                 _handlePaymentSuccess();
                               }
@@ -2619,23 +2867,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: Obx(() => checkoutController.checkoutPayBtn.value
-                              ? const SizedBox(
-                                  height: 30,
-                                  width: 30,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                  ),
-                                )
-                              : Text(
-                                  'Pay Now',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 25,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
-                                ),
+                            child: Obx(
+                              () =>
+                                  checkoutController.checkoutPayBtn.value
+                                      ? const SizedBox(
+                                        height: 30,
+                                        width: 30,
+                                        child: CircularProgressIndicator(
+                                          color: Colors.white,
+                                          strokeWidth: 3,
+                                        ),
+                                      )
+                                      : Text(
+                                        'Pay Now',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 25,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
                             ),
                           ),
                         ),
@@ -2688,14 +2938,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
-          
+
           // Divider
-          Container(
-            height: 40,
-            width: 1,
-            color: Colors.grey.shade300,
-          ),
-          
+          Container(height: 40, width: 1, color: Colors.grey.shade300),
+
           // Total Paid Column
           Expanded(
             child: Column(
@@ -2727,14 +2973,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
-          
+
           // Divider
-          Container(
-            height: 40,
-            width: 1,
-            color: Colors.grey.shade300,
-          ),
-          
+          Container(height: 40, width: 1, color: Colors.grey.shade300),
+
           // Balance Column
           Expanded(
             child: Column(
@@ -2758,7 +3000,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     style: GoogleFonts.inter(
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF4A90E2), // Nice blue color similar to screenshot
+                      color: const Color(
+                        0xFF4A90E2,
+                      ), // Nice blue color similar to screenshot
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -2772,8 +3016,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildAmountSelector() {
-    final double billAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
-    
+    final double billAmount =
+        actualTotal - membershipDiscountAmount - manualDiscountAmount;
+
     return Column(
       children: [
         // Quick amount buttons
@@ -2820,14 +3065,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 5),
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         decoration: BoxDecoration(
-                          color: selectedAmount == 'custom' 
-                            ? const Color(0xFFF0F4FF) 
-                            : Colors.white,
+                          color:
+                              selectedAmount == 'custom'
+                                  ? const Color(0xFFF0F4FF)
+                                  : Colors.white,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: selectedAmount == 'custom' 
-                              ? const Color(0xFF6366F1) 
-                              : Colors.grey.shade300,
+                            color:
+                                selectedAmount == 'custom'
+                                    ? const Color(0xFF6366F1)
+                                    : Colors.grey.shade300,
                             width: 2,
                           ),
                         ),
@@ -2837,9 +3084,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             style: GoogleFonts.inter(
                               fontSize: 22,
                               fontWeight: FontWeight.w600,
-                              color: selectedAmount == 'custom'
-                                ? const Color(0xFF6366F1)
-                                : Colors.grey.shade700,
+                              color:
+                                  selectedAmount == 'custom'
+                                      ? const Color(0xFF6366F1)
+                                      : Colors.grey.shade700,
                             ),
                           ),
                         ),
@@ -2888,12 +3136,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ],
     );
   }
-  
+
   Widget _buildQuickAmountButton(String label, double amount) {
     // Don't show selected state for amount buttons (only for Exact and Custom)
     final bool isSpecialButton = label == 'Exact' || label == 'Custom';
     final bool isSelected = isSpecialButton && selectedAmount == label;
-    
+
     return Expanded(
       child: GestureDetector(
         onTap: () {
@@ -2923,7 +3171,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             color: isSelected ? const Color(0xFFF0F4FF) : Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
+              color:
+                  isSelected ? const Color(0xFF6366F1) : Colors.grey.shade300,
               width: 2,
             ),
           ),
@@ -2933,7 +3182,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: GoogleFonts.inter(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? const Color(0xFF6366F1) : Colors.grey.shade700,
+                color:
+                    isSelected ? const Color(0xFF6366F1) : Colors.grey.shade700,
               ),
             ),
           ),
@@ -2948,10 +3198,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (tempCustomAmount.contains('.')) {
       tempCustomAmount = tempCustomAmount.replaceAll(RegExp(r'\.?0+$'), '');
       if (tempCustomAmount.endsWith('.')) {
-        tempCustomAmount = tempCustomAmount.substring(0, tempCustomAmount.length - 1);
+        tempCustomAmount = tempCustomAmount.substring(
+          0,
+          tempCustomAmount.length - 1,
+        );
       }
     }
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -3020,21 +3273,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       onBackspaceTap: () {
                         setDialogState(() {
                           if (tempCustomAmount.isNotEmpty) {
-                            tempCustomAmount = tempCustomAmount.substring(0, tempCustomAmount.length - 1);
+                            tempCustomAmount = tempCustomAmount.substring(
+                              0,
+                              tempCustomAmount.length - 1,
+                            );
                           }
                         });
                       },
                       submitForm: () {
                         // Apply the custom amount
                         setState(() {
-                          if (tempCustomAmount.isEmpty || tempCustomAmount == '.') {
+                          if (tempCustomAmount.isEmpty ||
+                              tempCustomAmount == '.') {
                             totalPaid = 0.0;
                             customAmountString = '';
                           } else {
-                            totalPaid = double.tryParse(tempCustomAmount) ?? 0.0;
+                            totalPaid =
+                                double.tryParse(tempCustomAmount) ?? 0.0;
                             customAmountString = totalPaid.toStringAsFixed(2);
                           }
-                          paidAmountController.text = totalPaid.toStringAsFixed(2);
+                          paidAmountController.text = totalPaid.toStringAsFixed(
+                            2,
+                          );
                           selectedAmount = '';
                         });
                         Navigator.pop(context);
@@ -3071,7 +3331,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF6366F1),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 10,
+                    ),
                   ),
                   child: Text(
                     'Apply',
@@ -3092,8 +3355,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _showDiscountDialog(CheckoutController checkoutController) {
     // Clear any previous discount values when opening dialog
-    discountController.text = manualDiscountValue > 0 ? manualDiscountValue.toString() : '';
-    
+    discountController.text =
+        manualDiscountValue > 0 ? manualDiscountValue.toString() : '';
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -3132,7 +3396,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Discount value input
                     Text(
                       'Discount Percentage',
@@ -3165,9 +3429,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide(color: Palette.newColor, width: 2),
+                          borderSide: BorderSide(
+                            color: Palette.newColor,
+                            width: 2,
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
                       ),
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
@@ -3179,8 +3449,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           // Clamp to 0-100 range
                           if (parsedValue > 100) {
                             discountController.text = '100';
-                            discountController.selection = TextSelection.fromPosition(
-                              TextPosition(offset: discountController.text.length),
+                            discountController
+                                .selection = TextSelection.fromPosition(
+                              TextPosition(
+                                offset: discountController.text.length,
+                              ),
                             );
                             manualDiscountValue = 100.0;
                           } else {
@@ -3191,26 +3464,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Apply to booking only checkbox
                     InkWell(
                       onTap: () {
                         setDialogState(() {
-                          isManualBookingOnlyDiscount = !isManualBookingOnlyDiscount;
+                          isManualBookingOnlyDiscount =
+                              !isManualBookingOnlyDiscount;
                           _calculateManualDiscount();
                         });
                       },
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isManualBookingOnlyDiscount
-                              ? Colors.blue.shade50
-                              : Colors.grey.shade50,
+                          color:
+                              isManualBookingOnlyDiscount
+                                  ? Colors.blue.shade50
+                                  : Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isManualBookingOnlyDiscount
-                                ? Colors.blue.shade300
-                                : Colors.grey.shade300,
+                            color:
+                                isManualBookingOnlyDiscount
+                                    ? Colors.blue.shade300
+                                    : Colors.grey.shade300,
                             width: 1.5,
                           ),
                         ),
@@ -3250,7 +3526,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    
+
                     // Discount preview
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -3298,7 +3574,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ),
                     ),
                     const SizedBox(height: 30),
-                    
+
                     // Action buttons
                     Row(
                       children: [
@@ -3329,42 +3605,44 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         const SizedBox(width: 16),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: manualDiscountAmount > 0
-                                ? () async {
-                                    // Close dialog first
-                                    Navigator.of(context).pop();
-                                    
-                                    // Show admin PIN dialog for ANY manual discount
-                                    final approved = await _showAdminPinDialog();
-                                    if (!approved) {
-                                      showCustomSnackbar(
-                                        'Admin Approval Required',
-                                        'Manual discount requires admin approval',
-                                        Colors.orange,
-                                      );
-                                      // Reset discount values since it wasn't approved
+                            onPressed:
+                                manualDiscountAmount > 0
+                                    ? () async {
+                                      // Close dialog first
+                                      Navigator.of(context).pop();
+
+                                      // Show admin PIN dialog for ANY manual discount
+                                      final approved =
+                                          await _showAdminPinDialog();
+                                      if (!approved) {
+                                        showCustomSnackbar(
+                                          'Admin Approval Required',
+                                          'Manual discount requires admin approval',
+                                          Colors.orange,
+                                        );
+                                        // Reset discount values since it wasn't approved
+                                        setState(() {
+                                          manualDiscountAmount = 0.0;
+                                          manualDiscountValue = 0.0;
+                                          discountController.clear();
+                                        });
+                                        return;
+                                      }
+
+                                      // Admin approved - apply the discount
                                       setState(() {
-                                        manualDiscountAmount = 0.0;
-                                        manualDiscountValue = 0.0;
-                                        discountController.clear();
+                                        isManualDiscountApplied = true;
+                                        _hasAdminApproval = true;
                                       });
-                                      return;
+
+                                      // Show success message
+                                      showCustomSnackbar(
+                                        'Success',
+                                        'Discount of \$${manualDiscountAmount.toStringAsFixed(2)} applied with admin approval',
+                                        Colors.green,
+                                      );
                                     }
-                                    
-                                    // Admin approved - apply the discount
-                                    setState(() {
-                                      isManualDiscountApplied = true;
-                                      _hasAdminApproval = true;
-                                    });
-                                    
-                                    // Show success message
-                                    showCustomSnackbar(
-                                      'Success',
-                                      'Discount of \$${manualDiscountAmount.toStringAsFixed(2)} applied with admin approval',
-                                      Colors.green,
-                                    );
-                                  }
-                                : null,
+                                    : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Palette.newColor,
                               disabledBackgroundColor: Colors.grey.shade300,
@@ -3379,9 +3657,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               style: GoogleFonts.inter(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w600,
-                                color: manualDiscountAmount > 0 
-                                    ? Colors.white 
-                                    : Colors.grey.shade500,
+                                color:
+                                    manualDiscountAmount > 0
+                                        ? Colors.white
+                                        : Colors.grey.shade500,
                               ),
                             ),
                           ),
@@ -3399,14 +3678,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _calculateManualDiscount() {
-    double totalForDiscount = isManualBookingOnlyDiscount ? courtBookingTotal : (courtBookingTotal + cartItemsTotal);
-    
+    double totalForDiscount =
+        isManualBookingOnlyDiscount
+            ? courtBookingTotal
+            : (courtBookingTotal + cartItemsTotal);
+
     // Ensure percentage is within valid range (0-100)
     double validPercentage = manualDiscountValue.clamp(0.0, 100.0);
-    
+
     // Always calculate as percentage
     manualDiscountAmount = totalForDiscount * (validPercentage / 100);
-    
+
     // Ensure discount doesn't exceed the total (redundant with 100% cap, but kept for safety)
     if (manualDiscountAmount > totalForDiscount) {
       manualDiscountAmount = totalForDiscount;
@@ -3470,7 +3752,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               itemBuilder: (context, index) {
                 final plan = membershipController.membershipPlans[index];
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -3493,13 +3778,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ],
                         ),
-                        SizedBox(height: 10,),
-                        if (plan['peak_price'] != null || plan['non_peak_price'] != null) ...[
+                        SizedBox(height: 10),
+                        if (plan['peak_price'] != null ||
+                            plan['non_peak_price'] != null) ...[
                           Row(
                             children: [
                               Text(
                                 'Member Rates:',
-                                style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600),
+                                style: GoogleFonts.inter(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                               Column(
                                 children: [
@@ -3515,10 +3804,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     ),
                                 ],
                                 crossAxisAlignment: CrossAxisAlignment.end,
-                              )
+                              ),
                             ],
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          )
+                          ),
                         ] else ...[
                           Text(
                             'Discount: ${plan['discount_value'] ?? 0}${plan['discount_type'] == 'percentage' ? '%' : ''} ${plan['discount_type'] ?? ''}',
@@ -3532,21 +3821,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               isMembershipApplied = true;
                               selectedMembershipId = plan['id'];
                               selectedMembershipName = plan['name'];
-                              selectedMembershipPrice = (plan['price'] as num?)?.toDouble() ?? 0.0;
-                              
+                              selectedMembershipPrice =
+                                  (plan['price'] as num?)?.toDouble() ?? 0.0;
+
                               // Store peak and non-peak prices
                               if (plan['peak_price'] != null) {
-                                selectedMembershipPeakPrice = double.tryParse(plan['peak_price'].toString());
+                                selectedMembershipPeakPrice = double.tryParse(
+                                  plan['peak_price'].toString(),
+                                );
                               }
                               if (plan['non_peak_price'] != null) {
-                                selectedMembershipNonPeakPrice = double.tryParse(plan['non_peak_price'].toString());
+                                selectedMembershipNonPeakPrice =
+                                    double.tryParse(
+                                      plan['non_peak_price'].toString(),
+                                    );
                               }
-                              
+
                               _calculateMembershipDiscount();
                               _isMembershipPanelOpen = false;
                             });
                           },
-                          child: Text('Select Plan', style: TextStyle(fontSize: 22, color: Palette.newColor),),
+                          child: Text(
+                            'Select Plan',
+                            style: TextStyle(
+                              fontSize: 22,
+                              color: Palette.newColor,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Palette.newColorbg,
                             minimumSize: const Size(double.infinity, 30),
@@ -3569,16 +3870,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildNumberButton(String number, TextEditingController controller, {bool isBackspace = false, bool isPlaceholder = false}) {
+  Widget _buildNumberButton(
+    String number,
+    TextEditingController controller, {
+    bool isBackspace = false,
+    bool isPlaceholder = false,
+  }) {
     if (isPlaceholder) {
       return Container();
     }
-    
+
     return ElevatedButton(
       onPressed: () {
         if (isBackspace) {
           if (controller.text.isNotEmpty) {
-            controller.text = controller.text.substring(0, controller.text.length - 1);
+            controller.text = controller.text.substring(
+              0,
+              controller.text.length - 1,
+            );
           }
         } else {
           if (controller.text.length < 4) {
@@ -3587,19 +3896,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
       },
       style: ElevatedButton.styleFrom(
-        backgroundColor: isBackspace ? Colors.red.shade100 : Colors.grey.shade100,
+        backgroundColor:
+            isBackspace ? Colors.red.shade100 : Colors.grey.shade100,
         foregroundColor: isBackspace ? Colors.red.shade700 : Colors.black87,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: 0,
       ),
       child: Text(
         number,
-        style: GoogleFonts.inter(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-        ),
+        style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -3607,7 +3912,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<bool> _showAdminPinDialog() async {
     final TextEditingController pinController = TextEditingController();
     bool isValid = false;
-    
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -3648,7 +3953,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.orange.shade50,
                     borderRadius: BorderRadius.circular(8),
@@ -3698,35 +4006,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       final prefs = await SharedPreferences.getInstance();
                       final storeDetailsJson = prefs.getString('storeDetails');
                       String? adminPin;
-                      
+
                       if (storeDetailsJson != null) {
                         final storeDetails = jsonDecode(storeDetailsJson);
-                        adminPin = storeDetails['admin_pin']?.toString() ?? storeDetails['adminPin']?.toString();
-                        print('Admin PIN from prefs: ${adminPin != null ? "Found (${adminPin.length} digits)" : "Not found"}');
+                        adminPin =
+                            storeDetails['admin_pin']?.toString() ??
+                            storeDetails['adminPin']?.toString();
+                        print(
+                          'Admin PIN from prefs: ${adminPin != null ? "Found (${adminPin.length} digits)" : "Not found"}',
+                        );
                       }
-                      
+
                       // If not found in prefs, try database
                       if (adminPin == null || adminPin.isEmpty) {
                         print('Checking database for admin PIN...');
                         final centerSlug = prefs.getString('centerSlug');
                         if (centerSlug != null) {
-                          final storeData = await supabase
-                              .schema('${centerSlug}_prod_schema')
-                              .from('store_details')
-                              .select('admin_pin')
-                              .limit(1)
-                              .maybeSingle();
-                              
-                          if (storeData != null && storeData['admin_pin'] != null) {
+                          final storeData =
+                              await supabase
+                                  .schema('${centerSlug}_prod_schema')
+                                  .from('store_details')
+                                  .select('admin_pin')
+                                  .limit(1)
+                                  .maybeSingle();
+
+                          if (storeData != null &&
+                              storeData['admin_pin'] != null) {
                             adminPin = storeData['admin_pin'].toString();
-                            print('Admin PIN from database: Found (${adminPin.length} digits)');
+                            print(
+                              'Admin PIN from database: Found (${adminPin.length} digits)',
+                            );
                           }
                         }
                       }
-                      
+
                       print('Entered PIN: $pin');
                       print('Expected PIN: ${adminPin ?? "Not set"}');
-                      
+
                       if (adminPin != null && pin == adminPin) {
                         isValid = true;
                         Navigator.of(context).pop();
@@ -3739,7 +4055,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         pinController.clear();
                         showCustomSnackbar(
                           'Invalid PIN',
-                          adminPin == null ? 'Admin PIN not configured' : 'Please enter the correct admin PIN',
+                          adminPin == null
+                              ? 'Admin PIN not configured'
+                              : 'Please enter the correct admin PIN',
                           Colors.red,
                         );
                       }
@@ -3770,7 +4088,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     children: [
                       for (int i = 1; i <= 9; i++)
                         _buildNumberButton(i.toString(), pinController),
-                      _buildNumberButton('', pinController, isPlaceholder: true),
+                      _buildNumberButton(
+                        '',
+                        pinController,
+                        isPlaceholder: true,
+                      ),
                       _buildNumberButton('0', pinController),
                       _buildNumberButton('⌫', pinController, isBackspace: true),
                     ],
@@ -3810,7 +4132,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         );
       },
     );
-    
+
     return isValid;
   }
 
@@ -3819,7 +4141,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        title: const Text("Confirm", style: TextStyle(fontSize: 25),),
+        title: const Text("Confirm", style: TextStyle(fontSize: 25)),
         content: const Text(
           "Are you sure you want to cancel this booking and go to the Dashboard?",
           style: TextStyle(fontSize: 22),
@@ -3833,7 +4155,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 onPressed: () {
                   Get.back(); // Close dialog
                 },
-                child: const Text("No", style: TextStyle(fontSize: 22),),
+                child: const Text("No", style: TextStyle(fontSize: 22)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[200],
                   minimumSize: const Size(200, 60),
@@ -3847,40 +4169,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // Clear all booking and cart state
                   newBookingController.clearSelectedSlots();
                   cartController.clearCart();
-                  
+
                   // Reset any other state that might be stuck
                   newBookingController.mobileNumberController.clear();
                   newBookingController.nameController.clear();
                   newBookingController.selectedService.value = '';
                   newBookingController.selectedServiceId.value = '';
-                  newBookingController.isLoading.value = false;  // Reset loading state
-                  newBookingController.checkout.value = false;  // Reset checkout state
-                  newBookingController.confirmBtn.value = false;  // Reset confirm button state
-                  newBookingController.courtChangeBtn.value = false;  // Reset court change button
-                  newBookingController.cancelBookingbtn.value = false;  // Reset cancel button
-                  newBookingController.selectedCourtSlots.clear();  // Clear slots again
-                  newBookingController.selectedCourt.value = null;  // Clear court
+                  newBookingController.isLoading.value =
+                      false; // Reset loading state
+                  newBookingController.checkout.value =
+                      false; // Reset checkout state
+                  newBookingController.confirmBtn.value =
+                      false; // Reset confirm button state
+                  newBookingController.courtChangeBtn.value =
+                      false; // Reset court change button
+                  newBookingController.cancelBookingbtn.value =
+                      false; // Reset cancel button
+                  newBookingController.selectedCourtSlots
+                      .clear(); // Clear slots again
+                  newBookingController.selectedCourt.value =
+                      null; // Clear court
                   newBookingController.update();
-                  
+
                   // Reset checkout controller state
                   final checkoutController = Get.find<CheckoutController>();
                   checkoutController.checkoutPayBtn.value = false;
                   checkoutController.isLoading.value = false;
                   checkoutController.update();
-                  
+
                   // Reset customer controller state if exists
                   try {
                     final customerController = Get.find<CustomerController>();
                     customerController.isLoading.value = false;
                     customerController.update();
-                  } catch (err) { // Renamed 'e' to 'err'
+                  } catch (err) {
+                    // Renamed 'e' to 'err'
                     // CustomerController might not be initialized
                   }
-                  
+
                   final defaultController = Get.find<DefaultController>();
                   defaultController.tabIndex.value = 0;
                   defaultController.dashboardTabController?.index = 0;
-                  
+
                   // Force clean navigation with a small delay to ensure state is cleared
                   Future.delayed(Duration(milliseconds: 100), () {
                     Get.offAllNamed('/');
@@ -3893,33 +4223,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: const Text("Yes", style: TextStyle(fontSize: 22, color: Colors.white),),
+                child: const Text(
+                  "Yes",
+                  style: TextStyle(fontSize: 22, color: Colors.white),
+                ),
               ),
             ],
-          )
+          ),
         ],
       ),
       barrierDismissible: false,
     );
   }
 
-  
   void _handlePaymentSuccess() async {
-
     try {
       setState(() {
         isLoading = true;
       });
-      
-      final SharedPreferences preferences = await SharedPreferences.getInstance();
-      String? centerSlug                  = preferences.getString('centerSlug');
 
+      final SharedPreferences preferences =
+          await SharedPreferences.getInstance();
+      String? centerSlug = preferences.getString('centerSlug');
 
       // New Booking
       // If this is a new booking (not from pending payment)
       if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
-
-       // For 100% discount, we need to create the booking here
+        // For 100% discount, we need to create the booking here
         try {
           // Calculate total amount
           double courtTotal = 0;
@@ -3931,33 +4261,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           // Get or create customer ID
           String customerId;
-          final customerData = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('customers')
-              .select('id')
-              .eq('mobile', widget.mobileno)
-              .limit(1)
-              .maybeSingle();
+          final customerData =
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('customers')
+                  .select('id')
+                  .eq('mobile', widget.mobileno)
+                  .limit(1)
+                  .maybeSingle();
 
           if (customerData == null) {
             // Create new customer if not found
             print('Customer not found, creating new customer...');
             final nameParts = widget.customerName.split(' ');
             final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
-            final lastName  = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+            final lastName =
+                nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-            final newCustomer = await supabase
-                .schema('${centerSlug}_prod_schema')
-                .from('customers')
-                .insert({
-                  'first_name': firstName,
-                  'last_name': lastName,
-                  'mobile': widget.mobileno,
-                  'email': '', // Email not provided in widget
-                  'status': true,
-                })
-                .select()
-                .single();
+            final newCustomer =
+                await supabase
+                    .schema('${centerSlug}_prod_schema')
+                    .from('customers')
+                    .insert({
+                      'first_name': firstName,
+                      'last_name': lastName,
+                      'mobile': widget.mobileno,
+                      'email': '', // Email not provided in widget
+                      'status': true,
+                    })
+                    .select()
+                    .single();
 
             customerId = newCustomer['id'];
             print('Created new customer with ID: $customerId');
@@ -3966,14 +4299,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
 
           // Get proper booking number
-          final bookingNumberResponse = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .rpc('increment_booking_counter')
-              .select()
-              .single();
+          final bookingNumberResponse =
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .rpc('increment_booking_counter')
+                  .select()
+                  .single();
 
           final bookingNumber = bookingNumberResponse['current_token'] as int;
-          final currentYear   = DateTime.now().year;
+          final currentYear = DateTime.now().year;
           final bookingNo = 'BCK-$currentYear-${bookingNumber}';
 
           // Create the main booking record
@@ -3982,11 +4316,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'customer_id': customerId,
             'sub_total': courtTotal,
             'surcharge': 0.0,
-            'grand_total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
-            'notes': notesController.text.isNotEmpty ? notesController.text : (manualDiscountAmount > 0 ? 'Manual Discount Applied' : 'Membership Discount Applied'),
+            'grand_total':
+                courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'notes':
+                notesController.text.isNotEmpty
+                    ? notesController.text
+                    : (manualDiscountAmount > 0
+                        ? 'Manual Discount Applied'
+                        : 'Membership Discount Applied'),
             'discount': membershipDiscountAmount + manualDiscountAmount,
             'gst': 0.0, // GST is included in the price
-            'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
+            'total':
+                courtTotal - membershipDiscountAmount - manualDiscountAmount,
             'payment_type': selectedMethod,
             'payment_status': 'Paid', // 100% discount means paid
             'status': 'Booked',
@@ -3996,34 +4337,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'updated_at': DateTime.now().toIso8601String(),
           };
 
-          final bookingResponse = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('bookings')
-              .insert(bookingData)
-              .select()
-              .single();
+          final bookingResponse =
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('bookings')
+                  .insert(bookingData)
+                  .select()
+                  .single();
 
           final bookingId = bookingResponse['id'];
           print('Created booking: $bookingNo with ID: $bookingId');
 
-
           // Create booking payment record for 100% discount
-          final bookingPaymentResponse = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('booking_payments')
-              .insert({
-                'booking_id': bookingId,
-                'customer_id': customerId,
-                'total': courtTotal - membershipDiscountAmount - manualDiscountAmount,
-                'paid_amount': 0.0, // 100% discount
-                'payment_type': selectedMethod,
-                'payment_via': selectedMethod,
-                'status': 'completed',
-                'notes': '100% Discount Applied',
-                'created_by': authController.userId.value,
-              })
-              .select()
-              .single();
+          final bookingPaymentResponse =
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('booking_payments')
+                  .insert({
+                    'booking_id': bookingId,
+                    'customer_id': customerId,
+                    'total':
+                        courtTotal -
+                        membershipDiscountAmount -
+                        manualDiscountAmount,
+                    'paid_amount': 0.0, // 100% discount
+                    'payment_type': selectedMethod,
+                    'payment_via': selectedMethod,
+                    'status': 'completed',
+                    'notes': '100% Discount Applied',
+                    'created_by': authController.userId.value,
+                  })
+                  .select()
+                  .single();
           final bookingPaymentInserted = bookingPaymentResponse['id'];
 
           // Create booking slots
@@ -4052,7 +4397,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               final slotData = {
                 'booking_id': bookingId,
                 'service_id': newBookingController.selectedServiceId.value,
-                'court_id': booking.courtId ?? 'COURT-001', // Default court ID if not available
+                'court_id':
+                    booking.courtId ??
+                    'COURT-001', // Default court ID if not available
                 'start_time': startDateTime.toIso8601String(),
                 'end_time': endDateTime.toIso8601String(),
                 'price': subSlot.price,
@@ -4068,12 +4415,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'updated_at': DateTime.now().toIso8601String(),
               };
               //Insert booking slot payments
-              final bookingSlotsresponse = await supabase
-                  .schema('${centerSlug}_prod_schema')
-                  .from('booking_slots')
-                  .insert(slotData)
-                  .select()
-                  .single();
+              final bookingSlotsresponse =
+                  await supabase
+                      .schema('${centerSlug}_prod_schema')
+                      .from('booking_slots')
+                      .insert(slotData)
+                      .select()
+                      .single();
               final bookingSlotsInserted = bookingSlotsresponse['id'];
 
               //Insert booking slot payments
@@ -4103,51 +4451,57 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
           print('Created booking slots for booking: $bookingId');
 
-          if(cartItems.length > 0) {
-
+          if (cartItems.length > 0) {
             double? itemSubTotal = cartItemsTotal;
             String? orderId = '';
             //Create order if the cart items are exist
             if (cartItems.length > 0) {
-              await checkoutController.createTempOrder(
-                total: (itemSubTotal ?? 0.0),).then((value) {
-                orderId = value['id'];
-              },);
+              await checkoutController
+                  .createTempOrder(total: (itemSubTotal ?? 0.0))
+                  .then((value) {
+                    orderId = value['id'];
+                  });
             }
 
-            if(orderId!=null && orderId!='') {
-              await checkoutController.productsPaymentOnly(
-                  order_id: orderId,
-                  price: itemSubTotal,
-                  taxes: (itemSubTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
-                  surcharge: 0,
-                  discount: discountAmount,
-                  billAmount: itemSubTotal,
-                  paidAmount: totalPaid,
-                  balanceAmount: double.parse(balanceAmountController.text,),
-                  paymentType: selectedMethod,
-                  paymentNotes: notesController.text,
-                  receiptToggle: receiptToggle,
-                  printBoth: true,
-                  customerId: customerId
-              ).then((value) async {
-                await checkoutController.mergeBookingtoOrder(
+            if (orderId != null && orderId != '') {
+              await checkoutController
+                  .productsPaymentOnly(
                     order_id: orderId,
-                    customer_id: customerId,
-                    booking_id: bookingId,
-                    redirect: false
-                );
-              },);
+                    price: itemSubTotal,
+                    taxes:
+                        (itemSubTotal ?? 0) /
+                        11, // Fix: GST is 1/11th of GST-inclusive price
+                    surcharge: 0,
+                    discount: discountAmount,
+                    billAmount: itemSubTotal,
+                    paidAmount: totalPaid,
+                    balanceAmount: double.parse(balanceAmountController.text),
+                    paymentType: selectedMethod,
+                    paymentNotes: notesController.text,
+                    receiptToggle: receiptToggle,
+                    printBoth: true,
+                    customerId: customerId,
+                  )
+                  .then((value) async {
+                    await checkoutController.mergeBookingtoOrder(
+                      order_id: orderId,
+                      customer_id: customerId,
+                      booking_id: bookingId,
+                      redirect: false,
+                    );
+                  });
             }
-
           }
 
           // Handle receipt printing if enabled
           if (receiptToggle) {
             print('Receipt printing requested...');
-            await _printReceipt(bookingId, courtTotal, membershipDiscountAmount + manualDiscountAmount);
+            await _printReceipt(
+              bookingId,
+              courtTotal,
+              membershipDiscountAmount + manualDiscountAmount,
+            );
           }
-
         } catch (e) {
           print('Error creating new booking: $e');
           throw e;
@@ -4159,65 +4513,71 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (widget.exbookingId != null) {
         print('Processing payment for existing booking: ${widget.exbookingId}');
         print('Payment method: $selectedMethod, Total paid: $totalPaid');
-        
+
         // Update booking payment status
-        final updateResult = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('bookings')
-            .update({
-              'payment_status': 'Paid',
-              'payment_type': selectedMethod,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('id', widget.exbookingId!)
-            .select()
-            .single();
-            
+        final updateResult =
+            await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('bookings')
+                .update({
+                  'payment_status': 'Paid',
+                  'payment_type': selectedMethod,
+                  'updated_at': DateTime.now().toIso8601String(),
+                })
+                .eq('id', widget.exbookingId!)
+                .select()
+                .single();
+
         print('Updated booking ${widget.exbookingId} payment status to paid');
         print('Update result: $updateResult');
-        
+
         // Create a booking payment record
         try {
           // Get booking details first
-          final bookingData = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('bookings')
-              .select('customer_id, grand_total')
-              .eq('id', widget.exbookingId!)
-              .single();
-              
-          if (bookingData != null) {
+          final bookingData =
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('bookings')
+                  .select('customer_id, grand_total')
+                  .eq('id', widget.exbookingId!)
+                  .single();
 
+          if (bookingData != null) {
             print('Creating booking payment record...');
             print('Booking data: $bookingData');
             print('Total paid: $totalPaid, Payment method: $selectedMethod');
-            
-            final paymentRecord = await supabase
-                .schema('${centerSlug}_prod_schema')
-                .from('booking_payments')
-                .insert({
-                  'booking_id': widget.exbookingId,
-                  'customer_id': bookingData['customer_id'],
-                  'total': bookingData['grand_total'],
-                  'paid_amount': totalPaid,
-                  'payment_type': selectedMethod,
-                  'payment_via': selectedMethod,
-                  'status': 'completed',
-                  'notes': notesController.text.isNotEmpty ? notesController.text : null,
-                  'created_by': authController.userId.value,
-                })
-                .select();
-                
-            print('Created booking payment record for booking ${widget.exbookingId}');
-            print('Payment record: $paymentRecord');
 
+            final paymentRecord =
+                await supabase
+                    .schema('${centerSlug}_prod_schema')
+                    .from('booking_payments')
+                    .insert({
+                      'booking_id': widget.exbookingId,
+                      'customer_id': bookingData['customer_id'],
+                      'total': bookingData['grand_total'],
+                      'paid_amount': totalPaid,
+                      'payment_type': selectedMethod,
+                      'payment_via': selectedMethod,
+                      'status': 'completed',
+                      'notes':
+                          notesController.text.isNotEmpty
+                              ? notesController.text
+                              : null,
+                      'created_by': authController.userId.value,
+                    })
+                    .select();
+
+            print(
+              'Created booking payment record for booking ${widget.exbookingId}',
+            );
+            print('Payment record: $paymentRecord');
           } else {
             print('ERROR: bookingData is null, cannot create payment record');
           }
         } catch (e) {
           print('Warning: Could not create booking_payments record: $e');
         }
-        
+
         // Update all booking slots payment status
         try {
           await supabase
@@ -4228,62 +4588,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'updated_at': DateTime.now().toIso8601String(),
               })
               .eq('booking_id', widget.exbookingId!);
-          print('Updated booking slots payment status for booking ${widget.exbookingId}');
+          print(
+            'Updated booking slots payment status for booking ${widget.exbookingId}',
+          );
         } catch (e) {
           print('Warning: Could not update booking_slots: $e');
         }
-        
+
         // If there's a membership associated with this booking, update its status
-        final bookingData = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('bookings')
-            .select('customer_id')
-            .eq('id', widget.exbookingId!)
-            .single();
-            
+        final bookingData =
+            await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('bookings')
+                .select('customer_id')
+                .eq('id', widget.exbookingId!)
+                .single();
+
         if (bookingData != null && bookingData['customer_id'] != null) {
           // Check if customer has a pending membership in membership_data
-          final membershipData = await supabase
-              .schema('${centerSlug}_prod_schema')
-              .from('membership_data')
-              .select('*')
-              .eq('customer_id', bookingData['customer_id'])
-              .eq('status', false) // status is boolean, false means pending
-              .maybeSingle();
-              
-          if (membershipData != null) {
-            try {
-              print('Found pending membership_data: ${membershipData['id']} for customer ${bookingData['customer_id']}');
-              
-              // Update membership status to active
-              final updateResult = await supabase
+          final membershipData =
+              await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('membership_data')
-                  .update({
-                    'status': true, // true means active
-                    //'updated_at': DateTime.now().toIso8601String(),
-                  })
-                  .eq('id', membershipData['id'])
-                  .select();
-                  
-              print('Updated membership_data ${membershipData['id']} to active');
+                  .select('*')
+                  .eq('customer_id', bookingData['customer_id'])
+                  .eq('status', false) // status is boolean, false means pending
+                  .maybeSingle();
+
+          if (membershipData != null) {
+            try {
+              print(
+                'Found pending membership_data: ${membershipData['id']} for customer ${bookingData['customer_id']}',
+              );
+
+              // Update membership status to active
+              final updateResult =
+                  await supabase
+                      .schema('${centerSlug}_prod_schema')
+                      .from('membership_data')
+                      .update({
+                        'status': true, // true means active
+                        //'updated_at': DateTime.now().toIso8601String(),
+                      })
+                      .eq('id', membershipData['id'])
+                      .select();
+
+              print(
+                'Updated membership_data ${membershipData['id']} to active',
+              );
               print('Update result: $updateResult');
-              
+
               // Update customer's membership_data_id if needed
-              final customerUpdateResult = await supabase
-                  .schema('${centerSlug}_prod_schema')
-                  .from('customers')
-                  .update({
-                    'membership_data_id': membershipData['id'],
-                    'membershipplan_id': membershipData['membershipplan_id'],
-                    //'updated_at': DateTime.now().toIso8601String(),
-                  })
-                  .eq('id', bookingData['customer_id'])
-                  .select();
-                  
-              print('Updated customer ${bookingData['customer_id']} membership references');
+              final customerUpdateResult =
+                  await supabase
+                      .schema('${centerSlug}_prod_schema')
+                      .from('customers')
+                      .update({
+                        'membership_data_id': membershipData['id'],
+                        'membershipplan_id':
+                            membershipData['membershipplan_id'],
+                        //'updated_at': DateTime.now().toIso8601String(),
+                      })
+                      .eq('id', bookingData['customer_id'])
+                      .select();
+
+              print(
+                'Updated customer ${bookingData['customer_id']} membership references',
+              );
               print('Customer update result: $customerUpdateResult');
-              
+
               // Create membership payment record
               try {
                 await supabase
@@ -4292,25 +4665,36 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     .insert({
                       'membershipid': membershipData['id'],
                       'paymenttype': selectedMethod,
-                      'total': double.tryParse(membershipData['price'] ?? '0') ?? 0.0,
-                      'paidamount': double.tryParse(membershipData['price'] ?? '0') ?? 0.0,
+                      'total':
+                          double.tryParse(membershipData['price'] ?? '0') ??
+                          0.0,
+                      'paidamount':
+                          double.tryParse(membershipData['price'] ?? '0') ??
+                          0.0,
                       'status': true,
-                      'notes': 'Membership payment processed with booking ${widget.exbookingId}',
+                      'notes':
+                          'Membership payment processed with booking ${widget.exbookingId}',
                     });
-                print('Created membership payment record for membership ${membershipData['id']}');
-                
+                print(
+                  'Created membership payment record for membership ${membershipData['id']}',
+                );
+
                 // Verify the membership is now active
-                final verifyMembership = await supabase
-                    .schema('${centerSlug}_prod_schema')
-                    .from('membership_data')
-                    .select('status')
-                    .eq('id', membershipData['id'])
-                    .single();
-                    
-                print('Verification - membership_data status is now: ${verifyMembership['status']}');
-                
+                final verifyMembership =
+                    await supabase
+                        .schema('${centerSlug}_prod_schema')
+                        .from('membership_data')
+                        .select('status')
+                        .eq('id', membershipData['id'])
+                        .single();
+
+                print(
+                  'Verification - membership_data status is now: ${verifyMembership['status']}',
+                );
               } catch (e) {
-                print('Warning: Could not create membership payment record: $e');
+                print(
+                  'Warning: Could not create membership payment record: $e',
+                );
               }
             } catch (e) {
               print('ERROR: Failed to update membership_data: $e');
@@ -4319,7 +4703,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               print('customer_id: ${bookingData['customer_id']}');
             }
           } else {
-            print('No pending membership found for customer ${bookingData['customer_id']}');
+            print(
+              'No pending membership found for customer ${bookingData['customer_id']}',
+            );
           }
         }
 
@@ -4339,7 +4725,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               await checkoutController.productsPaymentOnly(
                 order_id: orderId,
                 price: order['total'].toDouble(),
-                taxes: ((order['total'] ?? 0) / 11).toDouble(), // GST is 1/11th of inclusive price
+                taxes:
+                    ((order['total'] ?? 0) / 11)
+                        .toDouble(), // GST is 1/11th of inclusive price
                 surcharge: 0.00,
                 discount: discountAmount.toDouble(),
                 billAmount: order['total'].toDouble(),
@@ -4364,24 +4752,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           print('Warning: unable to process the order payment: $e');
         }
 
-
         // Handle receipt printing for existing bookings if enabled
         if (receiptToggle) {
           print('Receipt printing requested for existing booking...');
           try {
             // Get booking details for printing
-            final bookingDetails = await supabase
-                .schema('${centerSlug}_prod_schema')
-                .from('bookings')
-                .select('grand_total, discount')
-                .eq('id', widget.exbookingId!)
-                .single();
-                
+            final bookingDetails =
+                await supabase
+                    .schema('${centerSlug}_prod_schema')
+                    .from('bookings')
+                    .select('grand_total, discount')
+                    .eq('id', widget.exbookingId!)
+                    .single();
+
             if (bookingDetails != null) {
               // Ensure values are doubles
-              final courtTotal      = (bookingDetails['grand_total'] ?? widget.billAmount).toDouble();
-              final discountValue   = bookingDetails['discount'] ?? (membershipDiscountAmount + manualDiscountAmount);
-              final discount        = discountValue is int ? discountValue.toDouble() : discountValue;
+              final courtTotal =
+                  (bookingDetails['grand_total'] ?? widget.billAmount)
+                      .toDouble();
+              final discountValue =
+                  bookingDetails['discount'] ??
+                  (membershipDiscountAmount + manualDiscountAmount);
+              final discount =
+                  discountValue is int
+                      ? discountValue.toDouble()
+                      : discountValue;
               await _printReceipt(widget.exbookingId!, courtTotal, discount);
             }
           } catch (e) {
@@ -4390,8 +4785,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }
       }
 
-
-      // Update order payment status if we have exorderId  
+      // Update order payment status if we have exorderId
       if (widget.exorderId != null) {
         try {
           await supabase
@@ -4402,24 +4796,117 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 'updated_at': DateTime.now().toIso8601String(),
               })
               .eq('id', widget.exorderId!);
-            print('Updated order ${widget.exorderId} payment status to paid');
+          print('Updated order ${widget.exorderId} payment status to paid');
         } catch (e) {
           print('Warning: Could not update order: $e');
         }
       }
 
+      // Handle membership-only purchase (no bookings/orders)
+      if ((widget.bookings.isEmpty &&
+              widget.exbookingId == null &&
+              widget.exorderId == null) &&
+          isMembershipApplied == true &&
+          selectedMembershipId != null &&
+          selectedMembershipName != null &&
+          selectedMembershipPrice != null) {
+        print('Processing membership-only purchase...');
+
+        // Get or create customer ID
+        String customerId;
+        final customerData =
+            await supabase
+                .schema('${centerSlug}_prod_schema')
+                .from('customers')
+                .select('id')
+                .eq('mobile', widget.mobileno)
+                .limit(1)
+                .maybeSingle();
+
+        if (customerData == null) {
+          // Create new customer if not found
+          print('Customer not found, creating new customer...');
+          final nameParts = widget.customerName.split(' ');
+          final firstName = nameParts.isNotEmpty ? nameParts[0] : '';
+          final lastName =
+              nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+          final newCustomer =
+              await supabase
+                  .schema('${centerSlug}_prod_schema')
+                  .from('customers')
+                  .insert({
+                    'first_name': firstName,
+                    'last_name': lastName,
+                    'mobile': widget.mobileno,
+                    'email': '', // Email not provided in widget
+                    'status': true,
+                  })
+                  .select()
+                  .single();
+
+          customerId = newCustomer['id'];
+          print('Created new customer with ID: $customerId');
+        } else {
+          customerId = customerData['id'];
+        }
+
+        // Fetch the full plan details
+        final plan = membershipController.membershipPlans.firstWhere(
+          (p) => p['id'] == selectedMembershipId,
+          orElse: () => {},
+        );
+
+        // Insert membership_data with all plan fields
+        await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('membership_data')
+            .insert({
+              'customer_id': customerId,
+              'membershipplan_id': selectedMembershipId,
+              'name': selectedMembershipName,
+              'price': selectedMembershipPrice,
+              'billing_cycle': plan['billing_cycle'],
+              'description': plan['description'],
+              'peak_price': plan['peak_price'],
+              'non_peak_price': plan['non_peak_price'],
+              'swap_time': plan['swap_time'],
+              'highlights': plan['highlights'],
+              'validity': plan['validity'],
+              'extended_bookings': plan['extended_bookings'],
+              'max_booking_hours': plan['max_booking_hours'],
+              'max_courts': plan['max_courts'],
+              'recurring_booking': plan['recurring_booking'],
+              'status': false,
+              'created_at': DateTime.now().toIso8601String(),
+            });
+
+        print('Inserted new membership_data for customer $customerId');
+
+        // Show success message and navigate
+        showCustomSnackbar(
+          'Membership Purchased',
+          'Membership has been successfully purchased.',
+          Colors.green,
+        );
+
+        // Navigate to dashboard or wherever appropriate
+        await Future.delayed(const Duration(seconds: 1));
+        Get.offAllNamed('/');
+        return; // Prevent further processing
+      }
 
       setState(() {
         isLoading = false;
         checkoutController.checkoutPayBtn.value = false;
       });
-      
+
       // Clear all state after successful payment
       _clearAllStateAfterSuccessfulPayment();
-      
+
       // Clear the cart
       await _clearCartAfterPayment();
-      
+
       // Refresh pending payments list if we're coming from pending payments
       if (widget.type == 'ExistingBooking') {
         try {
@@ -4431,16 +4918,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           print('Could not refresh pending payments: $e');
         }
       }
-      
+
       // Mark that booking was just completed for court refresh
       newBookingController.bookingJustCompleted.value = true;
-      
+
       // For new bookings, ensure the booking is created in the database
       if (widget.exbookingId == null && widget.bookings.isNotEmpty) {
         // Set a flag to indicate payment was processed
         newBookingController.paymentProcess.value = true;
       }
-      
+
       // Navigate based on where we came from
       if (widget.type == 'ExistingBooking') {
         // For payments from unpaid tab, show success and go back
@@ -4449,19 +4936,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           'Payment has been processed successfully',
           Colors.green,
         );
-        
+
         // Small delay to ensure the snackbar is visible
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         // Go back to preserve the tab state
         Navigator.of(context).pop();
       } else {
         // For new bookings, show the success dialog and navigate
         newBookingController.showBookingSuccessAlert();
-        
+
         // Wait for dialog to be visible
         await Future.delayed(const Duration(seconds: 2));
-        
+
         // Close the dialog and navigate to dashboard
         Get.back(); // Close the dialog
         Get.offAllNamed('/');
@@ -4479,11 +4966,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
     }
   }
-  
+
   void _handlePayLater() async {
     // Process Pay Later directly without confirmation dialog
     // If you want to add the dialog back, uncomment the code below
-    
+
     /*
     bool? confirmed = await showDialog<bool>(
       context: context,
@@ -4558,14 +5045,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     
     if (confirmed == true) {
     */
-    
+
     // Process Pay Later directly
     {
       try {
         setState(() {
           isLoading = true;
         });
-        
+
         // For existing bookings, just navigate back without changing payment status
         if (widget.type == 'ExistingBooking') {
           showCustomSnackbar(
@@ -4573,7 +5060,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'Booking remains unpaid. Customer can pay later.',
             Colors.orange,
           );
-          
+
           // Navigate back to dashboard after a short delay
           await Future.delayed(const Duration(seconds: 1));
           Navigator.of(context).pushNamedAndRemoveUntil(
@@ -4584,7 +5071,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           // For new bookings, process the booking with Pay Later status
           await _processPayLaterBooking();
         }
-        
+
         setState(() {
           isLoading = false;
         });
@@ -4600,24 +5087,29 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
     }
   }
-  
+
   Future<void> _processPayLaterBooking() async {
     try {
       setState(() {
         isLoading = true;
       });
-      
+
       // Calculate totals
-      final membershipPrice = (isMembershipApplied && selectedMembershipPrice != null) ? selectedMembershipPrice! : 0.0;
+      final membershipPrice =
+          (isMembershipApplied && selectedMembershipPrice != null)
+              ? selectedMembershipPrice!
+              : 0.0;
       final courtTotal = actualTotal - cartController.total - membershipPrice;
-      final totalAmount = actualTotal - membershipDiscountAmount - manualDiscountAmount;
-      
+      final totalAmount =
+          actualTotal - membershipDiscountAmount - manualDiscountAmount;
+
       // Process the booking with Pay Later status
       final userData = newBookingController.userData.value;
-      final fullName = userData.firstName != null && userData.lastName != null 
-          ? '${userData.firstName} ${userData.lastName}' 
-          : userData.firstName ?? '';
-          
+      final fullName =
+          userData.firstName != null && userData.lastName != null
+              ? '${userData.firstName} ${userData.lastName}'
+              : userData.firstName ?? '';
+
       await newBookingController.processCheckout(
         name: widget.customerName ?? fullName,
         mobile: widget.mobileno ?? userData.mobile ?? '',
@@ -4629,26 +5121,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         membershipName: isMembershipApplied ? selectedMembershipName : null,
         membershipPrice: isMembershipApplied ? selectedMembershipPrice : null,
       );
-      
+
       // Get the created booking ID
       final bookingId = newBookingController.bookingId;
-      
+
       if (bookingId.isNotEmpty) {
         // The booking is already created with payment_status: 'Pending' and payment_type: 'Pay Later'
         // in the processCheckout method, so we don't need to update it again
-        
+
         // Clear the cart and selected slots
         newBookingController.clearSelectedSlots();
         newBookingController.cartItems.clear();
         cartController.clearCart();
-        
+
         // Show success message
         showCustomSnackbar(
           'Booking Created',
           'Booking confirmed with pending payment',
           Colors.green,
         );
-        
+
         // Navigate to dashboard
         await Future.delayed(const Duration(seconds: 1));
         Navigator.of(context).pushNamedAndRemoveUntil(
@@ -4658,34 +5150,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       } else {
         throw Exception('Failed to create booking');
       }
-      
     } catch (e) {
       setState(() {
         isLoading = false;
       });
-      showCustomSnackbar(
-        'Error',
-        'Failed to create booking: $e',
-        Colors.red,
-      );
+      showCustomSnackbar('Error', 'Failed to create booking: $e', Colors.red);
     }
   }
-  
-  Future<void> _printReceipt(String bookingId, double courtTotal, double discount) async {
+
+  Future<void> _printReceipt(
+    String bookingId,
+    double courtTotal,
+    double discount,
+  ) async {
     try {
       print('🖨️ _printReceipt called with bookingId: $bookingId');
-      
+
       // Add a small delay to ensure cart items are loaded
       await Future.delayed(Duration(milliseconds: 100));
-      
+
       // Reload cart items from SharedPreferences to ensure we have the latest
       await _loadCartItems();
-      
+
       print('🛒 Cart items count: ${cartItems.length}');
       for (var item in cartItems) {
         print('Cart item: ${item.product.name}, quantity: ${item.quantity}');
       }
-      
+
       // Call the checkout controller's printBookingReceipt method with cart items
       await checkoutController.printBookingReceiptWithCart(
         bookingId: bookingId,

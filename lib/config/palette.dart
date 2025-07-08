@@ -64,99 +64,101 @@ void showCustomSnackbar(String title, String message, Color color) {
     iconData = Icons.notifications;
   }
   
-  toastification.show(
-    type: type,
-    style: ToastificationStyle.fillColored,
-    autoCloseDuration: const Duration(seconds: 4),
-    title: Text(
-      title,
-      style: TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
-        color: Colors.white,
-      ),
-    ),
-    description: Text(
-      message,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w400,
-        color: Colors.white.withOpacity(0.95),
-      ),
-    ),
-    alignment: Alignment.topRight,
-    direction: TextDirection.ltr,
-    animationDuration: const Duration(milliseconds: 400),
-    animationBuilder: (context, animation, alignment, child) {
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1.0, 0.0),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-        )),
-        child: FadeTransition(
-          opacity: animation,
-          child: child,
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    toastification.show(
+      type: type,
+      style: ToastificationStyle.fillColored,
+      autoCloseDuration: const Duration(seconds: 4),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
-      );
-    },
-    icon: Icon(
-      iconData,
-      size: 28,
-      color: Colors.white,
-    ),
-    showIcon: true,
-    primaryColor: color,
-    backgroundColor: color,
-    foregroundColor: Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-    margin: const EdgeInsets.only(top: 20, right: 20),
-    borderRadius: BorderRadius.circular(12),
-    boxShadow: [
-      BoxShadow(
-        color: color.withOpacity(0.4),
-        blurRadius: 20,
-        offset: const Offset(0, 8),
-        spreadRadius: 0,
       ),
-      BoxShadow(
-        color: color.withOpacity(0.2),
-        blurRadius: 10,
-        offset: const Offset(0, 4),
-        spreadRadius: 0,
+      description: Text(
+        message,
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w400,
+          color: Colors.white.withOpacity(0.95),
+        ),
       ),
-    ],
-    showProgressBar: true,
-    progressBarTheme: ProgressIndicatorThemeData(
-      color: Colors.white.withOpacity(0.3),
-      linearTrackColor: Colors.white.withOpacity(0.1),
-    ),
-    closeButton: ToastCloseButton(
-      showType: CloseButtonShowType.always,
-      buttonBuilder: (context, onClose) {
-        return Container(
-          margin: const EdgeInsets.only(left: 8),
-          child: IconButton(
-            onPressed: onClose,
-            icon: Icon(
-              Icons.close,
-              size: 20,
-              color: Colors.white.withOpacity(0.8),
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            splashRadius: 20,
+      alignment: Alignment.topRight,
+      direction: TextDirection.ltr,
+      animationDuration: const Duration(milliseconds: 400),
+      animationBuilder: (context, animation, alignment, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1.0, 0.0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutBack,
+          )),
+          child: FadeTransition(
+            opacity: animation,
+            child: child,
           ),
         );
       },
-    ),
-    closeOnClick: false,
-    pauseOnHover: true,
-    dragToClose: true,
-    applyBlurEffect: false,
-  );
+      icon: Icon(
+        iconData,
+        size: 28,
+        color: Colors.white,
+      ),
+      showIcon: true,
+      primaryColor: color,
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.only(top: 20, right: 20),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: color.withOpacity(0.4),
+          blurRadius: 20,
+          offset: const Offset(0, 8),
+          spreadRadius: 0,
+        ),
+        BoxShadow(
+          color: color.withOpacity(0.2),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+          spreadRadius: 0,
+        ),
+      ],
+      showProgressBar: true,
+      progressBarTheme: ProgressIndicatorThemeData(
+        color: Colors.white.withOpacity(0.3),
+        linearTrackColor: Colors.white.withOpacity(0.1),
+      ),
+      closeButton: ToastCloseButton(
+        showType: CloseButtonShowType.always,
+        buttonBuilder: (context, onClose) {
+          return Container(
+            margin: const EdgeInsets.only(left: 8),
+            child: IconButton(
+              onPressed: onClose,
+              icon: Icon(
+                Icons.close,
+                size: 20,
+                color: Colors.white.withOpacity(0.8),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              splashRadius: 20,
+            ),
+          );
+        },
+      ),
+      closeOnClick: false,
+      pauseOnHover: true,
+      dragToClose: true,
+      applyBlurEffect: false,
+    );
+  });
   // Get.snackbar(
   //   '',
   //   '',

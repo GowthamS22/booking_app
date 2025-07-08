@@ -5,7 +5,6 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
-
 class PrinterScreen extends StatefulWidget {
   const PrinterScreen({super.key});
 
@@ -15,6 +14,39 @@ class PrinterScreen extends StatefulWidget {
 
 class _PrinterScreenState extends State<PrinterScreen> {
   final PrinterController printerController = Get.put(PrinterController());
+
+  // Add controllers as fields
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController ipController = TextEditingController();
+  final TextEditingController portController = TextEditingController();
+
+  // Pagination state
+  int _currentPage = 0;
+  final int _pageSize = 5;
+
+  List<Map<String, dynamic>> get _pagedPrinters {
+    final start = _currentPage * _pageSize;
+    final end =
+        (start + _pageSize) > printerController.pairedPrinters.length
+            ? printerController.pairedPrinters.length
+            : (start + _pageSize);
+    return printerController.pairedPrinters.sublist(start, end);
+  }
+
+  int get _pagedPortSum {
+    return _pagedPrinters.fold(
+      0,
+      (acc, printer) => acc + (int.tryParse(printer['port'].toString()) ?? 0),
+    );
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    ipController.dispose();
+    portController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,10 +132,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                             children: [
                               ElevatedButton.icon(
                                 onPressed: () => _showManualAddDialog(context),
-                                icon: Icon(
-                                  LucideIcons.plus,
-                                  size: 30,
-                                ),
+                                icon: Icon(LucideIcons.plus, size: 30),
                                 label: Text(
                                   'Add',
                                   style: GoogleFonts.inter(
@@ -116,8 +145,8 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                   backgroundColor: Palette.newColorbg,
                                   minimumSize: const Size(150, 60),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      side: BorderSide(color: Palette.newColor)
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(color: Palette.newColor),
                                   ),
                                 ),
                               ),
@@ -127,10 +156,7 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                   openRightDrawer(context);
                                   printerController.scanForPrinters();
                                 },
-                                icon: Icon(
-                                  LucideIcons.scanLine,
-                                  size: 30,
-                                ),
+                                icon: Icon(LucideIcons.scanLine, size: 30),
                                 label: Text(
                                   'Scan',
                                   style: GoogleFonts.inter(
@@ -143,8 +169,8 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                   backgroundColor: Palette.newColorbg,
                                   minimumSize: const Size(150, 60),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                      side: BorderSide(color: Palette.newColor)
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(color: Palette.newColor),
                                   ),
                                 ),
                               ),
@@ -221,204 +247,326 @@ class _PrinterScreenState extends State<PrinterScreen> {
                               ),
                               const Divider(),
                               SizedBox(
-                                height: MediaQuery.of(context).size.height * 0.4,
+                                height:
+                                    MediaQuery.of(context).size.height * 0.4,
                                 child: Column(
                                   children: [
                                     Expanded(
-                                      child: Obx(() => ListView.builder(
-                                        itemCount: printerController.pairedPrinters.length,
-                                        itemBuilder: (context, index) {
-                                          final printer = printerController.pairedPrinters[index];
-                                          return Obx(() {
-                                            return GestureDetector(
-                                              key: ValueKey(printer['name']),
-                                              onTap: () {
-                                                printerController.selectPrinter({
-                                                  'name': printer['name'],
-                                                  'ip': printer['ip'],
-                                                  'port': printer['port'],
-                                                });
-                                              },
-                                              child: Container(
-                                                color: printerController.selectedPrinter.value == printer
-                                                    ? Colors.indigo.shade50
-                                                    : Colors.transparent,
-                                                child: Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 5),
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        flex: 1,
-                                                        child: Center(
-                                                          child: Text(
-                                                            printer['name'],
-                                                            style: GoogleFonts.inter(
-                                                              color: Colors.grey.shade900,
-                                                              fontSize: 22,
-                                                              fontWeight: FontWeight.w400,
+                                      child: Obx(
+                                        () => ListView.builder(
+                                          itemCount: _pagedPrinters.length,
+                                          itemBuilder: (context, index) {
+                                            final printer =
+                                                _pagedPrinters[index];
+                                            return Obx(() {
+                                              return GestureDetector(
+                                                key: ValueKey(printer['name']),
+                                                onTap: () {
+                                                  printerController
+                                                      .selectPrinter({
+                                                        'name': printer['name'],
+                                                        'ip': printer['ip'],
+                                                        'port': printer['port'],
+                                                      });
+                                                },
+                                                child: Container(
+                                                  color:
+                                                      printerController
+                                                                  .selectedPrinter
+                                                                  .value ==
+                                                              printer
+                                                          ? Colors
+                                                              .indigo
+                                                              .shade50
+                                                          : Colors.transparent,
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 5,
+                                                        ),
+                                                    child: Row(
+                                                      children: [
+                                                        Expanded(
+                                                          flex: 1,
+                                                          child: Center(
+                                                            child: Text(
+                                                              printer['name'],
+                                                              style: GoogleFonts.inter(
+                                                                color:
+                                                                    Colors
+                                                                        .grey
+                                                                        .shade900,
+                                                                fontSize: 22,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w400,
+                                                              ),
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 1,
-                                                        child: Obx(
-                                                              () => printer['isEditing'].value
-                                                              ? Center(
-                                                            child: SizedBox(
-                                                              width: MediaQuery.of(context).size.width * 0.09,
-                                                              child: TextFormField(
-                                                                initialValue: printer['ip'],
-                                                                onChanged:(val) => printer['ip'] = val,
-                                                                decoration: InputDecoration(
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(8),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.grey.shade300,
+                                                        Expanded(
+                                                          flex: 1,
+                                                          child: Obx(
+                                                            () =>
+                                                                printer['isEditing']
+                                                                        .value
+                                                                    ? Center(
+                                                                      child: SizedBox(
+                                                                        width:
+                                                                            MediaQuery.of(
+                                                                              context,
+                                                                            ).size.width *
+                                                                            0.09,
+                                                                        child: TextFormField(
+                                                                          initialValue:
+                                                                              printer['ip'],
+                                                                          onChanged:
+                                                                              (val) =>
+                                                                                  printer['ip'] =
+                                                                                      val,
+                                                                          decoration: InputDecoration(
+                                                                            border: OutlineInputBorder(
+                                                                              borderRadius: BorderRadius.circular(
+                                                                                8,
+                                                                              ),
+                                                                              borderSide: BorderSide(
+                                                                                color:
+                                                                                    Colors.grey.shade300,
+                                                                              ),
+                                                                            ),
+                                                                            contentPadding: EdgeInsets.symmetric(
+                                                                              horizontal:
+                                                                                  10,
+                                                                              vertical:
+                                                                                  10,
+                                                                            ),
+                                                                          ),
+                                                                          style: TextStyle(
+                                                                            fontSize:
+                                                                                22,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    )
+                                                                    : Center(
+                                                                      child: Text(
+                                                                        printer['ip'],
+                                                                        style: GoogleFonts.inter(
+                                                                          color:
+                                                                              Colors.grey.shade900,
+                                                                          fontSize:
+                                                                              22,
+                                                                          fontWeight:
+                                                                              FontWeight.w400,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          flex: 1,
+                                                          child: Obx(
+                                                            () =>
+                                                                printer['isEditing']
+                                                                        .value
+                                                                    ? Center(
+                                                                      child: SizedBox(
+                                                                        width:
+                                                                            MediaQuery.of(
+                                                                              context,
+                                                                            ).size.width *
+                                                                            0.09,
+                                                                        child: TextFormField(
+                                                                          initialValue:
+                                                                              printer['port'],
+                                                                          onChanged:
+                                                                              (val) =>
+                                                                                  printer['port'] =
+                                                                                      val,
+                                                                          decoration: InputDecoration(
+                                                                            border: OutlineInputBorder(
+                                                                              borderRadius: BorderRadius.circular(
+                                                                                8,
+                                                                              ),
+                                                                              borderSide: BorderSide(
+                                                                                color:
+                                                                                    Colors.grey.shade300,
+                                                                              ),
+                                                                            ),
+                                                                            contentPadding: EdgeInsets.symmetric(
+                                                                              horizontal:
+                                                                                  10,
+                                                                              vertical:
+                                                                                  10,
+                                                                            ),
+                                                                          ),
+                                                                          style: TextStyle(
+                                                                            fontSize:
+                                                                                22,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    )
+                                                                    : Center(
+                                                                      child: Text(
+                                                                        printer['port'],
+                                                                        style: GoogleFonts.inter(
+                                                                          color:
+                                                                              Colors.grey.shade900,
+                                                                          fontSize:
+                                                                              22,
+                                                                          fontWeight:
+                                                                              FontWeight.w400,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          flex: 1,
+                                                          child: Row(
+                                                            mainAxisAlignment:
+                                                                MainAxisAlignment
+                                                                    .center,
+                                                            children: [
+                                                              IconButton(
+                                                                icon: Icon(
+                                                                  printer['isEditing']
+                                                                          .value
+                                                                      ? LucideIcons
+                                                                          .save
+                                                                      : LucideIcons
+                                                                          .pencil,
+                                                                  size: 30,
+                                                                  color:
+                                                                      Colors
+                                                                          .black87,
+                                                                ),
+                                                                onPressed: () {
+                                                                  if (printer['isEditing']
+                                                                      .value) {
+                                                                    printerController.savePrinter(
+                                                                      (_currentPage *
+                                                                              _pageSize) +
+                                                                          index,
+                                                                      printer['ip'],
+                                                                      printer['port'],
+                                                                    );
+                                                                  } else {
+                                                                    printerController.toggleEdit(
+                                                                      (_currentPage *
+                                                                              _pageSize) +
+                                                                          index,
+                                                                    );
+                                                                  }
+                                                                },
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor:
+                                                                      Palette
+                                                                          .newColorbg,
+                                                                  minimumSize:
+                                                                      const Size(
+                                                                        70,
+                                                                        60,
+                                                                      ),
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          10,
+                                                                        ),
+                                                                    side: BorderSide(
+                                                                      color:
+                                                                          Palette
+                                                                              .newColor,
                                                                     ),
                                                                   ),
-                                                                  contentPadding: EdgeInsets.symmetric(
-                                                                    horizontal: 10,
-                                                                    vertical: 10,
-                                                                  ),
                                                                 ),
-                                                                style: TextStyle(fontSize: 22),
                                                               ),
-                                                            ),
-                                                          )
-                                                              : Center(
-                                                            child: Text(
-                                                              printer['ip'],
-                                                              style: GoogleFonts.inter(
-                                                                color: Colors.grey.shade900,
-                                                                fontSize: 22,
-                                                                fontWeight: FontWeight.w400,
+                                                              const SizedBox(
+                                                                width: 8,
                                                               ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 1,
-                                                        child: Obx(
-                                                              () => printer['isEditing'].value
-                                                              ? Center(
-                                                            child: SizedBox(
-                                                              width: MediaQuery.of(context).size.width * 0.09,
-                                                              child: TextFormField(
-                                                                initialValue: printer['port'],
-                                                                onChanged: (val) => printer['port'] = val,
-                                                                decoration: InputDecoration(
-                                                                  border: OutlineInputBorder(
-                                                                    borderRadius: BorderRadius.circular(8),
-                                                                    borderSide: BorderSide(
-                                                                      color: Colors.grey.shade300,
-                                                                    ),
-                                                                  ),
-                                                                  contentPadding: EdgeInsets.symmetric(
-                                                                    horizontal: 10,
-                                                                    vertical: 10,
-                                                                  ),
+                                                              IconButton(
+                                                                icon: Icon(
+                                                                  LucideIcons
+                                                                      .trash2,
+                                                                  size: 30,
+                                                                  color:
+                                                                      Colors
+                                                                          .white,
                                                                 ),
-                                                                style: TextStyle(fontSize: 22),
-                                                              ),
-                                                            ),
-                                                          )
-                                                              : Center(
-                                                            child: Text(
-                                                              printer['port'],
-                                                              style: GoogleFonts.inter(
-                                                                color: Colors.grey.shade900,
-                                                                fontSize: 22,
-                                                                fontWeight: FontWeight.w400,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 1,
-                                                        child: Row(
-                                                          mainAxisAlignment: MainAxisAlignment.center,
-                                                          children: [
-                                                            IconButton(
-                                                              icon: Icon(
-                                                                printer['isEditing'].value
-                                                                    ? LucideIcons.save
-                                                                    : LucideIcons.pencil,
-                                                                size: 30,
-                                                                color: Colors.black87,
-                                                              ),
-                                                              onPressed: () {
-                                                                if (printer['isEditing'].value) {
-                                                                  printerController.savePrinter(
-                                                                    index,
-                                                                    printer['ip'],
-                                                                    printer['port'],
+                                                                onPressed: () {
+                                                                  printerController.deletePrinter(
+                                                                    (_currentPage *
+                                                                            _pageSize) +
+                                                                        index,
                                                                   );
-                                                                } else {
-                                                                  printerController.toggleEdit(index);
-                                                                }
-                                                              },
-                                                              style: ElevatedButton.styleFrom(
-                                                                backgroundColor: Palette.newColorbg,
-                                                                minimumSize: const Size(70, 60),
-                                                                shape: RoundedRectangleBorder(
-                                                                    borderRadius: BorderRadius.circular(10),
-                                                                    side: BorderSide(color: Palette.newColor)
+                                                                },
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor:
+                                                                      Colors
+                                                                          .red,
+                                                                  minimumSize:
+                                                                      const Size(
+                                                                        70,
+                                                                        60,
+                                                                      ),
+                                                                  shape: RoundedRectangleBorder(
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          10,
+                                                                        ),
+                                                                    side: BorderSide(
+                                                                      color:
+                                                                          Colors
+                                                                              .red,
+                                                                    ),
+                                                                  ),
                                                                 ),
                                                               ),
-                                                            ),
-                                                            const SizedBox(width: 8),
-                                                            IconButton(
-                                                              icon: Icon(
-                                                                LucideIcons.trash2,
-                                                                size: 30,
-                                                                color: Colors.white,
-                                                              ),
-                                                              onPressed: () {
-                                                                printerController.deletePrinter(index);
-                                                              },
-                                                              style: ElevatedButton.styleFrom(
-                                                                backgroundColor: Colors.red,
-                                                                minimumSize: const Size(70, 60),
-                                                                shape: RoundedRectangleBorder(
-                                                                    borderRadius: BorderRadius.circular(10),
-                                                                    side: BorderSide(color: Colors.red)
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ),
-                                                    ],
+                                                      ],
+                                                    ),
                                                   ),
                                                 ),
-                                              ),
-                                            );
-                                          });
-                                        },
-                                      )),
+                                              );
+                                            });
+                                          },
+                                        ),
+                                      ),
                                     ),
                                     const Divider(),
                                   ],
                                 ),
                               ),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    '${printerController.pairedPrinters.length} of 5 row(s) selected.',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 22,
-                                      color: Colors.grey.shade500,
-                                      fontWeight: FontWeight.w400,
-                                    ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${_pagedPrinters.length} of $_pageSize row(s) shown.',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          color: Colors.grey.shade500,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   Row(
                                     children: [
                                       OutlinedButton(
-                                        onPressed: () {},
+                                        onPressed:
+                                            _currentPage > 0
+                                                ? () => setState(
+                                                  () => _currentPage--,
+                                                )
+                                                : null,
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.grey.shade700,
                                           side: BorderSide(
@@ -436,7 +584,15 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                       ),
                                       const SizedBox(width: 8),
                                       OutlinedButton(
-                                        onPressed: () {},
+                                        onPressed:
+                                            ((_currentPage + 1) * _pageSize) <
+                                                    printerController
+                                                        .pairedPrinters
+                                                        .length
+                                                ? () => setState(
+                                                  () => _currentPage++,
+                                                )
+                                                : null,
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor: Colors.grey.shade700,
                                           side: BorderSide(
@@ -500,8 +656,8 @@ class _PrinterScreenState extends State<PrinterScreen> {
                         backgroundColor: Palette.newColorbg,
                         minimumSize: const Size(150, 60),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            side: BorderSide(color: Palette.newColor)
+                          borderRadius: BorderRadius.circular(10),
+                          side: BorderSide(color: Palette.newColor),
                         ),
                       ),
                     ),
@@ -516,174 +672,169 @@ class _PrinterScreenState extends State<PrinterScreen> {
   }
 
   void _showManualAddDialog(BuildContext context) {
-    final nameController = TextEditingController();
-    final ipController = TextEditingController();
-    final portController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        insetPadding: EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        backgroundColor: Colors.white,
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.4,
-          padding: EdgeInsets.all(24),
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Add Printer Manually',
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 20),
-                TextFormField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Printer Name',
-                    labelStyle: GoogleFonts.inter(fontSize: 22),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    errorStyle: TextStyle(fontSize: 20)
-                  ),
-                  style: GoogleFonts.inter(fontSize: 22),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter printer name';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 20),
-                TextFormField(
-                  controller: ipController,
-                  decoration: InputDecoration(
-                    labelText: 'IP Address',
-                    labelStyle: GoogleFonts.inter(fontSize: 22),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    errorStyle: TextStyle(fontSize: 20)
-                  ),
-                  style: GoogleFonts.inter(fontSize: 22),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter IP address';
-                    }
-                    if (!RegExp(r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
-                        .hasMatch(value)) {
-                      return 'Enter valid IP address';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 20),
-                TextFormField(
-                  controller: portController,
-                  decoration: InputDecoration(
-                    labelText: 'Port',
-                    labelStyle: GoogleFonts.inter(fontSize: 22),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 16,
-                    ),
-                    errorStyle: TextStyle(fontSize: 20)
-                  ),
-                  style: GoogleFonts.inter(fontSize: 22),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter port number';
-                    }
-                    if (int.tryParse(value) == null) {
-                      return 'Enter valid port number';
-                    }
-                    final port = int.parse(value);
-                    if (port < 1 || port > 65535) {
-                      return 'Port must be between 1-65535';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 30),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+      builder:
+          (context) => Dialog(
+            insetPadding: EdgeInsets.all(20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
+            backgroundColor: Colors.white,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.4,
+              padding: EdgeInsets.all(24),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    Text(
+                      'Add Printer Manually',
+                      style: GoogleFonts.inter(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        if (formKey.currentState!.validate()) {
-                          printerController.addPrinterManually(
-                            nameController.text,
-                            ipController.text,
-                            portController.text,
-                          );
-                          Navigator.pop(context);
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: 'Printer Name',
+                        labelStyle: GoogleFonts.inter(fontSize: 22),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        errorStyle: TextStyle(fontSize: 20),
+                      ),
+                      style: GoogleFonts.inter(fontSize: 22),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter printer name';
                         }
+                        return null;
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Palette.newColor,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                    ),
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: ipController,
+                      decoration: InputDecoration(
+                        labelText: 'IP Address',
+                        labelStyle: GoogleFonts.inter(fontSize: 22),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        errorStyle: TextStyle(fontSize: 20),
                       ),
-                      child: Text(
-                        'Add Printer',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+                      style: GoogleFonts.inter(fontSize: 22),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter IP address';
+                        }
+                        if (!RegExp(
+                          r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
+                        ).hasMatch(value)) {
+                          return 'Enter valid IP address';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 20),
+                    TextFormField(
+                      controller: portController,
+                      decoration: InputDecoration(
+                        labelText: 'Port',
+                        labelStyle: GoogleFonts.inter(fontSize: 22),
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
                         ),
+                        errorStyle: TextStyle(fontSize: 20),
                       ),
+                      style: GoogleFonts.inter(fontSize: 22),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter port number';
+                        }
+                        if (int.tryParse(value) == null) {
+                          return 'Enter valid port number';
+                        }
+                        final port = int.parse(value);
+                        if (port < 1 || port > 65535) {
+                          return 'Port must be between 1-65535';
+                        }
+                        return null;
+                      },
+                    ),
+                    SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        ElevatedButton(
+                          onPressed: () {
+                            if (formKey.currentState!.validate()) {
+                              printerController.addPrinterManually(
+                                nameController.text,
+                                ipController.text,
+                                portController.text,
+                              );
+                              Navigator.pop(context);
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Palette.newColor,
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            'Add Printer',
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    ).then((_) {
-      nameController.dispose();
-      ipController.dispose();
-      portController.dispose();
-    });
+    ); // Remove .then block that disposes controllers
   }
 
   void openRightDrawer(BuildContext context) {
@@ -737,11 +888,14 @@ class _PrinterScreenState extends State<PrinterScreen> {
                       else
                         Expanded(
                           child: Obx(() {
-                            final selectedIp = printerController.selectedPrinter.value?['ip'];
+                            final selectedIp =
+                                printerController.selectedPrinter.value?['ip'];
                             return ListView.builder(
-                              itemCount: printerController.availablePrinters.length,
+                              itemCount:
+                                  printerController.availablePrinters.length,
                               itemBuilder: (context, index) {
-                                final printer = printerController.availablePrinters[index];
+                                final printer =
+                                    printerController.availablePrinters[index];
                                 return ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   leading: Icon(
@@ -758,7 +912,10 @@ class _PrinterScreenState extends State<PrinterScreen> {
                                   ),
                                   selected: selectedIp == printer['ip'],
                                   selectedTileColor: Colors.indigo.shade50,
-                                  onTap: () => printerController.selectPrinter(printer),
+                                  onTap:
+                                      () => printerController.selectPrinter(
+                                        printer,
+                                      ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -799,7 +956,9 @@ class _PrinterScreenState extends State<PrinterScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: ElevatedButton(
-                              onPressed: () => printerController.confirmPairSelectedPrinter(context),
+                              onPressed:
+                                  () => printerController
+                                      .confirmPairSelectedPrinter(context),
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(250, 60),
                                 backgroundColor: Colors.grey.shade700,

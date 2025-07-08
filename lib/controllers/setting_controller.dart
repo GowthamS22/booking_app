@@ -187,23 +187,46 @@ print(response);
   }
 
   Future<void> updateSupabasePrinters() async {
-    SharedPreferences prefs                       = await SharedPreferences.getInstance();
-    String? centerSlug                            = prefs.getString('centerSlug');
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? centerSlug = prefs.getString('centerSlug');
 
-    // Convert RxBool to bool
+    // Convert RxBool to bool for current printers
     final List<Map<String, dynamic>> printersJson = pairedPrinters.map((printer) {
       return {
         'name': printer['name'],
         'ip': printer['ip'],
         'port': printer['port'],
-        'isEditing': (printer['isEditing'] as RxBool).value,
       };
     }).toList();
+
+    // Load original printers from SharedPreferences for comparison
+    final String? originalPrintersString = prefs.getString('paired_printers');
+    List<Map<String, dynamic>> originalPrinters = [];
+    if (originalPrintersString != null) {
+      final List<dynamic> decoded = jsonDecode(originalPrintersString);
+      originalPrinters = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+
+    // Compare current and original printers (ignoring order)
+    bool isSame = _listEqualsIgnoreOrder(printersJson, originalPrinters);
+    if (isSame) {
+      showCustomSnackbar('Info', 'No changes to update', Colors.blueAccent);
+      return;
+    }
+
+    // Proceed with update if there are changes
     final response = await supabase
         .schema('${centerSlug}_prod_schema')
         .from('store_details')
         .update({
-          'printer': printersJson
+          'printer': pairedPrinters.map((printer) {
+            return {
+              'name': printer['name'],
+              'ip': printer['ip'],
+              'port': printer['port'],
+              'isEditing': (printer['isEditing'] as RxBool).value,
+            };
+          }).toList()
         })
         .eq('shortcode', centerSlug.toString())
         .select('*')
@@ -211,19 +234,27 @@ print(response);
 
     final SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setString('storeDetails', jsonEncode(response));
-    
-    // Also save printers separately for easy access in checkout
-    final List<Map<String, dynamic>> simplePrinters = pairedPrinters.map((printer) {
-      return {
-        'name': printer['name'],
-        'ip': printer['ip'],
-        'port': printer['port'],
-      };
-    }).toList();
-    await preferences.setString('paired_printers', jsonEncode(simplePrinters));
+    await preferences.setString('paired_printers', jsonEncode(printersJson));
 
     showCustomSnackbar('Success', 'Printers Updated Successfully', Colors.green);
     update(); // Add this to ensure UI updates after DB update
+  }
+
+  // Helper function to compare two lists of maps, ignoring order
+  bool _listEqualsIgnoreOrder(List<Map<String, dynamic>> a, List<Map<String, dynamic>> b) {
+    if (a.length != b.length) return false;
+    final aSorted = List<Map<String, dynamic>>.from(a)
+      ..sort((x, y) => x['name'].toString().compareTo(y['name'].toString()));
+    final bSorted = List<Map<String, dynamic>>.from(b)
+      ..sort((x, y) => x['name'].toString().compareTo(y['name'].toString()));
+    for (int i = 0; i < aSorted.length; i++) {
+      if (aSorted[i]['name'] != bSorted[i]['name'] ||
+          aSorted[i]['ip'] != bSorted[i]['ip'] ||
+          aSorted[i]['port'] != bSorted[i]['port']) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> testPrintOnAllPrinters() async {
