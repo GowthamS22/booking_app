@@ -500,24 +500,24 @@ class OrderController extends GetxController {
 
           if (filterType == 'unpaid') {
             // Check for active membership first
-            var membershipCarData = await supabase
+            var membershipCartData = await supabase
                 .schema('${centerSlug}_prod_schema')
                 .from('membership_data')
                 .select('customer_id, price, status')
                 .eq('customer_id', newItem['bookings']['customer_id'])
-                .eq('status', true)
+                .eq('status', false)
                 .maybeSingle();
 
             // If no active membership found, check for pending membership (Pay Later bookings)
-            if (membershipCarData == null) {
-              membershipCarData = await supabase
-                  .schema('${centerSlug}_prod_schema')
-                  .from('membership_data')
-                  .select('customer_id, price, status')
-                  .eq('customer_id', newItem['bookings']['customer_id'])
-                  .eq('status', false)
-                  .maybeSingle();
-            }
+            // if (membershipCartData == null) {
+            //   membershipCartData = await supabase
+            //       .schema('${centerSlug}_prod_schema')
+            //       .from('membership_data')
+            //       .select('customer_id, price, status')
+            //       .eq('customer_id', newItem['bookings']['customer_id'])
+            //       .eq('status', false)
+            //       .maybeSingle();
+            // }
 
             // If still no membership found, check for string status 'pending'
             // if (membershipCarData == null) {
@@ -534,8 +534,8 @@ class OrderController extends GetxController {
             //   }
             // }
 
-            if (membershipCarData != null) {
-              finalGrandTotal += double.parse(membershipCarData['price'].toString());
+            if (membershipCartData != null) {
+              finalGrandTotal += double.parse(membershipCartData['price'].toString());
             }
 
             newItem['bookings']['grand_total'] = finalGrandTotal + ordersTotal;

@@ -4018,7 +4018,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   .from('membership_data')
                   .update({
                     'status': true, // true means active
-                    'updated_at': DateTime.now().toIso8601String(),
+                    //'updated_at': DateTime.now().toIso8601String(),
                   })
                   .eq('id', membershipData['id'])
                   .select();
@@ -4033,7 +4033,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   .update({
                     'membership_data_id': membershipData['id'],
                     'membershipplan_id': membershipData['membershipplan_id'],
-                    'updated_at': DateTime.now().toIso8601String(),
+                    //'updated_at': DateTime.now().toIso8601String(),
                   })
                   .eq('id', bookingData['customer_id'])
                   .select();

@@ -1600,9 +1600,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
         this.hasPendingMembership = hasPendingMembership;
 
         // Only set hasMembership to true if there's NO pending membership
-        hasMembership = !hasPendingMembership &&
-                       (userData['membershipplan_id'] != null &&
-                        userData['membershipplan_id'].toString().isNotEmpty);
+        hasMembership = !hasPendingMembership && (userData['membershipplan_id'] != null && userData['membershipplan_id'].toString().isNotEmpty);
 
         if (hasMembership && !hasPendingMembership) {
           memberPeakPrice = double.tryParse(userData['peak_price']?.toString() ?? '0');
@@ -2466,12 +2464,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                               ],
                             ),
                           ],
-                          if (isMembershipApplied &&
-                              membershipValidityDate != null &&
-                              membershipValidityDate!
-                                      .difference(DateTime.now())
-                                      .inDays >
-                                  0) ...[
+                          if (isMembershipApplied && membershipValidityDate != null && membershipValidityDate!.difference(DateTime.now()).inDays > 0) ...[
                             //Spacer(),
                             Divider(color: Colors.grey.shade300),
                             Row(
@@ -2841,12 +2834,12 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     });
 
     // Store controller values before showing dialog to avoid disposed controller access
-    final bookingIdValue = controller.bookingId;
-    final selectedServiceIdValue = controller.selectedServiceId.value;
-    final serviceListValue = List.from(controller.serviceList);
-    final userDataValue = controller.userData.value;
-    final nameControllerText = controller.nameController.text;
-    final mobileControllerText = controller.mobileNumberController.text;
+    final bookingIdValue          = controller.bookingId;
+    final selectedServiceIdValue  = controller.selectedServiceId.value;
+    final serviceListValue        = List.from(controller.serviceList);
+    final userDataValue           = controller.userData.value;
+    final nameControllerText      = controller.nameController.text;
+    final mobileControllerText    = controller.mobileNumberController.text;
 
     await showDialog(
       context: parentContext,
@@ -3225,12 +3218,8 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                     // Close dialog first to prevent TypeAhead widget disposal issues
                                     Navigator.pop(context);
 
-                                    // Add a small delay to ensure dialog is fully closed
-                                    await Future.delayed(Duration(milliseconds: 100));
-
                                     try {
-                                      if (userDataValue.id != null) {
-
+                                      if (controller.userData.value.id != null) {
                                         // User exists, create booking with pending payment
                                         populateCartWithSubSlots(bookings);
                                         await controller.processCheckout(
@@ -3253,7 +3242,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
                                             mobile: mobile,
                                             firstName: customerName.toString(),
                                           );
-
                                           // Create booking with pending payment
                                           populateCartWithSubSlots(bookings);
                                           await controller.processCheckout(

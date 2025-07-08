@@ -36,12 +36,10 @@ class _AppAdminState extends State<AppAdmin> {
       case 1:
         return ShoppingScreen();
       case 2:
-        return CustomerScreen();
-      case 3:
         return MembershipScreen();
-      case 4:
+      case 3:
         return PrinterScreen();
-      case 5:
+      case 4:
         return CloseCash();
       default:
         return DashboardScreen();

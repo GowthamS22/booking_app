@@ -447,7 +447,10 @@ class NewBookingController extends GetxController {
         userData.value = user;
         userData.value.id = user.id; // Assuming `id` field exists
 
+        print('Customer found : ${userData.value.id}');
+
         final userMembershipId = userResponse['membershipplan_id'];
+
       } else {
         print('No user found with mobile: $mobile');
       }
@@ -2408,6 +2411,7 @@ class NewBookingController extends GetxController {
           return;
         }
       }
+
       // If bookings are passed from checkout screen, populate cartItems
       if (bookings != null && bookings.isNotEmpty && cartItems.isEmpty) {
         print('📍 Populating cartItems from bookings parameter');
@@ -2415,11 +2419,11 @@ class NewBookingController extends GetxController {
         
         // Get the service name and ID from the current selection
         String serviceName = selectedService.value.isNotEmpty ? selectedService.value : 'Badminton';
-        String serviceId = selectedServiceId.value.isNotEmpty ? selectedServiceId.value : '';
+        String serviceId   = selectedServiceId.value.isNotEmpty ? selectedServiceId.value : '';
         
         // If service ID is empty, try to get it from the service list
         if (serviceId.isEmpty && serviceList.isNotEmpty) {
-          serviceId = serviceList[0]['id'] ?? '';
+          serviceId   = serviceList[0]['id'] ?? '';
           serviceName = serviceList[0]['name'] ?? 'Badminton';
         }
         
@@ -2471,13 +2475,13 @@ class NewBookingController extends GetxController {
                 .from('membership_data')
                 .select('id, status')
                 .eq('customer_id', userData.value.id.toString())
-                .eq('status', false)
+                //.eq('status', false)
                 .maybeSingle();
                 
             if (existingPendingMembership != null) {
               print('⚠️ Customer already has a pending membership: ${existingPendingMembership['id']} - not creating duplicate');
               // Optionally, you might want to show a warning to the user
-              showCustomSnackbar('Warning', 'You already have a pending membership payment', Colors.orange);
+              showCustomSnackbar('Warning', existingPendingMembership['status']==true ? 'You already have ${existingPendingMembership['name']} membership' : 'You already have a pending membership payment', Colors.orange);
             } else {
               // Fetch plan details with error handling
               final planDetailsResponse = await supabase
@@ -2529,6 +2533,8 @@ class NewBookingController extends GetxController {
 
       // Step 2: Generate a unique booking ID
       final bookingNumber = await getNextBookingNumber();
+      final currentYear   = DateTime.now().year;
+      final bookingNo     = 'BCK-$currentYear-${bookingNumber}';
 
       // Step 3: Insert booking record
       print('cartItems before booking insert: $cartItems');
@@ -2538,7 +2544,7 @@ class NewBookingController extends GetxController {
               .schema('${centerSlug}_prod_schema')
               .from('bookings')
               .insert({
-                'booking_no': 'BCK-2025-${bookingNumber}',
+                'booking_no': '${bookingNo}',
                 'customer_id': userData.value.id.toString(),
                 'surcharge': (0.0).toDouble(),
                 'grand_total': grandtotalPrice.toDouble(),
@@ -2701,22 +2707,18 @@ class NewBookingController extends GetxController {
 
   Future<PostgrestMap> createTempOrder({double? total}) async {
     try {
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
-      String? centerSlug = preferences.getString('centerSlug');
-      final cartJson = preferences.getString('shopping_cart');
-      final orderNotes = preferences.getString('order_notes');
-      final orderId = preferences.getString('order_id');
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug  = preferences.getString('centerSlug');
+      final cartJson      = preferences.getString('shopping_cart');
+      final orderNotes    = preferences.getString('order_notes');
+      final orderId       = preferences.getString('order_id');
 
-      final orderResponse =
-          await supabase
+      final orderResponse = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('orders')
               .insert({
                 'token_number': orderId,
-                'order_date': DateFormat(
-                  'yyyy-MM-dd',
-                ).format(DateTime.now()), // <-- 'MM' for month, not 'mm'
+                'order_date': DateFormat('yyyy-MM-dd',).format(DateTime.now()), // <-- 'MM' for month, not 'mm'
                 'order_type': 'product',
                 'cart_items': jsonDecode(cartJson!),
                 'total': total,
@@ -2740,12 +2742,10 @@ class NewBookingController extends GetxController {
     bool redirect = true,
   }) async {
     try {
-      final SharedPreferences preferences =
-          await SharedPreferences.getInstance();
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
       String? centerSlug = preferences.getString('centerSlug');
 
-      final response =
-          await supabase
+      final response = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('orders')
               .update({'booking_id': booking_id, 'customer_id': customer_id})

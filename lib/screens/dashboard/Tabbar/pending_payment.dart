@@ -622,270 +622,175 @@ class _PendingPaymentState extends State<PendingPayment> {
 
   void _handlePaymentAction(BookingModel booking) async {
     try {
-      // Check if this booking has multiple courts OR has membership
-      final bool hasMultipleCourts = await _checkIfBookingHasMultipleCourts(booking);
-      final bool hasMembership     = await _checkIfBookingHasMembership(booking);
-      final bool hasOrder          = await _checkIfBookingHasOrder(booking);
+      final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
 
-      print('🔍 Payment action check - Multiple courts: $hasMultipleCourts, Has membership: $hasMembership');
+      if (bookingInfo == null) {
+        print('❌ Booking info not found for ${booking.bookingNo}');
+        _showPaymentOptionsDialog(booking, null);
+        return;
+      }
+
+      final hasMultipleCourts = _hasMultipleCourts(bookingInfo);
+      final hasMembership     = _hasMembership(bookingInfo);
+      final hasOrder          = _hasOrder(bookingInfo);
+
+      print('🔍 Payment action check - Multiple courts: $hasMultipleCourts, Has membership: $hasMembership, Has order: $hasOrder');
 
       if (hasMultipleCourts || hasMembership || hasOrder) {
-        // Show dialog for payment options
-        _showPaymentOptionsDialog(booking);
+        _showPaymentOptionsDialog(booking, bookingInfo);
       } else {
-        // Go directly to individual court checkout for single court without membership
         _processIndividualCourtPayment(booking);
       }
     } catch (e) {
       print('Error checking payment options: $e');
-      // Fallback to showing dialog
-      _showPaymentOptionsDialog(booking);
+      _showPaymentOptionsDialog(booking, null);
     }
   }
 
-  Future<bool> _checkIfBookingHasMultipleCourts(BookingModel booking) async {
+  bool _hasMultipleCourts(Map<String, dynamic> bookingInfo) {
     try {
-      // Get the full booking information to check court count
-      final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
-
-      if (bookingInfo == null) {
-        print('Could not retrieve booking info for ${booking.bookingNo}');
-        return false; // Default to single court if we can't determine
-      }
-
-      // Parse the booking cart items to count unique courts
       final bookingData = bookingInfo['booking'];
       final cartItems = bookingData['bcart_items'];
 
-      if (cartItems == null || cartItems.isEmpty) {
-        print('No cart items found for booking ${booking.bookingNo}');
-        return false;
-      }
+      if (cartItems == null || cartItems.isEmpty) return false;
 
-      // Parse the cart items JSON and count unique courts
       final List<dynamic> jsonList = jsonDecode(cartItems);
-      final Set<String> uniqueCourts = <String>{};
+      final Set<String> uniqueCourts = {
+        for (final item in jsonList) if (item['courtName'] != null) item['courtName'].toString()
+      };
 
-      for (final item in jsonList) {
-        final courtName = item['courtName'];
-        if (courtName != null) {
-          uniqueCourts.add(courtName.toString());
-        }
-      }
-
-      final courtCount = uniqueCourts.length;
-      print('🏟️ Booking ${booking.bookingNo} has $courtCount unique courts: ${uniqueCourts.join(', ')}');
-
-      // Return true if more than 1 court
-      return courtCount > 1;
-
+      print('🏟️ Booking ${bookingData['booking_no']} has ${uniqueCourts.length} unique courts.');
+      return uniqueCourts.length > 1;
     } catch (e) {
-      print('Error checking court count for booking ${booking.bookingNo}: $e');
-      return false; // Default to single court if error occurs
+      print('Error checking multiple courts: $e');
+      return false;
     }
   }
 
-  Future<bool> _checkIfBookingHasMembership(BookingModel booking) async {
+  bool _hasMembership(Map<String, dynamic> bookingInfo) {
     try {
-      // Get the full booking information to check for membership
-      final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
-      
-      if (bookingInfo == null) {
-        print('Could not retrieve booking info for ${booking.bookingNo}');
-        return false;
-      }
-      
-      // Check if membership_data exists and is not null
-      final hasMembership = bookingInfo['membership_data'] != null;
-      
+
+      final membershipData = bookingInfo['membership_data'];
+      final hasMembership  = bookingInfo['membership_data']!=null ? bookingInfo['membership_data']['status']==true ? false : true : false;
       if (hasMembership) {
-        final membershipData = bookingInfo['membership_data'];
-        print('👑 Booking ${booking.bookingNo} has membership: ${membershipData['membershipplan_id']}');
+        print('👑 Has membership: ${membershipData['membership_data']}');
       } else {
-        print('❌ Booking ${booking.bookingNo} has no membership');
+        print('❌ No membership');
       }
-      
       return hasMembership;
-      
     } catch (e) {
-      print('Error checking membership for booking ${booking.bookingNo}: $e');
+      print('Error checking membership: $e');
       return false;
     }
   }
 
-  Future<bool> _checkIfBookingHasOrder(BookingModel booking) async {
+  bool _hasOrder(Map<String, dynamic> bookingInfo) {
     try {
-      // Get the full booking information to check for membership
-      final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
-
-      if (bookingInfo == null) {
-        print('Could not retrieve booking info for ${booking.bookingNo}');
-        return false;
-      }
-
-      // Check if membership_data exists and is not null
-      final hasOrder = bookingInfo['orders'] != null;
-
-      return hasOrder;
-
+      return bookingInfo['orders'] != null;
     } catch (e) {
-      print('Error checking membership for booking ${booking.bookingNo}: $e');
+      print('Error checking order: $e');
       return false;
     }
   }
 
-  void _showPaymentOptionsDialog(BookingModel booking) async {
-
-    // Check if membership is included
-    final bool hasMembership = await _checkIfBookingHasMembership(booking);
-    final bool hasOrder      = await _checkIfBookingHasOrder(booking);
-    
+  void _showPaymentOptionsDialog(BookingModel booking, Map<String, dynamic>? bookingInfo) {
     if (!mounted) return;
-    
+
+    final hasMembership = bookingInfo != null && _hasMembership(bookingInfo);
+    final hasOrder      = bookingInfo != null && _hasOrder(bookingInfo);
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: Colors.white,
           content: SizedBox(
-            width: MediaQuery.of(context).size.width * 0.40, // 85% of screen width
+            width: MediaQuery.of(context).size.width * 0.40,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Payment Options',
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                Text('Payment Options', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
-                Text(
-                  'Choose how you would like to pay:',
-                  style: GoogleFonts.inter(fontSize: 22),
-                ),
+                Text('Choose how you would like to pay:', style: GoogleFonts.inter(fontSize: 22)),
                 const SizedBox(height: 20),
                 Row(
                   children: [
-                    Icon(Icons.sports_tennis, color: Colors.blue, size: 35,),
+                    Icon(Icons.sports_tennis, color: Colors.blue, size: 35),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${booking.sportname} - ${booking.courtName}${booking.platformId}',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 20),
                 Row(
                   children: [
-                    Icon(Icons.access_time, color: Colors.grey.shade600, size: 35,),
+                    Icon(Icons.access_time, color: Colors.grey.shade600, size: 35),
                     const SizedBox(width: 8),
-                    Text(
-                      '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
-                      style: GoogleFonts.inter(fontSize: 22),
-                    ),
+                    Text('${booking.startTimeFormatted} - ${booking.endTimeFormatted}', style: GoogleFonts.inter(fontSize: 22)),
                   ],
                 ),
-                const SizedBox(height: 15),
+                const SizedBox(height: 20),
                 Row(
                   children: [
-                    Icon(Icons.attach_money, color: Colors.green, size: 35,),
+                    Icon(Icons.attach_money, color: Colors.green, size: 35),
                     const SizedBox(width: 8),
                     Text(
                       'Court Amount: \$${booking.grandTotal!.toStringAsFixed(2)}',
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.green.shade700,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.green.shade700),
                     ),
                   ],
                 ),
                 if (hasMembership) ...[
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
-                      Icon(LucideIcons.crown, color: Colors.amber, size: 35,),
+                      Icon(LucideIcons.crown, color: Colors.amber, size: 35),
                       const SizedBox(width: 8),
-                      Text(
-                        'Membership included',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.amber.shade700,
-                        ),
-                      ),
+                      Text('Membership included', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w600, color: Colors.amber.shade700)),
                     ],
                   ),
                 ],
                 if (hasOrder) ...[
-                  const SizedBox(height: 15),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
-                      Icon(LucideIcons.shoppingCart, color: Colors.amber, size: 35,),
+                      Icon(LucideIcons.shoppingCart, color: Palette.newColor, size: 35),
                       const SizedBox(width: 8),
-                      Text(
-                        'Order included',
-                        style: GoogleFonts.inter(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.amber.shade700,
-                        ),
-                      ),
+                      Text('Order included', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w600, color: Palette.newColor)),
                     ],
                   ),
                 ],
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  spacing: 20,
                   children: [
                     TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 22),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Palette.newColorbg,
-                        minimumSize: const Size(200, 55),
-                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('Cancel', style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 22)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Palette.newColorbg, minimumSize: const Size(200, 55)),
                     ),
+                    const SizedBox(width: 10),
                     ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
                         _processIndividualCourtPayment(booking);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade500,
-                        minimumSize: const Size(200, 55),
-                      ),
-                      child: Text(
-                        'Pay This Court Only',
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 22),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade500, minimumSize: const Size(200, 55)),
+                      child: Text('Pay This Court Only', style: GoogleFonts.inter(color: Colors.white, fontSize: 22)),
                     ),
+                    const SizedBox(width: 10),
                     ElevatedButton(
                       onPressed: () {
                         Navigator.of(context).pop();
                         _processFullBookingPayment(booking);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade500,
-                        minimumSize: const Size(200, 55),
-                      ),
-                      child: Text(
-                        'Pay Full Booking',
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 22),
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade500, minimumSize: const Size(200, 55)),
+                      child: Text('Pay Full Booking', style: GoogleFonts.inter(color: Colors.white, fontSize: 22)),
                     ),
                   ],
                 )
@@ -896,6 +801,289 @@ class _PendingPaymentState extends State<PendingPayment> {
       },
     );
   }
+
+
+
+  //Old Code
+  // void _handlePaymentActionOld(BookingModel booking) async {
+  //   try {
+  //     // Check if this booking has multiple courts OR has membership
+  //     final bool hasMultipleCourts = await _checkIfBookingHasMultipleCourts(booking);
+  //     final bool hasMembership     = await _checkIfBookingHasMembership(booking);
+  //     final bool hasOrder          = await _checkIfBookingHasOrder(booking);
+  //
+  //     print('🔍 Payment action check - Multiple courts: $hasMultipleCourts, Has membership: $hasMembership');
+  //
+  //     if (hasMultipleCourts || hasMembership || hasOrder) {
+  //       // Show dialog for payment options
+  //       _showPaymentOptionsDialog(booking);
+  //     } else {
+  //       // Go directly to individual court checkout for single court without membership
+  //       _processIndividualCourtPayment(booking);
+  //     }
+  //   } catch (e) {
+  //     print('Error checking payment options: $e');
+  //     // Fallback to showing dialog
+  //     _showPaymentOptionsDialog(booking);
+  //   }
+  // }
+  //
+  // Future<bool> _checkIfBookingHasMultipleCourts(BookingModel booking) async {
+  //   try {
+  //     // Get the full booking information to check court count
+  //     final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
+  //
+  //     if (bookingInfo == null) {
+  //       print('Could not retrieve booking info for ${booking.bookingNo}');
+  //       return false; // Default to single court if we can't determine
+  //     }
+  //
+  //     // Parse the booking cart items to count unique courts
+  //     final bookingData = bookingInfo['booking'];
+  //     final cartItems = bookingData['bcart_items'];
+  //
+  //     if (cartItems == null || cartItems.isEmpty) {
+  //       print('No cart items found for booking ${booking.bookingNo}');
+  //       return false;
+  //     }
+  //
+  //     // Parse the cart items JSON and count unique courts
+  //     final List<dynamic> jsonList = jsonDecode(cartItems);
+  //     final Set<String> uniqueCourts = <String>{};
+  //
+  //     for (final item in jsonList) {
+  //       final courtName = item['courtName'];
+  //       if (courtName != null) {
+  //         uniqueCourts.add(courtName.toString());
+  //       }
+  //     }
+  //
+  //     final courtCount = uniqueCourts.length;
+  //     print('🏟️ Booking ${booking.bookingNo} has $courtCount unique courts: ${uniqueCourts.join(', ')}');
+  //
+  //     // Return true if more than 1 court
+  //     return courtCount > 1;
+  //
+  //   } catch (e) {
+  //     print('Error checking court count for booking ${booking.bookingNo}: $e');
+  //     return false; // Default to single court if error occurs
+  //   }
+  // }
+  //
+  // Future<bool> _checkIfBookingHasMembership(BookingModel booking) async {
+  //   try {
+  //     // Get the full booking information to check for membership
+  //     final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
+  //
+  //     if (bookingInfo == null) {
+  //       print('Could not retrieve booking info for ${booking.bookingNo}');
+  //       return false;
+  //     }
+  //
+  //     // Check if membership_data exists and is not null
+  //     final hasMembership = bookingInfo['membership_data']!=null ? bookingInfo['membership_data']['status'] : false;
+  //
+  //     if (hasMembership) {
+  //       final membershipData = bookingInfo['membership_data'];
+  //       print('👑 Booking ${booking.bookingNo} has membership: ${membershipData['membership_data']}');
+  //     } else {
+  //       print('❌ Booking ${booking.bookingNo} has no membership');
+  //     }
+  //
+  //     return hasMembership;
+  //
+  //   } catch (e) {
+  //     print('Error checking membership for booking ${booking.bookingNo}: $e');
+  //     return false;
+  //   }
+  // }
+  //
+  // Future<bool> _checkIfBookingHasOrder(BookingModel booking) async {
+  //   try {
+  //     // Get the full booking information to check for membership
+  //     final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
+  //
+  //     if (bookingInfo == null) {
+  //       print('Could not retrieve booking info for ${booking.bookingNo}');
+  //       return false;
+  //     }
+  //
+  //     // Check if membership_data exists and is not null
+  //     final hasOrder = bookingInfo['orders'] != null;
+  //
+  //     return hasOrder;
+  //
+  //   } catch (e) {
+  //     print('Error checking membership for booking ${booking.bookingNo}: $e');
+  //     return false;
+  //   }
+  // }
+  //
+  // void _showPaymentOptionsDialogOld(BookingModel booking) async {
+  //
+  //   // Check if membership is included
+  //   final bool hasMembership = await _checkIfBookingHasMembership(booking);
+  //   final bool hasOrder      = await _checkIfBookingHasOrder(booking);
+  //
+  //   if (!mounted) return;
+  //
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         backgroundColor: Colors.white,
+  //         content: SizedBox(
+  //           width: MediaQuery.of(context).size.width * 0.40, // 85% of screen width
+  //           child: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 'Payment Options',
+  //                 style: GoogleFonts.inter(
+  //                   fontSize: 24,
+  //                   fontWeight: FontWeight.w600,
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 10),
+  //               Text(
+  //                 'Choose how you would like to pay:',
+  //                 style: GoogleFonts.inter(fontSize: 22),
+  //               ),
+  //               const SizedBox(height: 20),
+  //               Row(
+  //                 children: [
+  //                   Icon(Icons.sports_tennis, color: Colors.blue, size: 35,),
+  //                   const SizedBox(width: 8),
+  //                   Expanded(
+  //                     child: Text(
+  //                       '${booking.sportname} - ${booking.courtName}${booking.platformId}',
+  //                       style: GoogleFonts.inter(
+  //                         fontSize: 22,
+  //                         fontWeight: FontWeight.w500,
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //               const SizedBox(height: 20),
+  //               Row(
+  //                 children: [
+  //                   Icon(Icons.access_time, color: Colors.grey.shade600, size: 35,),
+  //                   const SizedBox(width: 8),
+  //                   Text(
+  //                     '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
+  //                     style: GoogleFonts.inter(fontSize: 22),
+  //                   ),
+  //                 ],
+  //               ),
+  //               const SizedBox(height: 20),
+  //               Row(
+  //                 children: [
+  //                   Icon(Icons.attach_money, color: Colors.green, size: 35,),
+  //                   const SizedBox(width: 8),
+  //                   Text(
+  //                     'Court Amount: \$${booking.grandTotal!.toStringAsFixed(2)}',
+  //                     style: GoogleFonts.inter(
+  //                       fontSize: 22,
+  //                       fontWeight: FontWeight.w600,
+  //                       color: Colors.green.shade700,
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ),
+  //               if (hasMembership) ...[
+  //                 const SizedBox(height: 20),
+  //                 Row(
+  //                   children: [
+  //                     Icon(LucideIcons.crown, color: Colors.amber, size: 35,),
+  //                     const SizedBox(width: 8),
+  //                     Text(
+  //                       'Membership included',
+  //                       style: GoogleFonts.inter(
+  //                         fontSize: 22,
+  //                         fontWeight: FontWeight.w600,
+  //                         color: Colors.amber.shade700,
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ],
+  //               if (hasOrder) ...[
+  //                 const SizedBox(height: 20),
+  //                 Row(
+  //                   children: [
+  //                     Icon(LucideIcons.shoppingCart, color: Palette.newColor, size: 35,),
+  //                     const SizedBox(width: 8),
+  //                     Text(
+  //                       'Order included',
+  //                       style: GoogleFonts.inter(
+  //                         fontSize: 22,
+  //                         fontWeight: FontWeight.w600,
+  //                         color: Palette.newColor,
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ],
+  //               const SizedBox(height: 20),
+  //               Row(
+  //                 mainAxisAlignment: MainAxisAlignment.center,
+  //                 spacing: 20,
+  //                 children: [
+  //                   TextButton(
+  //                     onPressed: () {
+  //                       Navigator.of(context).pop();
+  //                     },
+  //                     child: Text(
+  //                       'Cancel',
+  //                       style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 22),
+  //                     ),
+  //                     style: ElevatedButton.styleFrom(
+  //                       backgroundColor: Palette.newColorbg,
+  //                       minimumSize: const Size(200, 55),
+  //                     ),
+  //                   ),
+  //                   ElevatedButton(
+  //                     onPressed: () {
+  //                       Navigator.of(context).pop();
+  //                       _processIndividualCourtPayment(booking);
+  //                     },
+  //                     style: ElevatedButton.styleFrom(
+  //                       backgroundColor: Colors.blue.shade500,
+  //                       minimumSize: const Size(200, 55),
+  //                     ),
+  //                     child: Text(
+  //                       'Pay This Court Only',
+  //                       style: GoogleFonts.inter(color: Colors.white, fontSize: 22),
+  //                     ),
+  //                   ),
+  //                   ElevatedButton(
+  //                     onPressed: () {
+  //                       Navigator.of(context).pop();
+  //                       _processFullBookingPayment(booking);
+  //                     },
+  //                     style: ElevatedButton.styleFrom(
+  //                       backgroundColor: Colors.green.shade500,
+  //                       minimumSize: const Size(200, 55),
+  //                     ),
+  //                     child: Text(
+  //                       'Pay Full Booking',
+  //                       style: GoogleFonts.inter(color: Colors.white, fontSize: 22),
+  //                     ),
+  //                   ),
+  //                 ],
+  //               )
+  //             ],
+  //           ),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
+  //Old Code
+
+
 
   void _processIndividualCourtPayment(BookingModel booking) async {
     try {
@@ -1136,7 +1324,7 @@ class _PendingPaymentState extends State<PendingPayment> {
           bool isMembershipApplied = false;
           double membershipPrice = 0;
 
-          if (value['membership_data'] != null) {
+          if (value['membership_data'] != null && value['membership_data']['status']==false) {
             try {
               final membershipPlanId = value['membership_data']['membershipplan_id']?.toString();
               if (membershipPlanId != null && membershipPlanId.isNotEmpty) {

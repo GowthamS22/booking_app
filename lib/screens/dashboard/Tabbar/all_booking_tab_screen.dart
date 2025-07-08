@@ -1,5 +1,4 @@
 import 'package:booking_app/config/palette.dart';
-import 'package:booking_app/models/booking_model.dart';
 import 'package:booking_app/models/order.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -640,8 +639,6 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
   Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo) async {
 
     final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
-    List<BookingSlot> bookedSlots = [];
-
 
     await showGeneralDialog(
       context: context,
