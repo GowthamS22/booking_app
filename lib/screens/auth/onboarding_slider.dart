@@ -312,8 +312,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               authController.centerSlug.value = manualValue;
 
                               setState(() {
-                                showManualInput = false;
-                                showScanner = false;
+                                //showManualInput = false;
+                                //showScanner = false;
                               });
 
                               Get.offAllNamed('/');

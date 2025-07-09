@@ -838,6 +838,11 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                   "Time",
                                                   '${timing}',
                                                 ),
+                                                bookingDetailRow(
+                                                  LucideIcons.dollarSign,
+                                                  "Payment Status",
+                                                  booking.paymentStatus!,
+                                                ),
                                               ],
                                             ),
                                             Column(
@@ -854,10 +859,16 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                   "Duration",
                                                   '${duration}',
                                                 ),
+                                                bookingDetailRow(
+                                                  LucideIcons.receipt,
+                                                  "Payment Type",
+                                                  booking.paymentType!,
+                                                ),
                                               ],
                                             ),
                                           ],
                                         ),
+                                        const SizedBox(height: 20),
                                         const SizedBox(height: 10),
                                         Divider(color: Colors.grey.shade300, thickness: 2, height: 20,),
                                         // Padding(
