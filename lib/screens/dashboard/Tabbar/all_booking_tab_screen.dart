@@ -1,4 +1,5 @@
 import 'package:booking_app/config/palette.dart';
+import 'package:booking_app/controllers/checkout_controller.dart';
 import 'package:booking_app/models/booking_with_all.dart';
 import 'package:booking_app/models/order.dart';
 import 'package:flutter/material.dart';
@@ -7,8 +8,37 @@ import 'package:intl/intl.dart';
 import 'package:get/get.dart';
 import 'package:booking_app/controllers/order_controller.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../config/constants.dart';
+
+String formatRemainingTime(DateTime startTime, DateTime endTime) {
+  final now = DateTime.now();
+
+  if (now.isBefore(startTime)) {
+    // Not started yet
+    final duration = startTime.difference(now);
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final hours = duration.inHours;
+
+    return hours > 0
+        ? 'Starts in $hours:$minutes:$seconds'
+        : 'Starts in $minutes:$seconds';
+  } else if (now.isAfter(endTime)) {
+    return 'Ended'; // Already finished
+  } else {
+    final duration = endTime.difference(now);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+    return hours > 0
+        ? '$hours:$minutes:$seconds' // e.g. 1:04:01
+        : '$minutes:$seconds';      // e.g. 04:01
+  }
+}
 
 class AllBookingTabScreen extends StatefulWidget {
   const AllBookingTabScreen({super.key});
@@ -19,6 +49,7 @@ class AllBookingTabScreen extends StatefulWidget {
 
 class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
   final OrderController bookingController = Get.put(OrderController());
+  final CheckoutController checkoutController = Get.put(CheckoutController());
   bool isGridView = false;
   String selectedFilter = 'All';
   final List<String> filterOptions = [
@@ -408,6 +439,13 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                       .difference(DateTime.now())
                                       .inMinutes;
                               final isEndingSoon = remaining <= 15;
+
+                              final duration          = booking.endDateTime!.difference(booking.startDateTime!);
+                              final hours             = duration.inHours;
+                              final minutes           = duration.inMinutes % 60;
+                              final durationInMinutes = booking.endDateTime!.difference(booking.startDateTime!).inMinutes;
+                              final remainingTime     = formatRemainingTime(booking.startDateTime, booking.endDateTime);
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
@@ -606,6 +644,8 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                     '${booking.startTimeFormatted} - ${booking.endTimeFormatted}',
                                                     booking.sportname,
                                                     '${booking.courtName}${booking.platformId}',
+                                                    '${durationInMinutes} Mins',//'${hours}h ${minutes}m'
+                                                    '${remainingTime}'
                                                 );
                                               },
                                               style: ElevatedButton.styleFrom(
@@ -643,7 +683,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
     );
   }
 
-  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo, timing, sportName, courtName) async {
+  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo, timing, sportName, courtName, duration, remainingTime) async {
 
     final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
     final booking     = BookingWithAll.fromJson(bookingInfo?['booking']);
@@ -714,6 +754,29 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                             ),
                                           ),
                                         ],
+                                      ),
+                                      Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: 'Remaining Time\n',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 23,
+                                                color: Colors.grey.shade500,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: '${remainingTime}',
+                                              style: GoogleFonts.inter(
+                                                fontSize: 22,
+                                                color: Colors.black,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ],
                                   ),
@@ -789,7 +852,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                 bookingDetailRow(
                                                   LucideIcons.timer,
                                                   "Duration",
-                                                  '',
+                                                  '${duration}',
                                                 ),
                                               ],
                                             ),
@@ -1054,7 +1117,66 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                         ],
                                       ),
                                     )
-                                  ]
+                                  ],
+
+                                  Spacer(),
+                                  Row(
+                                    spacing: 20,
+                                    children: [
+                                      Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.grey.shade300,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: Size.fromHeight(60),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            "Cancel",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 22,
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if(booking.paymentStatus=='Paid') ...[
+                                        Expanded(
+                                        child: ElevatedButton(
+                                          onPressed: () async {
+                                            await _printReceipt(
+                                                booking.id!,
+                                            );
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Palette.newColorbg,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(double.infinity, 60),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              side: BorderSide(color: Palette.newColor),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            "Re-print Receipt",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 22,
+                                              color: Palette.newColor,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      ],
+
+                                    ],
+                                  ),
 
                                 ],
                               ),
@@ -1144,4 +1266,43 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
         return Colors.grey.shade500;
     }
   }
+
+  Future<void> _printReceipt(String bookingId) async {
+    try {
+
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug                  = preferences.getString('centerSlug');
+
+      print('🖨️ _printReceipt called with bookingId: $bookingId');
+      // Add a small delay to ensure cart items are loaded
+      await Future.delayed(Duration(milliseconds: 100));
+
+      // Reload cart items from SharedPreferences to ensure we have the latest
+      final orderData = await Supabase.instance.client
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('cart_items')
+          .eq('booking_id',bookingId)
+          .maybeSingle();
+
+      if(orderData!=null) {
+        print('🛒 Cart items count: ${orderData['cart_items'].length}');
+        for (var item in orderData['cart_items']) {
+          print('Cart item: ${item['product']['name']}, quantity: ${item['product']['quantity']}');
+        }
+      }
+
+      // Call the checkout controller's printBookingReceipt method with cart items
+      await checkoutController.printBookingReceiptWithCart(
+        bookingId: bookingId,
+        cartItems: orderData!=null ? orderData['cart_items'] : [], // Pass the local cart items
+      );
+      print('Receipt printed successfully for booking: $bookingId');
+
+    } catch (e) {
+      print('Error printing receipt: $e');
+      // Don't show error to user - receipt printing failure shouldn't block the booking
+    }
+  }
+
 }

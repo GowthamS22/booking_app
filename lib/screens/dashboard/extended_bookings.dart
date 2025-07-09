@@ -48,15 +48,31 @@ Widget bookingDetailRow(IconData icon, String label, String value) {
   );
 }
 
-String formatRemainingTime(DateTime endTime) {
+String formatRemainingTime(DateTime startTime, DateTime endTime) {
   final now = DateTime.now();
-  if (endTime.isBefore(now)) return 'Expired';
 
-  final duration = endTime.difference(now);
-  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  if (now.isBefore(startTime)) {
+    // Not started yet
+    final duration = startTime.difference(now);
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final hours = duration.inHours;
 
-  return '${duration.inMinutes}:${seconds}';
+    return hours > 0
+        ? 'Starts in $hours:$minutes:$seconds'
+        : 'Starts in $minutes:$seconds';
+  } else if (now.isAfter(endTime)) {
+    return 'Ended'; // Already finished
+  } else {
+    final duration = endTime.difference(now);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+    return hours > 0
+        ? '$hours:$minutes:$seconds' // e.g. 1:04:01
+        : '$minutes:$seconds';      // e.g. 04:01
+  }
 }
 
 // Helper function to parse time string into DateTime (replicated from court_view_screen.dart)
@@ -467,7 +483,7 @@ Future<void> openExtendedbookingRightDrawer(
                               TextSpan(
                                 text:
                                 mergedEndTime != null
-                                    ? formatRemainingTime(mergedEndTime)
+                                    ? formatRemainingTime(mergedStartTime, mergedEndTime)
                                     : 'N/A',
                                 style: GoogleFonts.inter(
                                   fontSize: 22,

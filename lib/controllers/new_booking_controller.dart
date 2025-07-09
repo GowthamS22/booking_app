@@ -1650,6 +1650,9 @@ class NewBookingController extends GetxController {
           ),
         );
       }
+      print(bookedSlots);
+      print(startOfDay.toIso8601String());
+      print(endOfDay.toIso8601String());
       update();
     } else {
       print('fetchBookedSlots: Skipping - selectedServiceId is empty');
@@ -2536,7 +2539,7 @@ class NewBookingController extends GetxController {
 
       // Step 2: Generate a unique booking ID
       final bookingNumber = await getNextBookingNumber();
-      final currentYear   = DateTime.now().year;
+      final currentYear   = '${DateTime.now().year}${DateTime.now().month}${DateTime.now().day}';
       final bookingNo     = 'BCK-$currentYear-${bookingNumber}';
 
       // Step 3: Insert booking record

@@ -1932,6 +1932,8 @@ class CheckoutController extends GetxController {
       isLoading.value = false;
       update();
 
+      showCustomSnackbar('Success', 'Order Completed Successfully', Colors.green);
+
       // Redirect
       Future.delayed(Duration(seconds: 1), () {
         final defaultController = Get.find<DefaultController>();

@@ -150,6 +150,13 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     });
 
+    // Reset selected date to today
+    setState(() {
+      selectedDateTime = DateTime.now();
+      controller.selectedDate = DateTime.now();
+      showTodayButton = false;
+    });
+
     // Remove listeners before disposing
     _vertical.removeListener(() {});
     _horizontal.removeListener(() {});

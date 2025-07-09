@@ -2679,9 +2679,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                         const SizedBox(width: 12),
                         // Pay Later button - only show for new bookings or if customer wants to defer payment
-                        if (widget.type != 'ExistingBooking' ||
-                            widget.forpayment !=
-                                'individual-court-payment') ...[
+                        if (widget.type != 'ExistingBooking' || widget.forpayment != 'individual-court-payment') ...[
                           Expanded(
                             child: ElevatedButton(
                               onPressed: () {
@@ -4103,8 +4101,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         title: const Text("Confirm", style: TextStyle(fontSize: 25)),
-        content: const Text(
-          "Are you sure you want to cancel this booking and go to the Dashboard?",
+        content: Text(
+          "Are you sure you want to cancel ${widget.type=='ExistingBooking' ? 'the payment' : 'this booking' } and go to the Dashboard?",
           style: TextStyle(fontSize: 22),
         ),
         actions: [
@@ -4393,7 +4391,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   .single();
 
           final bookingNumber = bookingNumberResponse['current_token'] as int;
-          final currentYear = DateTime.now().year;
+          final currentYear = '${DateTime.now().year}${DateTime.now().month}${DateTime.now().day}';
           final bookingNo = 'BCK-$currentYear-${bookingNumber}';
 
           // Create the main booking record
@@ -4983,7 +4981,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Navigator.of(context).pop();
       } else {
         // For new bookings, show the success dialog and navigate
-        newBookingController.showBookingSuccessAlert();
+        if(widget.type!='Product'){
+          newBookingController.showBookingSuccessAlert();
+        }
 
         // Wait for dialog to be visible
         await Future.delayed(const Duration(seconds: 2));

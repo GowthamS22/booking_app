@@ -40,6 +40,7 @@ class _PendingPaymentState extends State<PendingPayment> {
   bool selectAll = false;
   final TextEditingController _searchController = TextEditingController();
   List bookingsFiltered = [];
+  bool _isProcessingPayment = false;
 
   @override
   void initState() {
@@ -429,6 +430,14 @@ class _PendingPaymentState extends State<PendingPayment> {
                                             CrossAxisAlignment.center,
                                             children: [
                                               Text(
+                                                booking.bookingNo!,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                              Text(
                                                 booking.sportname!,
                                                 style: GoogleFonts.inter(
                                                   fontSize: 22,
@@ -622,6 +631,7 @@ class _PendingPaymentState extends State<PendingPayment> {
 
   void _handlePaymentAction(BookingModel booking) async {
     try {
+      print(booking.bookingNo);
       final bookingInfo = await bookingController.getBookingInfo(bookingNo: booking.bookingNo);
 
       if (bookingInfo == null) {
@@ -637,6 +647,16 @@ class _PendingPaymentState extends State<PendingPayment> {
       print('🔍 Payment action check - Multiple courts: $hasMultipleCourts, Has membership: $hasMembership, Has order: $hasOrder');
 
       if (hasMultipleCourts || hasMembership || hasOrder) {
+        if(!hasMultipleCourts && hasOrder) {
+          _processFullBookingPayment(booking);
+          return;
+        } else if(hasMultipleCourts && hasOrder) {
+          _processFullBookingPayment(booking);
+          return;
+        } else {
+          _processFullBookingPayment(booking);
+          return;
+        }
         _showPaymentOptionsDialog(booking, bookingInfo);
       } else {
         _processIndividualCourtPayment(booking);
@@ -686,7 +706,7 @@ class _PendingPaymentState extends State<PendingPayment> {
 
   bool _hasOrder(Map<String, dynamic> bookingInfo) {
     try {
-      return bookingInfo['orders'] != null;
+      return bookingInfo['orders'].length > 0;
     } catch (e) {
       print('Error checking order: $e');
       return false;

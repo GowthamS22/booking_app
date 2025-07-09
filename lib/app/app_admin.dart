@@ -32,7 +32,7 @@ class _AppAdminState extends State<AppAdmin> {
   Widget _getScreenForIndex(int index) {
     switch (index) {
       case 0:
-        return DashboardScreen();
+        return DashboardScreen(key: UniqueKey());
       case 1:
         return ShoppingScreen();
       // case 2:
@@ -55,7 +55,7 @@ class _AppAdminState extends State<AppAdmin> {
         builder: (controller) {
           return AppScaffold(
             sidebar: SidebarMenu(authController: authController),
-            body: _getScreenForIndex(controller.tabIndex.value),
+            body: Obx(() => _getScreenForIndex(defaultController.tabIndex.value)), //_getScreenForIndex(controller.tabIndex.value),
           );
         },
       ),

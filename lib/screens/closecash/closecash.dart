@@ -361,9 +361,10 @@ class _CloseCashState extends State<CloseCash> {
                                       ),
                                       readOnly: true,
                                       onTap: () {
-                                        setState(() {
-                                          showDenomination = true;
-                                        });
+                                        _showDenominationDialog();
+                                        // setState(() {
+                                        //   showDenomination = true;
+                                        // });
                                       },
                                     ),
                                   )
@@ -741,6 +742,131 @@ class _CloseCashState extends State<CloseCash> {
         ],
       ),
       bottomSheet: showDenomination ? _buildDenominationBottomSheet() : null,
+    );
+  }
+
+  void _showDenominationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          insetPadding: EdgeInsets.all(20), // This gives some padding around the dialog
+          child: Container(
+            padding: EdgeInsets.all(20),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.4, // 90% of screen width
+              maxHeight: MediaQuery.of(context).size.height * 0.9, // 90% of screen height
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header row with close button
+                Stack(
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Cash Denomination',
+                        style: GoogleFonts.poppins(
+                          fontSize: 25,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        icon: Icon(Icons.close, size: 30),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                // Total amount and reset button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Total:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          '\$${cashSum.toStringAsFixed(2)}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 25,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(width: 20),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              quantities = List.filled(11, 0);
+                              cashSum = 0;
+                              cashInDrawerController.text = '';
+                            });
+                          },
+                          child: Text(
+                            'Reset',
+                            style: GoogleFonts.poppins(
+                              fontSize: 22,
+                              color: Colors.indigo.shade500,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Palette.newColorbg,
+                            minimumSize: const Size(100, 50),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                side: BorderSide(color: Palette.newColor)
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: moneyTypes.length,
+                    itemBuilder: (context, index) {
+                      return _buildDenominationRow(index);
+                    },
+                  ),
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Palette.newColor,
+                    minimumSize: const Size(double.infinity, 60),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    'Submit',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

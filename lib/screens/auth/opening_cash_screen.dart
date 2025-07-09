@@ -38,12 +38,28 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
   ];
 
   List<int> quantities = List.filled(11, 0);
+  List<TextEditingController> denominationControllers = [];
   double cashSum = 0;
 
   @override
   void initState() {
     super.initState();
-    cashController.text = '0.00'; // Set default value to 0.00
+    cashController.text = '0.00';
+
+    // Initialize denomination controllers
+    for (int i = 0; i < moneyTypes.length; i++) {
+      denominationControllers.add(TextEditingController());
+    }
+  }
+
+  @override
+  void dispose() {
+    // Dispose all controllers
+    cashController.dispose();
+    for (var controller in denominationControllers) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -287,8 +303,11 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                           onPressed: () {
                             setState(() {
                               quantities = List.filled(11, 0);
+                              for (var controller in denominationControllers) {
+                                controller.clear();
+                              }
                               cashSum = 0;
-                              cashController.text = '';
+                              cashController.text = '0.00';
                             });
                           },
                           child: Text(
@@ -360,6 +379,14 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
   }
 
   Widget _buildDenominationRow(int index) {
+    // Update controller value when quantities change
+    if (denominationControllers[index].text != quantities[index].toString() &&
+        quantities[index] != 0) {
+      denominationControllers[index].text = quantities[index].toString();
+    } else if (quantities[index] == 0 && denominationControllers[index].text.isNotEmpty) {
+      denominationControllers[index].clear();
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
@@ -391,9 +418,7 @@ class _OpeningCashScreenState extends State<OpeningCashScreen> {
                 contentPadding: EdgeInsets.symmetric(horizontal: 10),
               ),
               textAlign: TextAlign.center,
-              controller: TextEditingController(
-                text: quantities[index] == 0 ? '' : quantities[index].toString(),
-              ),
+              controller: denominationControllers[index],
               onChanged: (value) {
                 setState(() {
                   quantities[index] = int.tryParse(value) ?? 0;

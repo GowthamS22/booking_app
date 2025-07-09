@@ -122,7 +122,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   QRViewController? qrController;
   final AuthController authController = Get.put(AuthController());
 
-  bool showManualInput = false;
+  bool showManualInput = true;
   final TextEditingController manualInputController = TextEditingController();
 
   // Called when QR code is detected
