@@ -3,6 +3,7 @@ import 'package:booking_app/controllers/membership_controller.dart';
 import 'package:booking_app/screens/checkout/checkout_screen.dart' as checkout;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -40,7 +41,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
   Map<String, dynamic>? _selectedCustomer;
   Map<String, dynamic>? _customerDetails;
   bool _isLoadingCustomerDetails = false;
-
+  String? staffName;
   @override
   void initState() {
     super.initState();
@@ -58,6 +59,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final preferences = await SharedPreferences.getInstance();
     setState(() {
       membershipController.centerSlug = preferences.getString('centerSlug');
+      staffName = preferences.getString('userName');
       isLoading = false;
     });
   }
@@ -256,10 +258,10 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     ),
                     SizedBox(width: 10),
                     Text(
-                      'Staff Name',
+                      '${staffName}',
                       style: GoogleFonts.inter(
                         color: Colors.black,
-                        fontSize: 23,
+                        fontSize: 23.sp,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
