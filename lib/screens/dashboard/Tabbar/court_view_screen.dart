@@ -28,7 +28,8 @@ import '../extended_bookings.dart';
 final supabase = Supabase.instance.client;
 
 class CourtViewScreen extends StatefulWidget {
-  const CourtViewScreen({super.key});
+  final VoidCallback? onDispose;
+  const CourtViewScreen({Key? key, this.onDispose}) : super(key: key);
 
   @override
   State<CourtViewScreen> createState() => _CourtViewScreenState();
@@ -72,6 +73,9 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
   @override
   void initState() {
     super.initState();
+    selectedDateTime = DateTime.now();
+    controller.selectedDate = DateTime.now();
+    showTodayButton = false;
 
     // Initialize text controllers
     nameController = TextEditingController();
@@ -79,10 +83,6 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
     repeatUntilController = TextEditingController();
 
     selectedSlots.clear();
-    showTodayButton = false;
-
-    // Initialize selectedDateTime to today
-    selectedDateTime = DateTime.now();
 
     // Add listeners
     _vertical.addListener(() {
@@ -139,6 +139,7 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
 
   @override
   void dispose() {
+    widget.onDispose?.call();
     // Clear controller data before disposing
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -150,12 +151,10 @@ class _CourtViewScreenState extends State<CourtViewScreen> {
       }
     });
 
-    // Reset selected date to today
-    setState(() {
-      selectedDateTime = DateTime.now();
-      controller.selectedDate = DateTime.now();
-      showTodayButton = false;
-    });
+    // DO NOT call setState here!
+    selectedDateTime = DateTime.now();
+    controller.selectedDate = DateTime.now();
+    showTodayButton = false;
 
     // Remove listeners before disposing
     _vertical.removeListener(() {});
