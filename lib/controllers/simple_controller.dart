@@ -6,8 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SimpleController extends GetxController {
   final supabase = Supabase.instance.client;
 
-  // Correct way to declare Rx variable for a single order
-  final Rx<Orders?> order = Rx<Orders?>(null);
+  // RxList to hold multiple orders
+  final RxList<Orders> orders = <Orders>[].obs;
 
   @override
   void onInit() {
@@ -15,7 +15,7 @@ class SimpleController extends GetxController {
     // Note: onInit shouldn't be async - move async operations elsewhere
   }
 
-  Future<void> fetchOrder({String? bookingId}) async {
+  Future<void> fetchOrders({String? bookingId}) async {
     try {
       if (bookingId == null) {
         throw Exception('Booking ID cannot be null');
@@ -32,19 +32,20 @@ class SimpleController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('orders')
           .select('*')
-          .eq('booking_id', bookingId)
-          .single();
-      if(response!=null) {
-        // Update the Rx variable using .value
-        order.value = Orders.fromJson(response);
-        update();
+          .eq('booking_id', bookingId);
+
+      if (response != null && response is List) {
+        // Clear existing orders and add new ones
+        orders.assignAll(response.map((orderJson) => Orders.fromJson(orderJson)).toList());
       }
+
+      update();
 
     } catch (e) {
       // Handle errors appropriately
       print(e.toString());
-      //Get.snackbar('Error', 'Failed to fetch order: ${e.toString()}');
-      order.value = null; // Reset order on error
+      //Get.snackbar('Error', 'Failed to fetch orders: ${e.toString()}');
+      orders.clear(); // Clear orders on error
     }
   }
 }

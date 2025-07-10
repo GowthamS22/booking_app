@@ -154,7 +154,7 @@ Future<void> openExtendedbookingRightDrawer(
   final bookingEnded = isBookingEnded(mergedEndTime);
 
   final SimpleController simpleController = Get.put(SimpleController());
-  simpleController.fetchOrder(bookingId: booking.bookingId);
+  simpleController.fetchOrders(bookingId: booking.bookingId);
 
   await showGeneralDialog(
     context: context,
@@ -441,345 +441,418 @@ Future<void> openExtendedbookingRightDrawer(
                 height: MediaQuery.of(context).size.height,
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    /// Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              booking.name ?? 'N/A',
-                              style: GoogleFonts.inter(
-                                fontSize: 23,
-                                color: Colors.black,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            Text(
-                              booking.mobile ?? 'N/A',
-                              style: GoogleFonts.inter(
-                                fontSize: 22,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Remaining Time\n',
-                                style: GoogleFonts.inter(
-                                  fontSize: 23,
-                                  color: Colors.grey.shade500,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(
-                                text:
-                                mergedEndTime != null
-                                    ? formatRemainingTime(mergedStartTime, mergedEndTime)
-                                    : 'N/A',
-                                style: GoogleFonts.inter(
-                                  fontSize: 22,
-                                  color: Colors.black,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        if (!bookingEnded)
-                          GestureDetector(
-                            onTap: () {
-                              showNoShowDialog(
-                                context,
-                                booking.bookingId ?? '',
-                                controller,
-                                onRefresh: onRefresh,
-                              );
-                            },
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 7,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade100,
-                                border: Border.all(color: Colors.red.shade300),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'No show',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 22,
-                                      color: Colors.red.shade500,
-                                      fontWeight: FontWeight.w600,
+
+                            /// Header
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      booking.name ?? 'N/A',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 23,
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Icon(
-                                    LucideIcons.userX,
-                                    color: Colors.red,
-                                    size: 23,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const Divider(height: 32),
-
-                    /// Booking Details
-                    Text(
-                      "Booking Details",
-                      //"Booking Details : ${booking.id}",
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      "Current booking informations",
-                      style: GoogleFonts.inter(
-                        fontSize: 22,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Booking ${booking.bookingNo ?? 'N/A'}",
-                            style: GoogleFonts.inter(
-                              fontSize: 22,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            spacing: 150,
-                            children: [
-                              Column(
-                                spacing: 20,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  bookingDetailRow(
-                                    LucideIcons.gamepad2,
-                                    "Sport",
-                                    booking.service ?? 'N/A',
-                                  ),
-                                  bookingDetailRow(
-                                    LucideIcons.clock,
-                                    "Time",
-                                    mergedStartTime != null &&
-                                        mergedEndTime != null
-                                        ? '${timeFormat.format(mergedStartTime.toLocal())} - ${timeFormat.format(mergedEndTime.toLocal())}'
-                                        : (booking.startTime != null &&
-                                        booking.endTime != null
-                                        ? '${timeFormat.format(booking.startTime!.toLocal())} - ${timeFormat.format(booking.endTime!.toLocal())}'
-                                        : 'N/A'),
-                                  ),
-                                  ValueListenableBuilder<bool>(
-                                    valueListenable: isExtensionConfirmed,
-                                    builder: (context, confirmed, child) {
-                                      return bookingDetailRow(
-                                        LucideIcons.timer,
-                                        "Extended Time",
-                                        confirmed &&
-                                            selectedDuration.value != null
-                                            ? "${selectedDuration.value} mins"
-                                            : "---",
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                spacing: 20,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  bookingDetailRow(
-                                    LucideIcons.scanLine,
-                                    "Court",
-                                    booking.court ?? 'N/A',
-                                  ),
-                                  bookingDetailRow(
-                                    LucideIcons.timer,
-                                    "Duration",
-                                    mergedStartTime != null &&
-                                        mergedEndTime != null
-                                        ? '${mergedEndTime.difference(mergedStartTime.toLocal()).inMinutes} min'
-                                        : 'N/A',
-                                  ),
-                                  ValueListenableBuilder<String>(
-                                    valueListenable: paymentStatus,
-                                    builder: (context, status, child) {
-                                      return bookingDetailRow(
-                                        LucideIcons.dollarSign,
-                                        "Payment",
-                                        status,
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ValueListenableBuilder<bool>(
-                            valueListenable: isNextSlotAvailable,
-                            builder: (context, isAvailable, child) {
-                              return isAvailable
-                                  ? buildExtendTimeButtons()
-                                  : !bookingEnded
-                                  ? TextButton(
-                                onPressed: () {
-                                  final availableDurations =
-                                  calculateAvailableDurations();
-                                  if (availableDurations.isEmpty) {
-                                    showCourtUnavailableDialog(
-                                      context,
-                                      controller: controller,
-                                      originalBookingId:
-                                      booking.bookingId.toString(),
-                                      slotInfoMap: slotInfoMap,
-                                      onRefresh: () {},
-                                    );
-                                    return;
-                                  }
-                                  isNextSlotAvailable.value = true;
-                                },
-                                style: TextButton.styleFrom(
-                                  backgroundColor: const Color(0xFFF4F3FF),
-                                  foregroundColor: Colors.indigo.shade500,
-                                  side: BorderSide(
-                                    color: Colors.indigo.shade300,
-                                    width: 1.5,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  minimumSize: const Size.fromHeight(40),
+                                    Text(
+                                      booking.mobile ?? 'N/A',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 22,
+                                        color: Colors.grey.shade500,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(
-                                  'Extend Time',
-                                  style: GoogleFonts.inter(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 23,
-                                    color: Colors.indigo.shade500,
-                                  ),
-                                ),
-                              )
-                                  : SizedBox.shrink();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    if (simpleController.order.value != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Purchase Details",
-                            style: GoogleFonts.inter(
-                              fontSize: 23,
-                              color: Colors.black,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            "Current purchase items information",
-                            style: GoogleFonts.inter(
-                              fontSize: 18,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          Obx(() {
-                            final cartItems =
-                                simpleController.order.value?.cartItems ?? [];
-
-                            return ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: cartItems.length,
-                              itemBuilder: (_, index) {
-                                final item = cartItems[index];
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8.0,
-                                  ),
-                                  child: Row(
+                                Text.rich(
+                                  TextSpan(
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.product.name,
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
+                                      TextSpan(
+                                        text: 'Remaining Time\n',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 23,
+                                          color: Colors.grey.shade500,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      Container(
-                                        width: 150,
-                                        child: Text(
-                                          'x${item.quantity}',
-                                          style: const TextStyle(fontSize: 22),
-                                          textAlign: TextAlign.right,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Container(
-                                        width: 150,
-                                        child: Text(
-                                          '\$${item.appliedPrice.toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                            fontSize: 22,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.right,
+                                      TextSpan(
+                                        text:
+                                        mergedEndTime != null
+                                            ? formatRemainingTime(mergedStartTime, mergedEndTime)
+                                            : 'N/A',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ],
                                   ),
-                                );
-                              },
-                            );
-                          }),
-                        ],
-                      ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                if (!bookingEnded)
+                                  GestureDetector(
+                                    onTap: () {
+                                      showNoShowDialog(
+                                        context,
+                                        booking.bookingId ?? '',
+                                        controller,
+                                        onRefresh: onRefresh,
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 7,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.shade100,
+                                        border: Border.all(color: Colors.red.shade300),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            'No show',
+                                            style: GoogleFonts.inter(
+                                              fontSize: 22,
+                                              color: Colors.red.shade500,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          SizedBox(width: 6),
+                                          Icon(
+                                            LucideIcons.userX,
+                                            color: Colors.red,
+                                            size: 23,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const Divider(height: 32),
 
-                    Spacer(),
+                            /// Booking Details
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Booking Details",
+                                  //"Booking Details : ${booking.id}",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  "Current booking informations",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Booking ${booking.bookingNo ?? 'N/A'}",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 22,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    spacing: 150,
+                                    children: [
+                                      Column(
+                                        spacing: 20,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          bookingDetailRow(
+                                            LucideIcons.gamepad2,
+                                            "Sport",
+                                            booking.service ?? 'N/A',
+                                          ),
+                                          bookingDetailRow(
+                                            LucideIcons.clock,
+                                            "Time",
+                                            mergedStartTime != null &&
+                                                mergedEndTime != null
+                                                ? '${timeFormat.format(mergedStartTime.toLocal())} - ${timeFormat.format(mergedEndTime.toLocal())}'
+                                                : (booking.startTime != null &&
+                                                booking.endTime != null
+                                                ? '${timeFormat.format(booking.startTime!.toLocal())} - ${timeFormat.format(booking.endTime!.toLocal())}'
+                                                : 'N/A'),
+                                          ),
+                                          ValueListenableBuilder<bool>(
+                                            valueListenable: isExtensionConfirmed,
+                                            builder: (context, confirmed, child) {
+                                              return bookingDetailRow(
+                                                LucideIcons.timer,
+                                                "Extended Time",
+                                                confirmed &&
+                                                    selectedDuration.value != null
+                                                    ? "${selectedDuration.value} mins"
+                                                    : "---",
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      Column(
+                                        spacing: 20,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          bookingDetailRow(
+                                            LucideIcons.scanLine,
+                                            "Court",
+                                            booking.court ?? 'N/A',
+                                          ),
+                                          bookingDetailRow(
+                                            LucideIcons.timer,
+                                            "Duration",
+                                            mergedStartTime != null &&
+                                                mergedEndTime != null
+                                                ? '${mergedEndTime.difference(mergedStartTime.toLocal()).inMinutes} min'
+                                                : 'N/A',
+                                          ),
+                                          ValueListenableBuilder<String>(
+                                            valueListenable: paymentStatus,
+                                            builder: (context, status, child) {
+                                              return bookingDetailRow(
+                                                LucideIcons.dollarSign,
+                                                "Payment",
+                                                status,
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ValueListenableBuilder<bool>(
+                                    valueListenable: isNextSlotAvailable,
+                                    builder: (context, isAvailable, child) {
+                                      return isAvailable
+                                          ? buildExtendTimeButtons()
+                                          : !bookingEnded
+                                          ? TextButton(
+                                        onPressed: () {
+                                          final availableDurations =
+                                          calculateAvailableDurations();
+                                          if (availableDurations.isEmpty) {
+                                            showCourtUnavailableDialog(
+                                              context,
+                                              controller: controller,
+                                              originalBookingId:
+                                              booking.bookingId.toString(),
+                                              slotInfoMap: slotInfoMap,
+                                              onRefresh: () {},
+                                            );
+                                            return;
+                                          }
+                                          isNextSlotAvailable.value = true;
+                                        },
+                                        style: TextButton.styleFrom(
+                                          backgroundColor: const Color(0xFFF4F3FF),
+                                          foregroundColor: Colors.indigo.shade500,
+                                          side: BorderSide(
+                                            color: Colors.indigo.shade300,
+                                            width: 1.5,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 14,
+                                          ),
+                                          minimumSize: const Size.fromHeight(40),
+                                        ),
+                                        child: Text(
+                                          'Extend Time',
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 23,
+                                            color: Colors.indigo.shade500,
+                                          ),
+                                        ),
+                                      )
+                                          : SizedBox.shrink();
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            if (simpleController.orders.isNotEmpty)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Purchase Details",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 23,
+                                      color: Colors.black,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Current purchase items information",
+                                    style: GoogleFonts.inter(
+                                      fontSize: 18,
+                                      color: Colors.black54,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Obx(() {
+                                    return Column(
+                                      children: simpleController.orders.map((order) {
+                                        return Container(
+                                          padding: const EdgeInsets.all(12),
+                                          margin: EdgeInsets.symmetric(vertical: 10),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Colors.grey.shade300),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              if (simpleController.orders.length > 1) ...[
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          "Purchase Details",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 23,
+                                                            color: Colors.black,
+                                                            fontWeight: FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          order.createdAt != null
+                                                              ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(order.createdAt.toString()))
+                                                              : '',
+                                                          style: const TextStyle(
+                                                            color: Colors.grey,
+                                                            fontSize: 20,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                                      children: [
+                                                        Text(
+                                                          "Order ID : ${order.tokenNumber ?? ''}",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 23,
+                                                            color: Colors.black,
+                                                            fontWeight: FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                        Text(
+                                                          "Created by : Manager",
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 18,
+                                                            color: Colors.black54,
+                                                            fontWeight: FontWeight.w400,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                SizedBox(height: 20),
+                                              ], // Only show order header if multiple orders
+                                              ...order.cartItems!.map((item) {
+                                                return Padding(
+                                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          item.product.name,
+                                                          style: const TextStyle(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      Container(
+                                                        width: 150,
+                                                        child: Text(
+                                                          'x${item.quantity}',
+                                                          style: const TextStyle(fontSize: 22),
+                                                          textAlign: TextAlign.right,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 10),
+                                                      Container(
+                                                        width: 150,
+                                                        child: Text(
+                                                          '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                          style: const TextStyle(
+                                                            fontSize: 22,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                          textAlign: TextAlign.right,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    );
+                                  }),
+                                ],
+                              ),
+
+                          ],
+                        ),
+                      ),
+                    ),
+
                     if (!bookingEnded)
                       Row(
                         spacing: 20,

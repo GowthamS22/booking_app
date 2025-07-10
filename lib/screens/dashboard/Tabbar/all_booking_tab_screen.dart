@@ -683,7 +683,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
     );
   }
 
-  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo, timing, sportName, courtName, duration, remainingTime) async {
+  Future<void> openBookingDetailsDrawerOld(BuildContext context, bookingNo, timing, sportName, courtName, duration, remainingTime) async {
 
     final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
     final booking     = BookingWithAll.fromJson(bookingInfo?['booking']);
@@ -705,32 +705,281 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
           ).animate(anim1),
           child: Align(
             alignment: Alignment.centerRight,
-            child: FractionallySizedBox(
-              widthFactor: 0.4,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.4, // Fixed width
+              height: MediaQuery.of(context).size.height,
               child: Material(
                 color: Colors.white,
-                child: StatefulBuilder(
-                  builder: (context, setState) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(1, 0),
-                        end: Offset.zero,
-                      ).animate(anim1),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width,
-                          child: Material(
-                            color: Colors.white,
-                            child: Container(
-                              color: Colors.white,
-                              height: MediaQuery.of(context).size.height,
-                              padding: const EdgeInsets.all(16),
+                child: Container(
+                  color: Colors.white,
+                  height: MediaQuery.of(context).size.height,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      /// Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                bookingInfo?['customer']['first_name'],
+                                style: GoogleFonts.inter(
+                                  fontSize: 23,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              Text(
+                                bookingInfo?['customer']['mobile'],
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.grey.shade500,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: 'Remaining Time\n',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 23,
+                                    color: Colors.grey.shade500,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: '${remainingTime}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 32),
+
+                      /// Booking Details
+                      Text(
+                        "Booking Details",
+                        //"Booking Details : ${booking.id}",
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.black,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        "Current booking informations",
+                        style: GoogleFonts.inter(
+                          fontSize: 22,
+                          color: Colors.black,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Booking ${booking.bookingNo ?? 'N/A'}",
+                              style: GoogleFonts.inter(
+                                fontSize: 22,
+                                color: Colors.black,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              spacing: 150,
+                              children: [
+                                Column(
+                                  spacing: 20,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    bookingDetailRow(
+                                      LucideIcons.gamepad2,
+                                      "Sport",
+                                      sportName ?? 'N/A',
+                                    ),
+                                    bookingDetailRow(
+                                      LucideIcons.clock,
+                                      "Time",
+                                      '${timing}',
+                                    ),
+                                    bookingDetailRow(
+                                      LucideIcons.dollarSign,
+                                      "Payment Status",
+                                      booking.paymentStatus!,
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  spacing: 20,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    bookingDetailRow(
+                                      LucideIcons.scanLine,
+                                      "Court",
+                                      courtName,
+                                    ),
+                                    bookingDetailRow(
+                                      LucideIcons.timer,
+                                      "Duration",
+                                      '${duration}',
+                                    ),
+                                    bookingDetailRow(
+                                      LucideIcons.receipt,
+                                      "Payment Type",
+                                      booking.paymentType!,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            const SizedBox(height: 10),
+                            Divider(color: Colors.grey.shade300, thickness: 2, height: 20,),
+                            // Padding(
+                            //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            //   child: Row(
+                            //     children: [
+                            //       Expanded(
+                            //         child: Text(
+                            //           'Total:',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //         ),
+                            //       ),
+                            //       Container(
+                            //         width: 150,
+                            //         child: Text(
+                            //           '\$${booking.total?.toStringAsFixed(2)}',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //           textAlign: TextAlign.right,
+                            //         ),
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
+                            // Padding(
+                            //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            //   child: Row(
+                            //     children: [
+                            //       Expanded(
+                            //         child: Text(
+                            //           'Sub Total:',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //         ),
+                            //       ),
+                            //       Container(
+                            //         width: 150,
+                            //         child: Text(
+                            //           '\$${booking.subTotal?.toStringAsFixed(2)}',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //           textAlign: TextAlign.right,
+                            //         ),
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
+                            // Padding(
+                            //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            //   child: Row(
+                            //     children: [
+                            //       Expanded(
+                            //         child: Text(
+                            //           'Discount:',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //         ),
+                            //       ),
+                            //       Container(
+                            //         width: 150,
+                            //         child: Text(
+                            //           '\$${booking.discount?.toStringAsFixed(2)}',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //           textAlign: TextAlign.right,
+                            //         ),
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
+                            // Padding(
+                            //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            //   child: Row(
+                            //     children: [
+                            //       Expanded(
+                            //         child: Text(
+                            //           'Grand Total:',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //           ),
+                            //         ),
+                            //       ),
+                            //       Container(
+                            //         width: 150,
+                            //         child: Text(
+                            //           '\$${booking.grandTotal?.toStringAsFixed(2)}',
+                            //           style: const TextStyle(
+                            //             fontSize: 22,
+                            //             color: Colors.green
+                            //           ),
+                            //           textAlign: TextAlign.right,
+                            //         ),
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      if (bookingInfo?['orders'] != null && bookingInfo!['orders'].isNotEmpty) ...[
+                        Column(
+                          children: List.generate(bookingInfo!['orders'].length, (orderIndex) {
+                            final orderData = bookingInfo!['orders'][orderIndex];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 20), // Add spacing between orders
+                              padding: const EdgeInsets.all(15),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: Column(
-                                mainAxisSize: MainAxisSize.min,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  /// Header
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
@@ -738,248 +987,503 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            bookingInfo?['customer']['first_name'],
+                                            "Purchase Details ${orderIndex + 1}",
                                             style: GoogleFonts.inter(
                                               fontSize: 23,
                                               color: Colors.black,
-                                              fontWeight: FontWeight.w700,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           Text(
-                                            bookingInfo?['customer']['mobile'],
+                                            "Current purchase items information",
                                             style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              color: Colors.grey.shade500,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: 18,
+                                              color: Colors.black54,
+                                              fontWeight: FontWeight.w400,
                                             ),
                                           ),
                                         ],
                                       ),
-                                      Text.rich(
-                                        TextSpan(
-                                          children: [
-                                            TextSpan(
-                                              text: 'Remaining Time\n',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 23,
-                                                color: Colors.grey.shade500,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            "Order ID : ${orderData['token_number'] ?? ''}",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 23,
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                            TextSpan(
-                                              text: '${remainingTime}',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 22,
-                                                color: Colors.black,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                          ),
+                                          Text(
+                                            "Created by : Manager",
+                                            style: GoogleFonts.inter(
+                                              fontSize: 18,
+                                              color: Colors.black54,
+                                              fontWeight: FontWeight.w400,
                                             ),
-                                          ],
+                                          ),
+                                        ],
+                                      )
+                                    ],
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Obx(() {
+                                    final Rx<Orders?> order = Rx<Orders?>(null);
+                                    order.value = Orders.fromJson(orderData);
+                                    final cartItems = order.value?.cartItems ?? [];
+
+                                    // Calculate total
+                                    double total = cartItems.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+
+                                    return Column(
+                                      children: [
+                                        ListView.builder(
+                                          shrinkWrap: true,
+                                          physics: const NeverScrollableScrollPhysics(),
+                                          itemCount: cartItems.length,
+                                          itemBuilder: (_, index) {
+                                            final item = cartItems[index];
+                                            return Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 8.0,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      item.product.name,
+                                                      style: const TextStyle(
+                                                        fontSize: 22,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    width: 150,
+                                                    child: Text(
+                                                      'x${item.quantity}',
+                                                      style: const TextStyle(fontSize: 22),
+                                                      textAlign: TextAlign.right,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Container(
+                                                    width: 150,
+                                                    child: Text(
+                                                      '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                      style: const TextStyle(
+                                                        fontSize: 22,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                      textAlign: TextAlign.right,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
                                         ),
-                                        textAlign: TextAlign.center,
+                                        // Add total row
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  'Total:',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              Container(
+                                                width: 150,
+                                                child: Text(
+                                                  '\$${total.toStringAsFixed(2)}',
+                                                  style: const TextStyle(
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.green,
+                                                  ),
+                                                  textAlign: TextAlign.right,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }),
+                                ],
+                              ),
+                            );
+                          }),
+                        )
+                      ],
+
+                      Spacer(),
+                      Row(
+                        spacing: 20,
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade300,
+                                foregroundColor: Colors.white,
+                                minimumSize: Size.fromHeight(60),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(
+                                "Cancel",
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if(booking.paymentStatus=='Paid') ...[
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  await _printReceipt(
+                                    booking.id!,
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.newColorbg,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 60),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(color: Palette.newColor),
+                                  ),
+                                ),
+                                child: Text(
+                                  "Re-print Receipt",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    color: Palette.newColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+
+                        ],
+                      ),
+
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );;
+      },
+    );
+  }
+
+  Future<void> openBookingDetailsDrawer(BuildContext context, bookingNo, timing, sportName, courtName, duration, remainingTime) async {
+    final bookingInfo = await bookingController.getBookingInfo(bookingNo: bookingNo);
+    final booking = BookingWithAll.fromJson(bookingInfo?['booking']);
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Customer Add',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(anim1),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.4,
+              height: MediaQuery.of(context).size.height,
+              child: Material(
+                color: Colors.white,
+                child: Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              /// Header
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        bookingInfo?['customer']['first_name'] ?? '',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 23,
+                                          color: Colors.black,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      Text(
+                                        bookingInfo?['customer']['mobile'] ?? '',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 22,
+                                          color: Colors.grey.shade500,
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  const Divider(height: 32),
+                                  Text.rich(
+                                    TextSpan(
+                                      children: [
+                                        TextSpan(
+                                          text: 'Remaining Time\n',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 23,
+                                            color: Colors.grey.shade500,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '$remainingTime',
+                                          style: GoogleFonts.inter(
+                                            fontSize: 22,
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                              const Divider(height: 32),
 
-                                  /// Booking Details
+                              /// Booking Details
+                              Text(
+                                "Booking Details",
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                "Current booking informations",
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+
+                              /// Booking Info Card
+                              Container(
+                              padding: const EdgeInsets.all(15),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    "Booking Details",
-                                    //"Booking Details : ${booking.id}",
+                                    "Booking ${booking.bookingNo ?? 'N/A'}",
                                     style: GoogleFonts.inter(
                                       fontSize: 22,
                                       color: Colors.black,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                  Text(
-                                    "Current booking informations",
-                                    style: GoogleFonts.inter(
-                                      fontSize: 22,
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-
                                   const SizedBox(height: 20),
-
-                                  Container(
-                                    padding: const EdgeInsets.all(15),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          "Booking ${booking.bookingNo ?? 'N/A'}",
-                                          style: GoogleFonts.inter(
-                                            fontSize: 22,
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.w600,
+                                  Row(
+                                    spacing: 150,
+                                    children: [
+                                      Column(
+                                        spacing: 20,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          bookingDetailRow(
+                                            LucideIcons.gamepad2,
+                                            "Sport",
+                                            sportName ?? 'N/A',
                                           ),
-                                        ),
-                                        const SizedBox(height: 20),
-                                        Row(
-                                          spacing: 150,
-                                          children: [
-                                            Column(
-                                              spacing: 20,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                bookingDetailRow(
-                                                  LucideIcons.gamepad2,
-                                                  "Sport",
-                                                  sportName ?? 'N/A',
-                                                ),
-                                                bookingDetailRow(
-                                                  LucideIcons.clock,
-                                                  "Time",
-                                                  '${timing}',
-                                                ),
-                                                bookingDetailRow(
-                                                  LucideIcons.dollarSign,
-                                                  "Payment Status",
-                                                  booking.paymentStatus!,
-                                                ),
-                                              ],
-                                            ),
-                                            Column(
-                                              spacing: 20,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                bookingDetailRow(
-                                                  LucideIcons.scanLine,
-                                                  "Court",
-                                                  courtName,
-                                                ),
-                                                bookingDetailRow(
-                                                  LucideIcons.timer,
-                                                  "Duration",
-                                                  '${duration}',
-                                                ),
-                                                bookingDetailRow(
-                                                  LucideIcons.receipt,
-                                                  "Payment Type",
-                                                  booking.paymentType!,
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 20),
-                                        const SizedBox(height: 10),
-                                        Divider(color: Colors.grey.shade300, thickness: 2, height: 20,),
-                                        // Padding(
-                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                        //   child: Row(
-                                        //     children: [
-                                        //       Expanded(
-                                        //         child: Text(
-                                        //           'Total:',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //       Container(
-                                        //         width: 150,
-                                        //         child: Text(
-                                        //           '\$${booking.total?.toStringAsFixed(2)}',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //           textAlign: TextAlign.right,
-                                        //         ),
-                                        //       ),
-                                        //     ],
-                                        //   ),
-                                        // ),
-                                        // Padding(
-                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                        //   child: Row(
-                                        //     children: [
-                                        //       Expanded(
-                                        //         child: Text(
-                                        //           'Sub Total:',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //       Container(
-                                        //         width: 150,
-                                        //         child: Text(
-                                        //           '\$${booking.subTotal?.toStringAsFixed(2)}',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //           textAlign: TextAlign.right,
-                                        //         ),
-                                        //       ),
-                                        //     ],
-                                        //   ),
-                                        // ),
-                                        // Padding(
-                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                        //   child: Row(
-                                        //     children: [
-                                        //       Expanded(
-                                        //         child: Text(
-                                        //           'Discount:',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //       Container(
-                                        //         width: 150,
-                                        //         child: Text(
-                                        //           '\$${booking.discount?.toStringAsFixed(2)}',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //           textAlign: TextAlign.right,
-                                        //         ),
-                                        //       ),
-                                        //     ],
-                                        //   ),
-                                        // ),
-                                        // Padding(
-                                        //   padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                        //   child: Row(
-                                        //     children: [
-                                        //       Expanded(
-                                        //         child: Text(
-                                        //           'Grand Total:',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //           ),
-                                        //         ),
-                                        //       ),
-                                        //       Container(
-                                        //         width: 150,
-                                        //         child: Text(
-                                        //           '\$${booking.grandTotal?.toStringAsFixed(2)}',
-                                        //           style: const TextStyle(
-                                        //             fontSize: 22,
-                                        //             color: Colors.green
-                                        //           ),
-                                        //           textAlign: TextAlign.right,
-                                        //         ),
-                                        //       ),
-                                        //     ],
-                                        //   ),
-                                        // ),
-                                      ],
-                                    ),
+                                          bookingDetailRow(
+                                            LucideIcons.clock,
+                                            "Time",
+                                            '${timing}',
+                                          ),
+                                          bookingDetailRow(
+                                            LucideIcons.dollarSign,
+                                            "Payment Status",
+                                            booking.paymentStatus!,
+                                          ),
+                                        ],
+                                      ),
+                                      Column(
+                                        spacing: 20,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          bookingDetailRow(
+                                            LucideIcons.scanLine,
+                                            "Court",
+                                            courtName,
+                                          ),
+                                          bookingDetailRow(
+                                            LucideIcons.timer,
+                                            "Duration",
+                                            '${duration}',
+                                          ),
+                                          bookingDetailRow(
+                                            LucideIcons.receipt,
+                                            "Payment Type",
+                                            booking.paymentType!,
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
-
                                   const SizedBox(height: 20),
+                                  const SizedBox(height: 10),
+                                  Divider(color: Colors.grey.shade300, thickness: 2, height: 20,),
+                                  // Padding(
+                                  //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  //   child: Row(
+                                  //     children: [
+                                  //       Expanded(
+                                  //         child: Text(
+                                  //           'Total:',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //         ),
+                                  //       ),
+                                  //       Container(
+                                  //         width: 150,
+                                  //         child: Text(
+                                  //           '\$${booking.total?.toStringAsFixed(2)}',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //           textAlign: TextAlign.right,
+                                  //         ),
+                                  //       ),
+                                  //     ],
+                                  //   ),
+                                  // ),
+                                  // Padding(
+                                  //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  //   child: Row(
+                                  //     children: [
+                                  //       Expanded(
+                                  //         child: Text(
+                                  //           'Sub Total:',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //         ),
+                                  //       ),
+                                  //       Container(
+                                  //         width: 150,
+                                  //         child: Text(
+                                  //           '\$${booking.subTotal?.toStringAsFixed(2)}',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //           textAlign: TextAlign.right,
+                                  //         ),
+                                  //       ),
+                                  //     ],
+                                  //   ),
+                                  // ),
+                                  // Padding(
+                                  //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  //   child: Row(
+                                  //     children: [
+                                  //       Expanded(
+                                  //         child: Text(
+                                  //           'Discount:',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //         ),
+                                  //       ),
+                                  //       Container(
+                                  //         width: 150,
+                                  //         child: Text(
+                                  //           '\$${booking.discount?.toStringAsFixed(2)}',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //           textAlign: TextAlign.right,
+                                  //         ),
+                                  //       ),
+                                  //     ],
+                                  //   ),
+                                  // ),
+                                  // Padding(
+                                  //   padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                  //   child: Row(
+                                  //     children: [
+                                  //       Expanded(
+                                  //         child: Text(
+                                  //           'Grand Total:',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //           ),
+                                  //         ),
+                                  //       ),
+                                  //       Container(
+                                  //         width: 150,
+                                  //         child: Text(
+                                  //           '\$${booking.grandTotal?.toStringAsFixed(2)}',
+                                  //           style: const TextStyle(
+                                  //             fontSize: 22,
+                                  //             color: Colors.green
+                                  //           ),
+                                  //           textAlign: TextAlign.right,
+                                  //         ),
+                                  //       ),
+                                  //     ],
+                                  //   ),
+                                  // ),
+                                ],
+                              ),
+                            ),
+                              const SizedBox(height: 20),
 
-                                  if(bookingInfo?['order']!=null) ...[
-                                    Container(
+                              /// Orders Section
+                              if (bookingInfo?['orders'] != null && bookingInfo!['orders'].isNotEmpty) ...[
+                                Column(
+                                  children: List.generate(bookingInfo!['orders'].length, (orderIndex) {
+                                    final orderData = bookingInfo!['orders'][orderIndex];
+                                    final Rx<Orders?> order = Rx<Orders?>(Orders.fromJson(orderData));
+                                    final cartItems = order.value?.cartItems ?? [];
+                                    double total = cartItems.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
+
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 20),
                                       padding: const EdgeInsets.all(15),
                                       decoration: BoxDecoration(
                                         border: Border.all(color: Colors.grey.shade300),
@@ -995,7 +1499,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(
-                                                    "Purchase Details",
+                                                    "Purchase Details ${orderIndex + 1}",
                                                     style: GoogleFonts.inter(
                                                       fontSize: 23,
                                                       color: Colors.black,
@@ -1003,11 +1507,13 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                     ),
                                                   ),
                                                   Text(
-                                                    "Current purchase items information",
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 18,
-                                                      color: Colors.black54,
-                                                      fontWeight: FontWeight.w400,
+                                                    orderData['created_at'] != null
+                                                        ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(orderData['created_at'].toString()))
+                                                        : '',
+                                                    style: const TextStyle(
+                                                      color: Colors.grey,
+                                                      fontSize: 20,
+                                                      fontWeight: FontWeight.bold,
                                                     ),
                                                   ),
                                                 ],
@@ -1016,7 +1522,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                 crossAxisAlignment: CrossAxisAlignment.end,
                                                 children: [
                                                   Text(
-                                                    "Order ID : ${bookingInfo?['order']['token_number']}",
+                                                    "Order ID : ${orderData['token_number'] ?? ''}",
                                                     style: GoogleFonts.inter(
                                                       fontSize: 23,
                                                       color: Colors.black,
@@ -1032,171 +1538,138 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
                                                     ),
                                                   ),
                                                 ],
-                                              )
+                                              ),
                                             ],
                                           ),
                                           const SizedBox(height: 20),
-                                          Obx(() {
-                                            final Rx<Orders?> order = Rx<Orders?>(null);
-                                            order.value = Orders.fromJson(bookingInfo?['order']);
-                                            final cartItems = order.value?.cartItems ?? [];
-
-                                            // Calculate total
-                                            double total = cartItems.fold(0, (sum, item) => sum + (item.appliedPrice * item.quantity));
-
-                                            return Column(
-                                              children: [
-                                                ListView.builder(
-                                                  shrinkWrap: true,
-                                                  physics: const NeverScrollableScrollPhysics(),
-                                                  itemCount: cartItems.length,
-                                                  itemBuilder: (_, index) {
-                                                    final item = cartItems[index];
-                                                    return Padding(
-                                                      padding: const EdgeInsets.symmetric(
-                                                        vertical: 8.0,
+                                          ListView.builder(
+                                            shrinkWrap: true,
+                                            physics: const NeverScrollableScrollPhysics(),
+                                            itemCount: cartItems.length,
+                                            itemBuilder: (_, index) {
+                                              final item = cartItems[index];
+                                              return Padding(
+                                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        item.product.name,
+                                                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+                                                        overflow: TextOverflow.ellipsis,
                                                       ),
-                                                      child: Row(
-                                                        children: [
-                                                          Expanded(
-                                                            child: Text(
-                                                              item.product.name,
-                                                              style: const TextStyle(
-                                                                fontSize: 22,
-                                                                fontWeight: FontWeight.w500,
-                                                              ),
-                                                              overflow: TextOverflow.ellipsis,
-                                                            ),
-                                                          ),
-                                                          Container(
-                                                            width: 150,
-                                                            child: Text(
-                                                              'x${item.quantity}',
-                                                              style: const TextStyle(fontSize: 22),
-                                                              textAlign: TextAlign.right,
-                                                            ),
-                                                          ),
-                                                          const SizedBox(width: 10),
-                                                          Container(
-                                                            width: 150,
-                                                            child: Text(
-                                                              '\$${item.appliedPrice.toStringAsFixed(2)}',
-                                                              style: const TextStyle(
-                                                                fontSize: 22,
-                                                                fontWeight: FontWeight.bold,
-                                                              ),
-                                                              textAlign: TextAlign.right,
-                                                            ),
-                                                          ),
-                                                        ],
+                                                    ),
+                                                    SizedBox(
+                                                      width: 80,
+                                                      child: Text(
+                                                        'x${item.quantity}',
+                                                        style: const TextStyle(fontSize: 22),
+                                                        textAlign: TextAlign.right,
                                                       ),
-                                                    );
-                                                  },
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      child: Text(
+                                                        '\$${item.appliedPrice.toStringAsFixed(2)}',
+                                                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                                        textAlign: TextAlign.right,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                                // Add total row
-                                                Padding(
-                                                  padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          'Total:',
-                                                          style: const TextStyle(
-                                                            fontSize: 22,
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      Container(
-                                                        width: 150,
-                                                        child: Text(
-                                                          '\$${total.toStringAsFixed(2)}',
-                                                          style: const TextStyle(
-                                                            fontSize: 22,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: Colors.green, // You can customize this
-                                                          ),
-                                                          textAlign: TextAlign.right,
-                                                        ),
-                                                      ),
-                                                    ],
+                                              );
+                                            },
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                            child: Row(
+                                              children: [
+                                                const Expanded(
+                                                  child: Text(
+                                                    'Total:',
+                                                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  width: 150,
+                                                  child: Text(
+                                                    '\$${total.toStringAsFixed(2)}',
+                                                    style: const TextStyle(
+                                                      fontSize: 22,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.green,
+                                                    ),
+                                                    textAlign: TextAlign.right,
                                                   ),
                                                 ),
                                               ],
-                                            );
-                                          }),
+                                            ),
+                                          ),
                                         ],
                                       ),
-                                    )
-                                  ],
-
-                                  Spacer(),
-                                  Row(
-                                    spacing: 20,
-                                    children: [
-                                      Expanded(
-                                        child: ElevatedButton(
-                                          onPressed: () {
-                                            Navigator.of(context).pop();
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.grey.shade300,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: Size.fromHeight(60),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            "Cancel",
-                                            style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              color: Colors.black,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      if(booking.paymentStatus=='Paid') ...[
-                                        Expanded(
-                                        child: ElevatedButton(
-                                          onPressed: () async {
-                                            await _printReceipt(
-                                                booking.id!,
-                                            );
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Palette.newColorbg,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(double.infinity, 60),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10),
-                                              side: BorderSide(color: Palette.newColor),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            "Re-print Receipt",
-                                            style: GoogleFonts.inter(
-                                              fontSize: 22,
-                                              color: Palette.newColor,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      ],
-
-                                    ],
-                                  ),
-
-                                ],
-                              ),
-                            ),
+                                    );
+                                  }),
+                                )
+                              ],
+                            ],
                           ),
                         ),
                       ),
-                    );
-                  },
+
+                      /// Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.shade300,
+                                minimumSize: const Size.fromHeight(60),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: Text(
+                                "Cancel",
+                                style: GoogleFonts.inter(
+                                  fontSize: 22,
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (booking.paymentStatus == 'Paid') ...[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () async {
+                                  await _printReceipt(booking.id!);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Palette.newColorbg,
+                                  minimumSize: const Size.fromHeight(60),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    side: BorderSide(color: Palette.newColor),
+                                  ),
+                                ),
+                                child: Text(
+                                  "Re-print Receipt",
+                                  style: GoogleFonts.inter(
+                                    fontSize: 22,
+                                    color: Palette.newColor,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1205,6 +1678,7 @@ class _AllBookingTabScreenState extends State<AllBookingTabScreen> {
       },
     );
   }
+
 
   Widget bookingDetailRow(IconData icon, String label, String value) {
     return Row(

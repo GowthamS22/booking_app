@@ -694,16 +694,14 @@ class OrderController extends GetxController {
           .eq('id', customerId!)
           .maybeSingle();
 
-      // Fetch related order
-        final orderResponse = await supabase
-            .schema('${centerSlug}_prod_schema')
-            .from('orders')
-            .select('*')
-            //.eq('order_status','Pending')
-            .eq('booking_id', bookingId)
-            .maybeSingle();
-
       final ordersResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .select('*')
+          //.eq('order_status','Pending')
+          .eq('booking_id', bookingId);
+
+      final unpaidOrdersResponse = await supabase
           .schema('${centerSlug}_prod_schema')
           .from('orders')
           .select('*')
@@ -748,8 +746,8 @@ class OrderController extends GetxController {
       // Return a combined object
       return {
         'booking': updatedBookingResponse,
-        'order': orderResponse,
         'orders': ordersResponse,
+        'unpaid_orders': unpaidOrdersResponse,
         'customer': userResponse,
         'membership_data': membershipDataResponse
       };

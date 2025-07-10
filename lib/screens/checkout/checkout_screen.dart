@@ -44,6 +44,8 @@ class CheckoutScreen extends StatefulWidget {
   final String? exorderId;
   final String? exuserId;
   final String? forpayment;
+  final double? prevOrderPayment;
+  final double? prevBookingPayment;
   CheckoutScreen({
     Key? key,
     required this.type,
@@ -60,6 +62,8 @@ class CheckoutScreen extends StatefulWidget {
     this.exorderId,
     this.exuserId,
     required this.forpayment,
+    this.prevOrderPayment,
+    this.prevBookingPayment,
   }) : super(key: key);
 
   @override
@@ -176,8 +180,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool userHasPendingMembership = false;
   String? pendingMembershipName;
 
-  double get cartItemsTotal =>
-      cartItems.fold(0, (sum, item) => sum + item.appliedPrice);
+  //double get cartItemsTotal => cartItems.fold(0, (sum, item) => sum + item.appliedPrice);
+  double get cartItemsTotal => cartItems.fold(0.0, (double sum, item) => sum + item.appliedPrice) - (widget.prevOrderPayment ?? 0);
 
   // Calculate the actual total including bookings, cart items, and membership
   double get courtBookingTotal {
@@ -187,7 +191,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         total += subSlot.price;
       }
     }
-    return total;
+    return total - (widget.prevBookingPayment ?? 0);
   }
 
   double get actualTotal {
@@ -199,6 +203,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     return total;
+  }
+
+  double get alreadyPaid {
+    return (widget.prevOrderPayment ?? 0) + (widget.prevBookingPayment ?? 0);
   }
 
   // Calculate membership discount based on booking amount
@@ -2072,12 +2080,59 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
             ),
             // Totals section that will stick to the bottom
+
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Divider(color: Colors.grey.shade300, thickness: 3),
                 const SizedBox(height: 10),
                 // Subtotal (excluding GST)
+                if(alreadyPaid > 0) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Overall Total',
+                          style: GoogleFonts.inter(
+                            fontSize: 25,
+                            color: Colors.grey.shade900,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '\$${(alreadyPaid + actualTotal).toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          color: Colors.grey.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Previous Payment',
+                          style: GoogleFonts.inter(
+                            fontSize: 25,
+                            color: Colors.green.shade600,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '\$${(alreadyPaid).toStringAsFixed(2)}',
+                        style: GoogleFonts.inter(
+                          fontSize: 25,
+                          color: Colors.green.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -4425,8 +4480,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           print('Created booking: $bookingNo with ID: $bookingId');
 
           // Create booking payment record for 100% discount
-          final bookingPaymentResponse =
-              await supabase
+          final bookingPaymentResponse = await supabase
                   .schema('${centerSlug}_prod_schema')
                   .from('booking_payments')
                   .insert({
@@ -4473,9 +4527,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               final slotData = {
                 'booking_id': bookingId,
                 'service_id': newBookingController.selectedServiceId.value,
-                'court_id':
-                    booking.courtId ??
-                    'COURT-001', // Default court ID if not available
+                'court_id': booking.courtId ?? 'COURT-001', // Default court ID if not available
                 'start_time': startDateTime.toIso8601String(),
                 'end_time': endDateTime.toIso8601String(),
                 'price': subSlot.price,
@@ -4531,21 +4583,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             String? orderId = '';
             //Create order if the cart items are exist
             if (cartItems.length > 0) {
-              await checkoutController
-                  .createTempOrder(total: (itemSubTotal ?? 0.0))
-                  .then((value) {
-                    orderId = value['id'];
-                  });
+              await checkoutController.createTempOrder(total: (itemSubTotal ?? 0.0)).then((value) {
+                orderId = value['id'];
+              });
             }
 
             if (orderId != null && orderId != '') {
-              await checkoutController
-                  .productsPaymentOnly(
+              await checkoutController.productsPaymentOnly(
                     order_id: orderId,
                     price: itemSubTotal,
-                    taxes:
-                        (itemSubTotal ?? 0) /
-                        11, // Fix: GST is 1/11th of GST-inclusive price
+                    taxes: (itemSubTotal ?? 0) / 11, // Fix: GST is 1/11th of GST-inclusive price
                     surcharge: 0,
                     discount: discountAmount,
                     billAmount: itemSubTotal,
@@ -4558,7 +4605,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     customerId: customerId,
                   )
                   .then((value) async {
-                    await checkoutController.mergeBookingtoOrder(
+                    await checkoutController.mergeBookingtoOrderForNew(
                       order_id: orderId,
                       customer_id: customerId,
                       booking_id: bookingId,
@@ -4589,9 +4636,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         print('Processing payment for existing booking: ${widget.exbookingId}');
         print('Payment method: $selectedMethod, Total paid: $totalPaid');
 
+        // First, delete any existing booking_payments for this booking
+        try {
+          print('Deleting existing booking_payments for booking ${widget.exbookingId}');
+          await supabase
+              .schema('${centerSlug}_prod_schema')
+              .from('booking_payments')
+              .delete()
+              .eq('booking_id', widget.exbookingId!);
+
+          print('Successfully deleted existing booking_payments');
+        } catch (e) {
+          print('Warning: Could not delete existing booking_payments: $e');
+          // You might want to decide whether to continue or abort here
+        }
+
         // Update booking payment status
-        final updateResult =
-            await supabase
+        final updateResult = await supabase
                 .schema('${centerSlug}_prod_schema')
                 .from('bookings')
                 .update({
@@ -4700,22 +4761,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               print('Update result: $updateResult');
 
               // Update customer's membership_data_id if needed
-              final customerUpdateResult =
-                  await supabase
+              final customerUpdateResult = await supabase
                       .schema('${centerSlug}_prod_schema')
                       .from('customers')
                       .update({
                         'membership_data_id': membershipData['id'],
-                        'membershipplan_id':
-                            membershipData['membershipplan_id'],
+                        'membershipplan_id':  membershipData['membershipplan_id'],
                         //'updated_at': DateTime.now().toIso8601String(),
                       })
                       .eq('id', bookingData['customer_id'])
                       .select();
 
-              print(
-                'Updated customer ${bookingData['customer_id']} membership references',
-              );
+              print('Updated customer ${bookingData['customer_id']} membership references',);
               print('Customer update result: $customerUpdateResult');
 
               // Create membership payment record
@@ -4762,41 +4819,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               .schema('${centerSlug}_prod_schema')
               .from('orders')
               .select('*')
-              .eq('booking_id', widget.exbookingId!)
-              .limit(1); // Ensure only one is fetched
+              .eq('booking_id', widget.exbookingId!); // Removed .limit(1)
 
           if (ordersData != null && ordersData.isNotEmpty) {
-            final order = ordersData.first;
-            final orderId = order['id']?.toString();
+            for (final order in ordersData) {
+              final orderId = order['id']?.toString();
 
-            if (orderId != null && orderId.isNotEmpty) {
-              await checkoutController.productsPaymentOnly(
-                order_id: orderId,
-                price: order['total'].toDouble(),
-                taxes: ((order['total'] ?? 0) / 11).toDouble(), // GST is 1/11th of inclusive price
-                surcharge: 0.00,
-                discount: discountAmount.toDouble(),
-                billAmount: order['total'].toDouble(),
-                paidAmount: totalPaid.toDouble(),
-                balanceAmount: double.parse(balanceAmountController.text),
-                paymentType: selectedMethod,
-                paymentNotes: notesController.text,
-                receiptToggle: receiptToggle,
-                printBoth: true,
-                customerId: updateResult['customer_id'],
-              );
+              if (orderId != null && orderId.isNotEmpty) {
+                final total = (order['total'] ?? 0).toDouble();
 
-              await checkoutController.mergeBookingtoOrder(
-                order_id: orderId,
-                customer_id: updateResult['customer_id'],
-                booking_id: updateResult['id'],
-                redirect: false,
-              );
+                await checkoutController.productsPaymentOnly(
+                  order_id: orderId,
+                  price: total,
+                  taxes: (total / 11).toDouble(), // GST is 1/11th of inclusive price
+                  surcharge: 0.00,
+                  discount: discountAmount.toDouble(),
+                  billAmount: total,
+                  paidAmount: totalPaid.toDouble(),
+                  balanceAmount: double.parse(balanceAmountController.text),
+                  paymentType: selectedMethod,
+                  paymentNotes: notesController.text,
+                  receiptToggle: receiptToggle,
+                  printBoth: true,
+                  customerId: updateResult['customer_id'],
+                );
+              }
             }
           }
         } catch (e) {
-          print('Warning: unable to process the order payment: $e');
+          print('Warning: unable to process the order payments: $e');
         }
+
 
         // Handle receipt printing for existing bookings if enabled
         if (receiptToggle) {

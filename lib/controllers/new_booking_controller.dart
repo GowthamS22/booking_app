@@ -2551,8 +2551,7 @@ class NewBookingController extends GetxController {
         return json;
       }).toList();
 
-      final bookingInsertResponse =
-          await supabase
+      final bookingInsertResponse = await supabase
               .schema('${centerSlug}_prod_schema')
               .from('bookings')
               .insert({
@@ -2721,7 +2720,9 @@ class NewBookingController extends GetxController {
       String? centerSlug  = preferences.getString('centerSlug');
       final cartJson      = preferences.getString('shopping_cart');
       final orderNotes    = preferences.getString('order_notes');
-      final orderId       = preferences.getString('order_id');
+      //final orderId       = preferences.getString('order_id');
+      final random       = Random();
+      final orderId      = 'TMP${random.nextInt(900) + 100}';
 
       final orderResponse = await supabase
               .schema('${centerSlug}_prod_schema')

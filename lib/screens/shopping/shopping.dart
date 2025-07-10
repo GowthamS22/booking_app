@@ -741,8 +741,8 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                             Expanded(
                               child: ElevatedButton(
                                 onPressed: () {
-                                  final selectedBooking =
-                                      ordersController.selectedBooking;
+
+                                  final selectedBooking = ordersController.selectedBooking;
                                   if (selectedBooking == null) {
                                     showCustomSnackbar(
                                       'Warning',
@@ -752,19 +752,17 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                                     return;
                                   }
 
-                                  checkoutController
-                                      .createTempOrder(total: total)
-                                      .then((value) async {
-                                        final orderId = value['id'];
-                                        checkoutController.mergeBookingtoOrder(
-                                          booking_id: selectedBooking.id,
-                                          customer_id:
-                                              selectedBooking.customer?.id,
-                                          order_id: orderId,
-                                        );
-                                      });
+                                  checkoutController.createTempOrder(total: total).then((value) async {
+                                     final orderId = value['id'];
+                                     checkoutController.mergeBookingtoOrder(
+                                        booking_id: selectedBooking.id,
+                                        customer_id: selectedBooking.customer?.id,
+                                        order_id: orderId,
+                                     );
+                                  });
 
                                   Navigator.pop(context);
+                                  Get.offAllNamed('/');
                                   // Add your merge order logic here
                                 },
                                 style: ElevatedButton.styleFrom(

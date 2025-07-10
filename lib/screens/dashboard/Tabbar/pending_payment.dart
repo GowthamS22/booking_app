@@ -1294,24 +1294,50 @@ class _PendingPaymentState extends State<PendingPayment> {
           print('📊 Booking ID: ${value['booking']['id']}');
           
           // Use the raw grand_total directly since BookingWithAll might not parse it correctly
-          totalAmount = value['booking']['grand_total'] != null 
+          totalAmount = value['booking']['grand_total'] != null
               ? double.parse(value['booking']['grand_total'].toString()) 
               : 0.0;
           
           final bookingData = BookingWithAll.fromJson(value['booking']);
-          final orderData = value['order'] != null ? Orders.fromJson(value['order']) : value['order'];
+          //final orderData = value['order'] != null ? Orders.fromJson(value['order']) : value['order'];
           final userData = value['customer'];
           
           // Add order total if there are products
-          if (orderData != null && value['order']['total'] != null) {
-            totalAmount += double.parse(value['order']['total'].toString());
-          }
+          // if (orderData != null && value['order']['total'] != null) {
+          //   totalAmount += double.parse(value['order']['total'].toString());
+          // }
           
-          print('💰 Total calculation: Booking GT=${bookingData.grandTotal}, Raw GT=${value['booking']['grand_total']}, Order=${orderData != null ? value['order']['total'] : 0}, Final Total=$totalAmount');
+          //print('💰 Total calculation: Booking GT=${bookingData.grandTotal}, Raw GT=${value['booking']['grand_total']}, Order=${orderData != null ? value['order']['total'] : 0}, Final Total=$totalAmount');
 
-          if (orderData != null) {
-            await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
+          // if (orderData != null) {
+          //   await prefs.setString('shopping_cart', jsonEncode(value['order']['cart_items']));
+          // }
+
+          /// ✅ Handle multiple orders
+          List<String> orderIds = [];
+          List<dynamic> combinedCartItems = [];
+
+          if (value['unpaid_orders'] != null && value['unpaid_orders'] is List) {
+            for (var order in value['unpaid_orders']) {
+              if (order['total'] != null) {
+                totalAmount += double.tryParse(order['total'].toString()) ?? 0.0;
+              }
+
+              if (order['id'] != null) {
+                orderIds.add(order['id'].toString());
+              }
+
+              if (order['cart_items'] != null && order['cart_items'] is List) {
+                combinedCartItems.addAll(order['cart_items']);
+              }
+            }
+
+            // Save combined cart items to SharedPreferences
+            await prefs.setString('shopping_cart', jsonEncode(combinedCartItems));
           }
+
+          print('💰 Total calculation: Booking GT=${bookingData.grandTotal}, Raw GT=${value['booking']['grand_total']}, Orders Total Added, Final Total=$totalAmount');
+
 
           // Handle potential null bcart_items or reconstruct from booking_slots
           List<BookingInfo> bookings = [];
@@ -1399,6 +1425,27 @@ class _PendingPaymentState extends State<PendingPayment> {
             }
           }
 
+          // Calculate sum of completed booking payments
+          double prevBookingPayment = 0;
+          if (value['booking']['booking_payments'] != null && value['booking']['booking_payments'] is List) {
+            prevBookingPayment = (value['booking']['booking_payments'] as List)
+                .where((payment) => payment['status']?.toString().toLowerCase() == 'completed')
+                .fold<double>(0.0, (double sum, dynamic payment) {
+              return sum + (double.tryParse(payment['total']?.toString() ?? '0') ?? 0.0);
+            });
+          }
+
+          // Calculate sum of completed order payments
+          double prevOrderPayment = 0;
+          if (value['orders'] != null && value['orders'] is List) {
+            prevOrderPayment = (value['orders'] as List)
+                .where((order) => order['status']?.toString().toLowerCase() == 'completed')
+                .fold<double>(0.0, (double sum, dynamic order) {
+              return sum + (double.tryParse(order['total']?.toString() ?? '0') ?? 0.0);
+            });
+          }
+
+
           if (mounted) {
             print('🎯 Navigating to checkout with: totalAmount=$totalAmount, bookings=${bookings.length}, membership=$isMembershipApplied');
             
@@ -1416,9 +1463,11 @@ class _PendingPaymentState extends State<PendingPayment> {
               isMembershipApplied: membershipID.isNotEmpty, // Show membership if it exists
               membershipPrice: membershipPrice, // Keep the actual price for display
               exbookingId: bookingData.id,
-              exorderId: orderData != null ? orderData.id : null,
+              exorderId: null, //orderData != null ? orderData.id : null,
               exuserId: userData['id'],
               forpayment: 'existing-order-payment',
+              prevBookingPayment: prevBookingPayment,
+              prevOrderPayment: prevOrderPayment,
               // Note: The total already includes membership, checkout screen should handle this
             ));
           }
@@ -1426,6 +1475,7 @@ class _PendingPaymentState extends State<PendingPayment> {
       });
     } catch (e) {
       if (mounted) {
+        print('Error processing full booking payment: $e');
         _showSnackbar('Error processing full booking payment: $e', Colors.red);
       }
     }

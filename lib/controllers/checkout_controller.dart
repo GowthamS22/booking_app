@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:booking_app/app/getx_binding.dart';
 import 'package:booking_app/controllers/auth_controller.dart';
@@ -1701,7 +1702,9 @@ class CheckoutController extends GetxController {
       String? centerSlug = preferences.getString('centerSlug');
       final cartJson     = preferences.getString('shopping_cart');
       final orderNotes   = preferences.getString('order_notes');
-      final orderId      = preferences.getString('order_id');
+      //final orderId    = preferences.getString('order_id');
+      final random       = Random();
+      final orderId      = 'TMP${random.nextInt(900) + 100}';
 
       final orderResponse = await supabase
           .schema('${centerSlug}_prod_schema')
@@ -1946,7 +1949,7 @@ class CheckoutController extends GetxController {
     }
   }
 
-  Future<void> mergeBookingtoOrder({
+  Future<void> mergeBookingtoOrderForNew({
     String? order_id,
     String? booking_id,
     String? customer_id,
@@ -1969,12 +1972,72 @@ class CheckoutController extends GetxController {
 
       if(redirect==true) {
 
-        update();
+        //update();
         showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
         // Redirect
-        Future.delayed(Duration(seconds: 1), () {
-          Get.offAllNamed('/');
-        });
+        //Get.offAllNamed('/');
+
+      }
+
+    } catch (e) {
+      showCustomSnackbar('Failed', '${e.toString()}', Palette.dangerTxt);
+    }
+  }
+
+  Future<void> mergeBookingtoOrder({
+    String? order_id,
+    String? booking_id,
+    String? customer_id,
+    bool redirect = true,
+  }) async {
+    try {
+      final SharedPreferences preferences = await SharedPreferences.getInstance();
+      String? centerSlug                  = preferences.getString('centerSlug');
+
+      final response = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('orders')
+          .update({
+            'booking_id': booking_id,
+            'customer_id': customer_id,
+          })
+          .eq('id', order_id!)
+          .select()
+          .single();
+
+      final bookingResponse = await supabase
+          .schema('${centerSlug}_prod_schema')
+          .from('bookings')
+          .select('*')
+          .eq('id', booking_id!)
+          .maybeSingle();
+
+      if(bookingResponse!=null) {
+
+        final bookingUpdateResponse = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('bookings')
+            .update({
+              'payment_status': 'Pending'
+            })
+            .eq('id', bookingResponse['id']);
+
+        final bookingSlotUpdateResponse = await supabase
+            .schema('${centerSlug}_prod_schema')
+            .from('booking_slots')
+            .update({
+              'payment_status': 'Pending'
+            })
+            .eq('id', bookingResponse['id']);
+
+      }
+
+      if(redirect==true) {
+
+        //update();
+        showCustomSnackbar('Success', 'Order Merged to the Booking', Palette.newColor);
+        // Redirect
+        //Get.offAllNamed('/');
 
       }
 
@@ -2013,7 +2076,7 @@ class CheckoutController extends GetxController {
 
       final Map<String, dynamic> updateData = {
         'token_number': tokenNumber,
-        'cart_items': jsonDecode(cartJson!),
+        //'cart_items': jsonDecode(cartJson!),
         'bill_details': {
           'order_id': order_id!,
           'price': to2(price),
