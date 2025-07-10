@@ -65,7 +65,7 @@ class AuthController extends GetxController {
           .schema('${centerSlug}_prod_schema')
           .from('payment_devices')
           .select('*')
-          .single();
+          .maybeSingle();
 
       final sportsWithPlatformResponse = await supabase
           .schema('${centerSlug}_prod_schema')
