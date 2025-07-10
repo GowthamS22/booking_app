@@ -2088,27 +2088,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 10),
                 // Subtotal (excluding GST)
                 if(alreadyPaid > 0) ...[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Overall Total',
-                          style: GoogleFonts.inter(
-                            fontSize: 25,
-                            color: Colors.grey.shade900,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        '\$${(alreadyPaid + actualTotal).toStringAsFixed(2)}',
-                        style: GoogleFonts.inter(
-                          fontSize: 25,
-                          color: Colors.grey.shade900,
-                        ),
-                      ),
-                    ],
-                  ),
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  //   children: [
+                  //     Expanded(
+                  //       child: Text(
+                  //         'Overall Total',
+                  //         style: GoogleFonts.inter(
+                  //           fontSize: 25,
+                  //           color: Colors.grey.shade900,
+                  //         ),
+                  //       ),
+                  //     ),
+                  //     Text(
+                  //       '\$${(alreadyPaid + actualTotal).toStringAsFixed(2)}',
+                  //       style: GoogleFonts.inter(
+                  //         fontSize: 25,
+                  //         color: Colors.grey.shade900,
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
