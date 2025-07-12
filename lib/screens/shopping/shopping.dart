@@ -1662,6 +1662,32 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
+                              'Subtotal (ex GST)',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '\$${(total - total / 11).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
                               'Total',
                               style: TextStyle(
                                 fontSize: 25,
@@ -1689,12 +1715,38 @@ class _ShoppingScreenState extends State<ShoppingScreen>
                             const Text(
                               'GST Incl.',
                               style: TextStyle(
-                                fontSize: 20,
+                                fontSize: 25,
                                 fontWeight: FontWeight.normal,
                               ),
                             ),
                             Text(
-                              '\$${(total * 0.1 / 1.1).toStringAsFixed(2)}',
+                              '\$${(total / 11).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Grand Total',
+                              style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '\$${total.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 25,
                                 fontWeight: FontWeight.bold,

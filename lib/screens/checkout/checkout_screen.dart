@@ -1929,141 +1929,144 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     ),
 
                                     // Delete button
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.red.shade600,
-                                        size: 24,
-                                      ),
-                                      onPressed: () {
-                                        // Show confirmation dialog
-                                        showDialog(
-                                          context: context,
-                                          builder:
-                                              (context) => AlertDialog(
-                                                title: Text(
-                                                  'Remove Item',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 24,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                    if(widget.type!='ExistingBooking') ...[
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.red.shade600,
+                                          size: 24,
+                                        ),
+                                        onPressed: () {
+                                          // Show confirmation dialog
+                                          showDialog(
+                                            context: context,
+                                            builder:
+                                                (context) => AlertDialog(
+                                              title: Text(
+                                                'Remove Item',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
-                                                content: Text(
-                                                  'Are you sure you want to remove ${item.product.name} from cart?',
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 20,
-                                                  ),
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          context,
-                                                        ),
-                                                    child: Text(
-                                                      'Cancel',
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 20,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      // Update cart in controller first
-                                                      // Find the matching item in the controller's cart
-                                                      final controllerItem =
-                                                          cartController
-                                                              .cartItems
-                                                              .firstWhere(
-                                                                (
-                                                                  controllerCartItem,
-                                                                ) =>
-                                                                    controllerCartItem
-                                                                        .product
-                                                                        .id ==
-                                                                    item
-                                                                        .product
-                                                                        .id,
-                                                              );
-                                                      print(controllerItem);
-                                                      cartController.removeItem(
-                                                        controllerItem,
-                                                      );
-
-                                                      // Remove item from cart and recalculate totals
-                                                      setState(() {
-                                                        cartItems.removeWhere(
-                                                          (cartItem) =>
-                                                              cartItem
-                                                                  .product
-                                                                  .id ==
-                                                              item.product.id,
-                                                        );
-
-                                                        // Recalculate manual discount if it's not booking-only
-                                                        if (!isManualBookingOnlyDiscount &&
-                                                            manualDiscountValue >
-                                                                0) {
-                                                          if (manualDiscountType ==
-                                                              'percentage') {
-                                                            // Recalculate percentage discount based on new cart total
-                                                            manualDiscountAmount =
-                                                                cartItemsTotal *
-                                                                (manualDiscountValue /
-                                                                    100);
-                                                          }
-                                                          // For flat discount, the amount stays the same
-                                                        }
-
-                                                        // Update payment controllers
-                                                        totalPaid =
-                                                            (actualTotal -
-                                                                discountAmount);
-                                                        paidAmountController
-                                                            .text = totalPaid
-                                                            .toStringAsFixed(2);
-                                                        balanceAmountController
-                                                            .text = '0.00';
-                                                      });
-
-                                                      // Close dialog
-                                                      Navigator.pop(context);
-
-                                                      // Show success message
-                                                      showCustomSnackbar(
-                                                        'Item Removed',
-                                                        '${item.product.name} has been removed from cart',
-                                                        Colors.green,
-                                                      );
-
-                                                      // If cart is now empty and no bookings, go back
-                                                      if (cartItems.isEmpty &&
-                                                          widget
-                                                              .bookings
-                                                              .isEmpty) {
-                                                        Navigator.pop(context);
-                                                      }
-                                                    },
-                                                    style:
-                                                        ElevatedButton.styleFrom(
-                                                          backgroundColor:
-                                                              Colors
-                                                                  .red
-                                                                  .shade600,
-                                                        ),
-                                                    child: Text(
-                                                      'Remove',
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 20,
-                                                        color: Colors.white,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
                                               ),
-                                        );
-                                      },
-                                    ),
+                                              content: Text(
+                                                'Are you sure you want to remove ${item.product.name} from cart?',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 20,
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.pop(
+                                                    context,
+                                                  ),
+                                                  child: Text(
+                                                    'Cancel',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 20,
+                                                    ),
+                                                  ),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () async {
+                                                    // Update cart in controller first
+                                                    // Find the matching item in the controller's cart
+                                                    final controllerItem =
+                                                    cartController
+                                                        .cartItems
+                                                        .firstWhere(
+                                                          (
+                                                          controllerCartItem,
+                                                          ) =>
+                                                      controllerCartItem
+                                                          .product
+                                                          .id ==
+                                                          item
+                                                              .product
+                                                              .id,
+                                                    );
+                                                    print(controllerItem);
+                                                    cartController.removeItem(
+                                                      controllerItem,
+                                                    );
+
+                                                    // Remove item from cart and recalculate totals
+                                                    setState(() {
+                                                      cartItems.removeWhere(
+                                                            (cartItem) =>
+                                                        cartItem
+                                                            .product
+                                                            .id ==
+                                                            item.product.id,
+                                                      );
+
+                                                      // Recalculate manual discount if it's not booking-only
+                                                      if (!isManualBookingOnlyDiscount &&
+                                                          manualDiscountValue >
+                                                              0) {
+                                                        if (manualDiscountType ==
+                                                            'percentage') {
+                                                          // Recalculate percentage discount based on new cart total
+                                                          manualDiscountAmount =
+                                                              cartItemsTotal *
+                                                                  (manualDiscountValue /
+                                                                      100);
+                                                        }
+                                                        // For flat discount, the amount stays the same
+                                                      }
+
+                                                      // Update payment controllers
+                                                      totalPaid =
+                                                      (actualTotal -
+                                                          discountAmount);
+                                                      paidAmountController
+                                                          .text = totalPaid
+                                                          .toStringAsFixed(2);
+                                                      balanceAmountController
+                                                          .text = '0.00';
+                                                    });
+
+                                                    // Close dialog
+                                                    Navigator.pop(context);
+
+                                                    // Show success message
+                                                    showCustomSnackbar(
+                                                      'Item Removed',
+                                                      '${item.product.name} has been removed from cart',
+                                                      Colors.green,
+                                                    );
+
+                                                    // If cart is now empty and no bookings, go back
+                                                    if (cartItems.isEmpty &&
+                                                        widget
+                                                            .bookings
+                                                            .isEmpty) {
+                                                      Navigator.pop(context);
+                                                    }
+                                                  },
+                                                  style:
+                                                  ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                    Colors
+                                                        .red
+                                                        .shade600,
+                                                  ),
+                                                  child: Text(
+                                                    'Remove',
+                                                    style: GoogleFonts.inter(
+                                                      fontSize: 20,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ],
+
                                   ],
                                 ),
                               );
@@ -5273,6 +5276,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       await checkoutController.printBookingReceiptWithCart(
         bookingId: bookingId,
         cartItems: cartItems, // Pass the local cart items
+        discount: discount,
       );
       print('Receipt printed successfully for booking: $bookingId');
     } catch (e) {

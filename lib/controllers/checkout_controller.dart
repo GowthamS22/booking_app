@@ -1250,14 +1250,16 @@ class CheckoutController extends GetxController {
   Future<void> printBookingReceiptWithCart({
     required String bookingId,
     List<dynamic>? cartItems,
+    double? discount,
   }) async {
     // Call the original method and pass cart items
-    return printBookingReceipt(bookingId: bookingId, cartItems: cartItems);
+    return printBookingReceipt(bookingId: bookingId, cartItems: cartItems, discount: discount,);
   }
 
   Future<void> printBookingReceipt({
     required String bookingId,
     List<dynamic>? cartItems,
+    double? discount,
   }) async {
 
     SharedPreferences prefs               = await SharedPreferences.getInstance();
@@ -1465,6 +1467,9 @@ class CheckoutController extends GetxController {
         _printAlignedText(printer, 'Sub-Total:', '\$${subTotal.toStringAsFixed(2)}');
         _printAlignedText(printer, 'GST Incl.:', '\$${correctGST.toStringAsFixed(2)}');
         _printAlignedText(printer, 'Payment Method:', '${booking.paymentType}');
+        if(discount! > 0) {
+          _printAlignedText(printer, 'Discount.:', '\$${discount.toStringAsFixed(2)}');
+        }
         _printAlignedText(printer, 'Total Amount:', '\$${totalWithMembership.toStringAsFixed(2)}');
         _printAlignedText(printer, 'Paid Amount:', '\$${totalWithMembership.toStringAsFixed(2)}');
         _printAlignedText(printer, 'Balance Amount:', '\$0.00');
